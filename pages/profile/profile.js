@@ -1,5 +1,4 @@
 // pages/profile/profile.js
-
 Page({
   data: {
     isLogin: false, // 登录状态
