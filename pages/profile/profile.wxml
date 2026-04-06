@@ -1,0 +1,102 @@
+<!-- pages/profile/profile.wxml -->
+<navigation-bar title="我的" back="{{false}}" color="#5A3A29" background="#FFFFFF" />
+
+<view class="profile-container">
+  
+  <!-- 登录前状态 -->
+  <block wx:if="{{!isLogin}}">
+    <!-- 未登录头部 -->
+    <view class="unlogin-header">
+      <!-- 默认头像 -->
+      <view class="avatar-circle">
+        <image src="/images/icons/profile.svg" class="avatar-icon" mode="aspectFit"></image>
+      </view>
+      
+      <!-- 标题 -->
+      <text class="welcome-title">欢迎使用贰零壹叁咖啡点单系统</text>
+      
+      <!-- 描述文字 -->
+      <text class="login-desc">登录后可查看订单历史记录</text>
+      
+      <!-- 登录按钮 -->
+      <button class="login-button" bindtap="onLogin">微信一键登录</button>
+    </view>
+  </block>
+
+  <!-- 登录后状态 -->
+  <block wx:else>
+    <!-- 用户信息头部 -->
+    <view class="user-info-header">
+      <!-- 用户信息卡片（悬浮效果） -->
+      <view class="user-card">
+        <!-- 用户头像 -->
+        <image src="{{userInfo.avatarUrl || '/images/icons/profile.svg'}}" class="user-avatar" mode="aspectFill"></image>
+        
+        <!-- 用户信息 -->
+        <view class="user-details">
+          <text class="user-nickname">{{userInfo.nickName || '微信用户'}}</text>
+          <text class="user-phone">{{userInfo.phone || '未绑定手机号'}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 功能菜单列表 -->
+    <view class="menu-list">
+      <!-- 我的订单 -->
+      <view class="menu-button" bindtap="onMenuItem" data-action="orders">
+        <view class="menu-left">
+          <view class="icon-circle">
+            <image src="/images/icons/myorder.svg" class="menu-icon" mode="aspectFit"></image>
+          </view>
+          <text class="menu-text">我的订单</text>
+        </view>
+        <text class="menu-arrow">→</text>
+      </view>
+      
+      <!-- 联系客服 -->
+      <view class="menu-button" bindtap="onMenuItem" data-action="service">
+        <view class="menu-left">
+          <view class="icon-circle">
+            <image src="/public/images/kefu.svg" class="menu-icon" mode="aspectFit"></image>
+          </view>
+          <text class="menu-text">联系客服</text>
+        </view>
+        <text class="menu-arrow">→</text>
+      </view>
+      
+      <!-- 设置 -->
+      <view class="menu-button" bindtap="onMenuItem" data-action="settings">
+        <view class="menu-left">
+          <view class="icon-circle">
+            <image src="/public/images/setting.svg" class="menu-icon" mode="aspectFit"></image>
+          </view>
+          <text class="menu-text">设置</text>
+        </view>
+        <text class="menu-arrow">→</text>
+      </view>
+    </view>
+  </block>
+
+  <!-- 底部 TabBar -->
+  <view class="tabbar">
+    <view class="tab-item" bindtap="onTabChange" data-tab="home">
+      <image src="/public/images/index.svg" class="tab-svg" mode="aspectFit"></image>
+      <text class="tab-label">首页</text>
+    </view>
+    
+    <view class="tab-item" bindtap="onTabChange" data-tab="order">
+      <image src="/images/icons/menu.svg" class="tab-svg" mode="aspectFit"></image>
+      <text class="tab-label">点单</text>
+    </view>
+    
+    <view class="tab-item" bindtap="onTabChange" data-tab="orders">
+      <image src="/images/icons/myorder.svg" class="tab-svg" mode="aspectFit"></image>
+      <text class="tab-label">订单</text>
+    </view>
+    
+    <view class="tab-item active" bindtap="onTabChange" data-tab="profile">
+      <image src="/images/icons/profile.svg" class="tab-svg" mode="aspectFit"></image>
+      <text class="tab-label">我的</text>
+    </view>
+  </view>
+</view>

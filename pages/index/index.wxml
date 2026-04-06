@@ -1,7 +1,92 @@
 <!--index.wxml-->
-<navigation-bar title="Weixin" back="{{false}}" color="black" background="#FFF"></navigation-bar>
+<navigation-bar title="贰零壹叁咖啡馆" back="{{false}}" color="#5A3A29" background="#FFFFFF"></navigation-bar>
+
 <scroll-view class="scrollarea" scroll-y type="list">
   <view class="container">
-    Weixin
+    
+    <!-- Banner 轮播图 -->
+    <view class="banner-container">
+      <image src="/images/banner.jpg" mode="aspectFill" class="banner-image"></image>
+      
+      <!-- 轮播指示器 -->
+      <view class="banner-indicators">
+        <view class="indicator active"></view>
+        <view class="indicator"></view>
+        <view class="indicator"></view>
+      </view>
+    </view>
+
+    <!-- 堂食/外带选择区 -->
+    <view class="dining-options">
+      <!-- 堂食 -->
+      <view class="option-card" bindtap="onDineInTap">
+        <view class="option-icon dine-in-icon">
+          <image src="/images/icons/dine-in.svg" class="option-svg" mode="aspectFit"></image>
+        </view>
+        <view class="option-content">
+          <text class="option-title">堂食</text>
+          <text class="option-desc">店内享用</text>
+        </view>
+      </view>
+
+      <!-- 外带 -->
+      <view class="option-card" bindtap="onTakeawayTap">
+        <view class="option-icon takeaway-icon">
+          <image src="/images/icons/takeaway.svg" class="option-svg" mode="aspectFit"></image>
+        </view>
+        <view class="option-content">
+          <text class="option-title">外带</text>
+          <text class="option-desc">打包带走</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- WiFi 连接按钮 -->
+    <view class="wifi-button" bindtap="onConnectWifi">
+      <image src="/public/images/wifi.svg" class="wifi-icon-svg" mode="aspectFit"></image>
+      <text class="wifi-text">一键连接店内WiFi</text>
+      <text class="arrow">→</text>
+    </view>
+
+    <!-- 店员和管理入口 -->
+    <view class="staff-section">
+      <view class="staff-btn staff-mode" bindtap="onStaffMode">
+        <view class="btn-icon">
+          <view class="icon-shield"></view>
+        </view>
+        <text class="btn-text">店员制作端</text>
+      </view>
+      
+      <view class="staff-btn admin-mode" bindtap="onAdminMode">
+        <view class="btn-icon">
+          <view class="icon-settings"></view>
+        </view>
+        <text class="btn-text">管理后台</text>
+      </view>
+    </view>
+
   </view>
 </scroll-view>
+
+<!-- 底部 TabBar -->
+<view class="tabbar">
+  <view class="tab-item active" bindtap="onTabChange" data-tab="home">
+    <image src="/public/images/index.svg" class="tab-svg" mode="aspectFit"></image>
+    <text class="tab-label">首页</text>
+  </view>
+  
+  <view class="tab-item" bindtap="onTabChange" data-tab="order">
+    <image src="/images/icons/menu.svg" class="tab-svg" mode="aspectFit"></image>
+    <text class="tab-label">点单</text>
+  </view>
+  
+  <view class="tab-item" bindtap="onTabChange" data-tab="orders">
+    <image src="/images/icons/myorder.svg" class="tab-svg" mode="aspectFit"></image>
+    <text class="tab-label">订单</text>
+  </view>
+  
+  <view class="tab-item" bindtap="onTabChange" data-tab="profile">
+    <image src="/images/icons/profile.svg" class="tab-svg" mode="aspectFit"></image>
+    <text class="tab-label">我的</text>
+  </view>
+</view>

@@ -1,6 +1,9 @@
 {
   "pages": [
-    "pages/index/index"
+    "pages/index/index",
+    "pages/order/order",
+    "pages/orders/orders",
+    "pages/profile/profile"
   ],
   "window": {
     "navigationBarTextStyle": "black",

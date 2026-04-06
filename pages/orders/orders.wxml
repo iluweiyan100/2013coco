@@ -1,0 +1,116 @@
+<!-- pages/orders/orders.wxml -->
+<navigation-bar title="我的订单" back="{{false}}" color="#5A3A29" background="#FFFFFF" />
+
+<view class="orders-container">
+  <!-- 当前订单状态区 -->
+  <view class="current-order-section">
+    <text class="section-label">您的订单</text>
+    <view class="order-header">
+      <view class="pickup-info">
+        <text class="pickup-number">A05</text>
+        <text class="order-status">制作中</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- Tab 切换区 -->
+  <view class="tab-container">
+    <view 
+      class="tab-item {{currentTab === 'all' ? 'active' : ''}}"
+      bindtap="onTabChange"
+      data-tab="all"
+    >
+      <text>全部</text>
+    </view>
+    <view 
+      class="tab-item {{currentTab === 'pending' ? 'active' : ''}}"
+      bindtap="onTabChange"
+      data-tab="pending"
+    >
+      <text>待使用</text>
+    </view>
+    <view 
+      class="tab-item {{currentTab === 'completed' ? 'active' : ''}}"
+      bindtap="onTabChange"
+      data-tab="completed"
+    >
+      <text>已完成</text>
+    </view>
+  </view>
+
+  <!-- 订单列表 -->
+  <scroll-view class="orders-list" scroll-y>
+    <block wx:for="{{filteredOrders}}" wx:key="id">
+      <view class="order-card">
+        <!-- 订单头部 -->
+        <view class="order-card-header">
+          <view class="left-section">
+            <view class="pickup-row">
+              <text class="pickup-label">取餐号</text>
+              <text class="pickup-value">{{item.pickupNumber}}</text>
+            </view>
+            <view class="info-row">
+              <text class="date-text">{{item.date}}</text>
+              <text class="time-text">{{item.time}}</text>
+              <text class="type-tag">{{item.orderType}}</text>
+            </view>
+          </view>
+          <view class="right-section">
+            <view class="status-indicator">
+              <image class="status-icon" src="/images/icons/{{item.statusIcon}}.svg" mode="aspectFit"></image>
+              <text class="status-text">{{item.statusText}}</text>
+            </view>
+          </view>
+        </view>
+
+        <!-- 商品列表 -->
+        <view class="product-list">
+          <block wx:for="{{item.products}}" wx:for-item="product" wx:key="index">
+            <view class="product-item">
+              <view class="product-info">
+                <text class="product-name">{{product.name}}</text>
+                <text wx:if="{{product.option}}" class="product-option">{{product.option}}</text>
+                <text class="product-quantity">x{{product.quantity}}</text>
+              </view>
+              <text class="product-price">¥{{product.price}}</text>
+            </view>
+          </block>
+        </view>
+
+        <!-- 合计 -->
+        <view class="order-total">
+          <text class="total-label">合计</text>
+          <text class="total-amount">¥{{item.totalAmount}}</text>
+        </view>
+      </view>
+    </block>
+
+    <!-- 空状态 -->
+    <view wx:if="{{filteredOrders.length === 0}}" class="empty-state">
+      <text class="empty-text">暂无订单</text>
+    </view>
+  </scroll-view>
+
+  <!-- 底部 TabBar -->
+  <view class="tabbar">
+    <view class="tab-item" bindtap="onBottomTabChange" data-tab="home">
+      <image src="/public/images/index.svg" class="tab-svg" mode="aspectFit"></image>
+      <text class="tab-label">首页</text>
+    </view>
+    
+    <view class="tab-item" bindtap="onBottomTabChange" data-tab="order">
+      <image src="/images/icons/menu.svg" class="tab-svg" mode="aspectFit"></image>
+      <text class="tab-label">点单</text>
+    </view>
+    
+    <view class="tab-item active" bindtap="onBottomTabChange" data-tab="orders">
+      <image src="/images/icons/myorder.svg" class="tab-svg" mode="aspectFit"></image>
+      <text class="tab-label">订单</text>
+    </view>
+    
+    <view class="tab-item" bindtap="onBottomTabChange" data-tab="profile">
+      <image src="/images/icons/profile.svg" class="tab-svg" mode="aspectFit"></image>
+      <text class="tab-label">我的</text>
+    </view>
+  </view>
+</view>

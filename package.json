@@ -1,0 +1,11 @@
+{
+  "name": "2013coco",
+  "version": "1.0.0",
+  "description": "微信点单小程序",
+  "scripts": {
+    "figma:export": "node scripts/figma-export.js"
+  },
+  "dependencies": {
+    "axios": "^1.6.0"
+  }
+}

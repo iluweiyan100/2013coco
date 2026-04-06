@@ -1,0 +1,92 @@
+<!--order.wxml-->
+
+<navigation-bar title="点单" back="{{false}}" color="#5A3A29" background="#FFFFFF"></navigation-bar>
+
+<view class="order-container">
+  
+  <!-- 主内容区：双栏布局 -->
+  <view class="main-content">
+    
+    <!-- 左侧分类导航 -->
+    <scroll-view class="category-sidebar" scroll-y>
+      <view 
+        wx:for="{{categories}}" 
+        wx:key="id"
+        class="sidebar-item {{currentCategory === item.id ? 'active' : ''}}"
+        bindtap="onCategoryChange"
+        data-id="{{item.id}}"
+      >
+        <text>{{item.name}}</text>
+      </view>
+    </scroll-view>
+
+    <!-- 右侧商品列表 - 显示所有商品 -->
+    <scroll-view 
+      class="product-list" 
+      scroll-y 
+      scroll-into-view="{{scrollToView}}"
+      scroll-with-animation
+     style="width: 560rpx; height: 1302rpx; display: block; box-sizing: border-box">
+      <block wx:for="{{allProducts}}" wx:key="id">
+        <!-- 分类标题（每个分类的第一个商品前显示） -->
+        <view 
+          wx:if="{{index === 0 || item.categoryId !== allProducts[index-1].categoryId}}" 
+          class="category-title"
+          id="category-{{item.categoryId}}"
+        >
+          <text>{{item.categoryName}}</text>
+        </view>
+        
+        <!-- 商品卡片 -->
+        <view class="product-card" id="product-{{index}}">
+          <!-- 商品图片 -->
+          <image src="{{item.image}}" mode="aspectFill" class="product-image" lazy-load></image>
+          
+          <!-- 商品信息区 -->
+          <view class="product-info">
+            <text class="product-name">{{item.name}}</text>
+            <text class="product-price">¥{{item.price}}</text>
+            <text wx:if="{{item.description}}" class="product-desc">{{item.description}}</text>
+          </view>
+          
+          <!-- 添加按钮 -->
+          <view class="add-btn" bindtap="onAddToCart" data-id="{{item.id}}" hover-class="btn-active" hover-stay-time="100">
+            <view class="icon-plus">
+              <view class="plus-h"></view>
+              <view class="plus-v"></view>
+            </view>
+          </view>
+        </view>
+      </block>
+      
+      <!-- 空状态提示 -->
+      <view wx:if="{{allProducts.length === 0}}" class="empty-state">
+        <text class="empty-text">暂无商品</text>
+      </view>
+    </scroll-view>
+  </view>
+
+</view>
+
+<!-- 底部 TabBar -->
+<view class="tabbar">
+  <view class="tab-item" bindtap="onTabChange" data-tab="home">
+    <image src="/public/images/index.svg" class="tab-svg" mode="aspectFit"></image>
+    <text class="tab-label">首页</text>
+  </view>
+  
+  <view class="tab-item active" bindtap="onTabChange" data-tab="order">
+    <image src="/images/icons/menu.svg" class="tab-svg" mode="aspectFit"></image>
+    <text class="tab-label">点单</text>
+  </view>
+  
+  <view class="tab-item" bindtap="onTabChange" data-tab="orders">
+    <image src="/images/icons/myorder.svg" class="tab-svg" mode="aspectFit"></image>
+    <text class="tab-label">订单</text>
+  </view>
+  
+  <view class="tab-item" bindtap="onTabChange" data-tab="profile">
+    <image src="/images/icons/profile.svg" class="tab-svg" mode="aspectFit"></image>
+    <text class="tab-label">我的</text>
+  </view>
+</view>
