@@ -91,7 +91,7 @@ Page({
   // 购物车
   onCartTap() {
     wx.navigateTo({
-      url: '/pages/order/order'
+      url: '/pages/cart/cart'
     });
   }
 });

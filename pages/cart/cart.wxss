@@ -1,0 +1,249 @@
+/**cart.wxss**/
+page {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #F9F6F0;
+}
+
+.cart-page {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ========== 空购物车 ========== */
+.cart-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding-bottom: 120rpx;
+}
+
+.cart-empty-icon {
+  width: 160rpx;
+  height: 160rpx;
+  opacity: 0.35;
+  margin-bottom: 40rpx;
+}
+
+.cart-empty-text {
+  font-size: 34rpx;
+  font-weight: 500;
+  color: #3A2318;
+  margin-bottom: 16rpx;
+}
+
+.cart-empty-hint {
+  font-size: 26rpx;
+  color: rgba(58, 35, 24, 0.50);
+  margin-bottom: 64rpx;
+}
+
+.cart-empty-btn {
+  height: 88rpx;
+  padding: 0 80rpx;
+  background: #A3212D;
+  border-radius: 44rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cart-empty-btn-text {
+  font-size: 30rpx;
+  font-weight: 500;
+  color: #FFFFFF;
+}
+
+/* ========== 商品列表 ========== */
+.cart-scroll {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.cart-type-bar {
+  padding: 24rpx 32rpx 8rpx;
+}
+
+.cart-type-tag {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(163, 33, 45, 0.10);
+  border-radius: 12rpx;
+  padding: 8rpx 24rpx;
+}
+
+.cart-type-text {
+  font-size: 24rpx;
+  color: #A3212D;
+  font-weight: 500;
+}
+
+.cart-list {
+  padding: 16rpx 32rpx 0;
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+
+.cart-item {
+  background: #FFFFFF;
+  border-radius: 24rpx;
+  padding: 24rpx;
+  display: flex;
+  align-items: center;
+  gap: 24rpx;
+  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.06);
+}
+
+.cart-item-img {
+  width: 120rpx;
+  height: 120rpx;
+  border-radius: 16rpx;
+  flex-shrink: 0;
+  background: #F0E8DF;
+}
+
+.cart-item-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10rpx;
+}
+
+.cart-item-name {
+  font-size: 28rpx;
+  font-weight: 500;
+  color: #3A2318;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cart-item-temp {
+  font-size: 22rpx;
+  color: rgba(58, 35, 24, 0.50);
+  background: #F0E8DF;
+  border-radius: 8rpx;
+  padding: 2rpx 12rpx;
+  align-self: flex-start;
+}
+
+.cart-item-price {
+  font-size: 28rpx;
+  color: #A3212D;
+  font-weight: 500;
+}
+
+/* 数量增减 */
+.cart-item-qty-row {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  flex-shrink: 0;
+}
+
+.qty-btn {
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: 50%;
+  background: #F5EDE4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.qty-btn-text {
+  font-size: 32rpx;
+  color: #5B3A29;
+  line-height: 1;
+}
+
+.qty-num {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #3A2318;
+  min-width: 40rpx;
+  text-align: center;
+}
+
+/* ========== 备注 ========== */
+.cart-remark-card {
+  margin: 24rpx 32rpx;
+  background: #FFFFFF;
+  border-radius: 24rpx;
+  padding: 28rpx 32rpx;
+  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.cart-remark-label {
+  font-size: 26rpx;
+  color: rgba(58, 35, 24, 0.60);
+}
+
+.cart-remark-input {
+  font-size: 28rpx;
+  color: #3A2318;
+  height: 60rpx;
+}
+
+.cart-remark-placeholder {
+  color: rgba(58, 35, 24, 0.30);
+}
+
+/* ========== 底部结算栏 ========== */
+.cart-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24rpx 32rpx calc(24rpx + env(safe-area-inset-bottom));
+  background: #FFFFFF;
+  border-top: 1rpx solid #F0E8DF;
+  box-shadow: 0 -4rpx 16rpx rgba(0,0,0,0.06);
+}
+
+.cart-footer-left {
+  display: flex;
+  align-items: baseline;
+  gap: 12rpx;
+}
+
+.cart-total-label {
+  font-size: 26rpx;
+  color: rgba(58, 35, 24, 0.60);
+}
+
+.cart-total-price {
+  font-size: 44rpx;
+  font-weight: 700;
+  color: #A3212D;
+}
+
+.cart-total-count {
+  font-size: 22rpx;
+  color: rgba(58, 35, 24, 0.45);
+}
+
+.cart-submit-btn {
+  height: 88rpx;
+  padding: 0 64rpx;
+  background: #A3212D;
+  border-radius: 44rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cart-submit-text {
+  font-size: 32rpx;
+  font-weight: 500;
+  color: #FFFFFF;
+}
