@@ -19,8 +19,8 @@ page {
 .banner-container {
   position: relative;
   width: 750rpx;
-  height: 480rpx;
-  margin-bottom: 40rpx;
+  height: 600rpx; /* 向下延伸，覆盖堂食/外带区域背后 */
+  margin-bottom: 0;
 }
 
 .banner-swiper {
@@ -60,8 +60,11 @@ page {
   display: flex;
   justify-content: space-between;
   padding: 0 32rpx;
+  margin-top: -160rpx; /* 上移，叠在 banner 底部 */
   margin-bottom: 40rpx;
   gap: 32rpx;
+  position: relative;
+  z-index: 2;
 }
 
 .option-card {
