@@ -63,6 +63,9 @@
       <view wx:if="{{allProducts.length === 0}}" class="empty-state">
         <text class="empty-text">暂无商品</text>
       </view>
+
+      <!-- 底部占位，距底部 20px -->
+      <view class="product-list-spacer"></view>
     </scroll-view>
   </view>
 

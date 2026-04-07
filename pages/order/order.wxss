@@ -50,7 +50,7 @@ page {
   flex: 1;
   background: #F9F5F0; /* 确保背景色覆盖 */
   height: 100%;
-  padding: 20rpx 20rpx calc(100rpx + 40rpx + env(safe-area-inset-bottom)); /* 底部留出 TabBar+20px 空间 */
+  padding: 20rpx 20rpx 0;
 }
 
 /* 分类标题 */
@@ -235,6 +235,12 @@ page {
 .tab-item.active .tab-label {
   color: #A3212D;
   font-weight: 500;
+}
+
+/* 商品列表底部占位，确保最后一个卡片距底部 20px */
+.product-list-spacer {
+  height: 40rpx;
+  flex-shrink: 0;
 }
 
 /* ========== 购物车悬浮按钮 ========== */
