@@ -1,7 +1,6 @@
 // index.js
 Page({
   data: {
-    cartCount: 3  // 示例数量，实际可从购物车存储中读取
   },
 
   onLoad() {
@@ -85,13 +84,6 @@ Page({
     console.log('进入管理后台');
     wx.navigateTo({
       url: '/pages/admin/admin'
-    });
-  },
-
-  // 购物车
-  onCartTap() {
-    wx.navigateTo({
-      url: '/pages/cart/cart'
     });
   }
 });

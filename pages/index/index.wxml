@@ -67,11 +67,3 @@
 
   </view>
 </scroll-view>
-
-<!-- 购物车悬浮按钮 -->
-<view class="cart-fab" bindtap="onCartTap">
-  <image src="/images/icons/cart.png" class="cart-fab-icon" mode="aspectFit"></image>
-  <view wx:if="{{cartCount > 0}}" class="cart-fab-badge">
-    <text class="cart-fab-badge-text">{{cartCount}}</text>
-  </view>
-</view>

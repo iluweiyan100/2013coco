@@ -236,3 +236,47 @@ page {
   color: #A3212D;
   font-weight: 500;
 }
+
+/* ========== 购物车悬浮按钮 ========== */
+.cart-fab {
+  position: fixed;
+  left: 48rpx;
+  bottom: 160rpx;
+  width: 112rpx;
+  height: 112rpx;
+  border-radius: 50%;
+  background: #A3212D;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8rpx 24rpx rgba(163, 33, 45, 0.40);
+  z-index: 200;
+}
+
+.cart-fab-icon {
+  width: 56rpx;
+  height: 56rpx;
+}
+
+.cart-fab-badge {
+  position: absolute;
+  top: -8rpx;
+  right: -8rpx;
+  min-width: 40rpx;
+  height: 40rpx;
+  border-radius: 20rpx;
+  background: #FF3B30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8rpx;
+  box-sizing: border-box;
+  border: 3rpx solid #FFFFFF;
+}
+
+.cart-fab-badge-text {
+  font-size: 22rpx;
+  color: #FFFFFF;
+  font-weight: 600;
+  line-height: 1;
+}

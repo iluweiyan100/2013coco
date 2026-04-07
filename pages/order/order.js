@@ -2,6 +2,7 @@
 Page({
   data: {
     currentCategory: 'cocoa',
+    cartCount: 0,
     categories: [
       { id: 'cocoa', name: '可可' },
       { id: 'coffee', name: '咖啡' },
@@ -119,13 +120,16 @@ Page({
   // 添加到购物车
   onAddToCart(e) {
     const productId = e.currentTarget.dataset.id;
-    
+    this.setData({ cartCount: this.data.cartCount + 1 });
     wx.showToast({
       title: '已添加',
       icon: 'success',
-      duration: 1000
+      duration: 800
     });
-    
-    // TODO: 实现购物车逻辑
+  },
+
+  // 跳转购物车页
+  onCartTap() {
+    wx.navigateTo({ url: '/pages/cart/cart' });
   }
 });
