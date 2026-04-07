@@ -408,7 +408,7 @@ page {
 
 .pm-scroll {
   flex: 1;
-  overflow-y: hidden;
+  overflow-y: auto;
   padding: 0 48rpx;
   box-sizing: border-box;
   width: 100%;

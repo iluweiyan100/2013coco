@@ -266,7 +266,7 @@
     </view>
   </view>
 
-  <scroll-view class="pm-scroll" scroll-y>
+  <view class="pm-scroll">
 
     <!-- 商品图片 -->
     <view class="pm-field">
@@ -374,7 +374,7 @@
       <text class="pm-label pm-label-inline">是否支持冰/热选项</text>
     </view>
 
-  </scroll-view>
+  </view>
 
   <!-- 底部按钮 -->
   <view class="pm-footer">
