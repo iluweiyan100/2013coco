@@ -1,11 +1,24 @@
 // index.js
 Page({
   data: {
+    heroImages: []
   },
 
   onLoad() {
-    // 页面加载时获取用户信息
     this.getUserInfo();
+    this._loadHeroImages();
+  },
+
+  onShow() {
+    // 每次显示时刷新，确保管理后台保存后立即生效
+    this._loadHeroImages();
+  },
+
+  _loadHeroImages() {
+    try {
+      const images = wx.getStorageSync('heroImages') || [];
+      this.setData({ heroImages: images });
+    } catch (e) {}
   },
 
   // 获取用户信息

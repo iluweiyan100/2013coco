@@ -6,14 +6,24 @@
     
     <!-- Banner 轮播图 -->
     <view class="banner-container">
-      <image src="/images/banner.jpg" mode="aspectFill" class="banner-image"></image>
-      
-      <!-- 轮播指示器 -->
-      <view class="banner-indicators">
-        <view class="indicator active"></view>
-        <view class="indicator"></view>
-        <view class="indicator"></view>
-      </view>
+      <!-- 有自定义图片时：swiper 轮播 -->
+      <swiper
+        wx:if="{{heroImages.length > 0}}"
+        class="banner-swiper"
+        autoplay
+        interval="3500"
+        circular
+        indicator-dots="{{heroImages.length > 1}}"
+        indicator-color="rgba(255,255,255,0.5)"
+        indicator-active-color="#FFFFFF"
+      >
+        <swiper-item wx:for="{{heroImages}}" wx:key="index">
+          <image src="{{item}}" mode="aspectFill" class="banner-image"></image>
+        </swiper-item>
+      </swiper>
+
+      <!-- 无自定义图片时：默认占位图 -->
+      <image wx:else src="/images/banner.jpg" mode="aspectFill" class="banner-image"></image>
     </view>
 
     <!-- 堂食/外带选择区 -->

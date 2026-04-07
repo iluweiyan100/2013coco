@@ -108,7 +108,11 @@ Page({
     wifiName: 'CoffeeShop_Guest',
     wifiPassword: 'StoreWifi2024',
     _wifiNameSaved: 'CoffeeShop_Guest',
-    _wifiPasswordSaved: 'StoreWifi2024'
+    _wifiPasswordSaved: 'StoreWifi2024',
+
+    // 英雄区轮播图
+    heroImages: [],
+    _heroImagesSaved: []
   },
 
   onLoad() {
@@ -331,6 +335,14 @@ Page({
     } catch (e) {
       // ignore
     }
+
+    // 加载英雄区轮播图
+    try {
+      const images = wx.getStorageSync('heroImages') || [];
+      this.setData({ heroImages: images, _heroImagesSaved: images.slice() });
+    } catch (e) {
+      // ignore
+    }
   },
 
   onInputWifiName(e) {
@@ -356,6 +368,58 @@ Page({
       wifiName: this.data._wifiNameSaved,
       wifiPassword: this.data._wifiPasswordSaved
     });
+  },
+
+  // ===== 英雄区轮播图 =====
+  onAddHeroImage() {
+    if (this.data.heroImages.length >= 3) return;
+    wx.chooseMedia({
+      count: 1,
+      mediaType: ['image'],
+      sourceType: ['album', 'camera'],
+      success: (res) => {
+        const path = res.tempFiles[0].tempFilePath;
+        const images = this.data.heroImages.concat([path]);
+        this.setData({ heroImages: images });
+      }
+    });
+  },
+
+  onReplaceHeroImage(e) {
+    const index = e.currentTarget.dataset.index;
+    wx.chooseMedia({
+      count: 1,
+      mediaType: ['image'],
+      sourceType: ['album', 'camera'],
+      success: (res) => {
+        const path = res.tempFiles[0].tempFilePath;
+        const images = this.data.heroImages.slice();
+        images[index] = path;
+        this.setData({ heroImages: images });
+      }
+    });
+  },
+
+  onDeleteHeroImage(e) {
+    const index = e.currentTarget.dataset.index;
+    const images = this.data.heroImages.slice();
+    images.splice(index, 1);
+    this.setData({ heroImages: images });
+  },
+
+  onSaveHeroImages() {
+    const images = this.data.heroImages;
+    try {
+      wx.setStorageSync('heroImages', images);
+      this.setData({ _heroImagesSaved: images.slice() });
+      wx.showToast({ title: '保存成功', icon: 'success' });
+    } catch (e) {
+      wx.showToast({ title: '保存失败', icon: 'none' });
+    }
+  },
+
+  onCancelHeroImages() {
+    this.setData({ heroImages: this.data._heroImagesSaved.slice() });
   },
 
   onReady() {},

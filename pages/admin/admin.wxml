@@ -215,6 +215,50 @@
 
     <!-- ========== 首页内容 Tab ========== -->
     <view wx:if="{{activeTab === 'home'}}" class="tab-content">
+
+      <!-- 英雄区轮播图设置 -->
+      <view class="home-settings-card home-hero-card">
+        <text class="home-settings-title">英雄区轮播图</text>
+        <text class="home-hero-hint">最多可添加 3 张图片，点击图片可替换</text>
+
+        <!-- 图片列表 -->
+        <view class="hero-img-list">
+          <view
+            wx:for="{{heroImages}}"
+            wx:key="index"
+            class="hero-img-item"
+          >
+            <image
+              src="{{item}}"
+              class="hero-img-thumb"
+              mode="aspectFill"
+              bindtap="onReplaceHeroImage"
+              data-index="{{index}}"
+            ></image>
+            <view class="hero-img-delete" bindtap="onDeleteHeroImage" data-index="{{index}}">
+              <text class="hero-img-delete-text">✕</text>
+            </view>
+          </view>
+
+          <!-- 添加按钮（不超过 3 张时显示） -->
+          <view wx:if="{{heroImages.length < 3}}" class="hero-img-add" bindtap="onAddHeroImage">
+            <text class="hero-img-add-icon">＋</text>
+            <text class="hero-img-add-text">添加图片</text>
+          </view>
+        </view>
+
+        <!-- 操作按钮 -->
+        <view class="home-form-actions">
+          <view class="home-action-save" bindtap="onSaveHeroImages">
+            <text class="home-action-save-text">保存</text>
+          </view>
+          <view class="home-action-cancel" bindtap="onCancelHeroImages">
+            <text class="home-action-cancel-text">取消</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- Wi-Fi 设置 -->
       <view class="home-settings-card">
         <text class="home-settings-title">首页内容设置</text>
         <view class="home-form-body">
