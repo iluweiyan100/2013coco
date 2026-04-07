@@ -546,6 +546,41 @@ page {
   gap: 16rpx;
 }
 
+/* 价格+冰热同行布局 */
+.pm-price-row {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-end;
+  gap: 24rpx;
+}
+
+.pm-price-col {
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+  flex: 1;
+}
+
+.pm-input-short {
+  width: 100% !important;
+}
+
+.pm-icehot-col {
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+  flex-shrink: 0;
+  width: 160rpx;
+}
+
+.pm-icehot-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12rpx;
+  height: 80rpx;
+}
+
 .pm-label-inline {
   display: inline;
   margin-bottom: 0;

@@ -311,17 +311,30 @@
       </picker>
     </view>
 
-    <!-- 价格 -->
-    <view class="pm-field">
-      <text class="pm-label">价格（元）</text>
-      <input
-        class="pm-input"
-        type="digit"
-        value="{{editingProduct.price}}"
-        placeholder="0"
-        placeholder-class="pm-placeholder"
-        bindinput="onInputProductPrice"
-      />
+    <!-- 价格 + 冰热选项同行 -->
+    <view class="pm-field pm-price-row">
+      <view class="pm-price-col">
+        <text class="pm-label">价格（元）</text>
+        <input
+          class="pm-input pm-input-short"
+          type="digit"
+          value="{{editingProduct.price}}"
+          placeholder="0"
+          placeholder-class="pm-placeholder"
+          bindinput="onInputProductPrice"
+        />
+      </view>
+      <view class="pm-icehot-col">
+        <text class="pm-label">冰/热</text>
+        <view class="pm-icehot-row">
+          <view class="pm-checkbox" bindtap="onToggleIceHot">
+            <view class="pm-checkbox-box {{editingProduct.supportIceHot ? 'pm-checkbox-checked' : ''}}">
+              <text wx:if="{{editingProduct.supportIceHot}}" class="pm-checkbox-tick">✓</text>
+            </view>
+          </view>
+          <text class="pm-label pm-label-inline">支持</text>
+        </view>
+      </view>
     </view>
 
     <!-- 规格 -->
@@ -362,16 +375,6 @@
           <text class="pm-status-text {{editingProduct.saleStatus === 'sold' ? 'pm-status-text-active' : ''}}">售罄</text>
         </view>
       </view>
-    </view>
-
-    <!-- 冰热选项 -->
-    <view class="pm-field pm-field-row">
-      <view class="pm-checkbox" bindtap="onToggleIceHot">
-        <view class="pm-checkbox-box {{editingProduct.supportIceHot ? 'pm-checkbox-checked' : ''}}">
-          <text wx:if="{{editingProduct.supportIceHot}}" class="pm-checkbox-tick">✓</text>
-        </view>
-      </view>
-      <text class="pm-label pm-label-inline">是否支持冰/热选项</text>
     </view>
 
   </view>
