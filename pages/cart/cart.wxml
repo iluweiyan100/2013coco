@@ -53,7 +53,7 @@
         <input
           class="cart-remark-input"
           value="{{remark}}"
-          placeholder="口味偏好、过敏信息等..."
+          placeholder=""
           placeholder-class="cart-remark-placeholder"
           bindinput="onRemarkInput"
         />
