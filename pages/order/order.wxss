@@ -50,7 +50,7 @@ page {
   flex: 1;
   background: #F9F5F0; /* 确保背景色覆盖 */
   height: 100%;
-  padding: 20rpx 20rpx 40rpx; /* 底部 20px */
+  padding: 20rpx 20rpx calc(100rpx + 40rpx + env(safe-area-inset-bottom)); /* 底部留出 TabBar+20px 空间 */
 }
 
 /* 分类标题 */
