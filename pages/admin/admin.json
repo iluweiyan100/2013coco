@@ -1,6 +1,7 @@
 {
   "navigationBarTitleText": "管理后台",
   "navigationStyle": "custom",
+  "renderer": "webview",
   "usingComponents": {
     "navigation-bar": "/components/navigation-bar/navigation-bar"
   }
