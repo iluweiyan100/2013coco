@@ -4,6 +4,16 @@ page {
   display: flex;
   flex-direction: column;
   background: #F9F6F0;
+  position: relative;
+}
+
+/* 导航栏浮于 banner 之上，透明背景 */
+navigation-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
 }
 
 .scrollarea {
@@ -12,15 +22,17 @@ page {
 }
 
 .container {
-  padding-bottom: 128rpx; /* 为底部 TabBar 留出空间（TabBar 固定高度） */
+  padding: 0;
+  padding-bottom: 128rpx;
 }
 
 /* ========== Banner 轮播图 ========== */
 .banner-container {
   position: relative;
-  width: 750rpx;
-  height: 600rpx; /* 向下延伸，覆盖堂食/外带区域背后 */
-  margin-bottom: 0;
+  width: 100%;
+  height: 600rpx;
+  margin: 0;
+  display: block;
 }
 
 .banner-swiper {
@@ -31,6 +43,7 @@ page {
 .banner-image {
   width: 100%;
   height: 100%;
+  display: block;
 }
 
 .banner-indicators {
