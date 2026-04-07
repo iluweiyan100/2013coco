@@ -407,14 +407,36 @@ Page({
     this.setData({ heroImages: images });
   },
 
-  onSaveHeroImages() {
+  async onSaveHeroImages() {
     const images = this.data.heroImages;
+    wx.showLoading({ title: '上传中...', mask: true });
+
     try {
-      wx.setStorageSync('heroImages', images);
-      this.setData({ _heroImagesSaved: images.slice() });
+      // 将临时路径（wxfile:// 或 http://tmp/...）上传到云存储，已是云存储 fileID 则跳过
+      const permanentImages = await Promise.all(images.map((src, i) => {
+        if (src.startsWith('cloud://') || src.startsWith('https://') || src.startsWith('/')) {
+          // 已是永久路径，直接保留
+          return Promise.resolve(src);
+        }
+        const ext = src.split('.').pop() || 'jpg';
+        const cloudPath = `heroImages/${Date.now()}_${i}.${ext}`;
+        return new Promise((resolve, reject) => {
+          wx.cloud.uploadFile({
+            cloudPath,
+            filePath: src,
+            success: (r) => resolve(r.fileID),
+            fail: reject
+          });
+        });
+      }));
+
+      wx.setStorageSync('heroImages', permanentImages);
+      this.setData({ heroImages: permanentImages, _heroImagesSaved: permanentImages.slice() });
+      wx.hideLoading();
       wx.showToast({ title: '保存成功', icon: 'success' });
     } catch (e) {
-      wx.showToast({ title: '保存失败', icon: 'none' });
+      wx.hideLoading();
+      wx.showToast({ title: '上传失败，请重试', icon: 'none' });
     }
   },
 
