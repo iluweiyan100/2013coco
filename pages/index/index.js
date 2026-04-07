@@ -10,15 +10,24 @@ Page({
   },
 
   onShow() {
-    // 每次显示时刷新，确保管理后台保存后立即生效
     this._loadHeroImages();
   },
 
-  _loadHeroImages() {
+  async _loadHeroImages() {
     try {
-      const images = wx.getStorageSync('heroImages') || [];
-      this.setData({ heroImages: images });
-    } catch (e) {}
+      const db = wx.cloud.database();
+      const res = await db.collection('heroImages').doc('config').get();
+      const fileIDs = (res.data && res.data.images) || [];
+      if (fileIDs.length === 0) {
+        this.setData({ heroImages: [] });
+        return;
+      }
+      const urlRes = await wx.cloud.getTempFileURL({ fileList: fileIDs });
+      const urls = urlRes.fileList.map(f => f.tempFileURL);
+      this.setData({ heroImages: urls });
+    } catch (e) {
+      this.setData({ heroImages: [] });
+    }
   },
 
   // 获取用户信息
