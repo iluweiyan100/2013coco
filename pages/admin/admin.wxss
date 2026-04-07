@@ -428,7 +428,7 @@ page {
 }
 
 .pm-upload-area {
-  width: 100%;
+  width: 240rpx;
   height: 240rpx;
   border: 2rpx dashed #C9A98A;
   border-radius: 20rpx;
