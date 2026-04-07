@@ -90,27 +90,4 @@
       <text class="empty-text">暂无订单</text>
     </view>
   </scroll-view>
-
-  <!-- 底部 TabBar -->
-  <view class="tabbar">
-    <view class="tab-item" bindtap="onBottomTabChange" data-tab="home">
-      <image src="/public/images/index.svg" class="tab-svg" mode="aspectFit"></image>
-      <text class="tab-label">首页</text>
-    </view>
-    
-    <view class="tab-item" bindtap="onBottomTabChange" data-tab="order">
-      <image src="/images/icons/menu.svg" class="tab-svg" mode="aspectFit"></image>
-      <text class="tab-label">点单</text>
-    </view>
-    
-    <view class="tab-item active" bindtap="onBottomTabChange" data-tab="orders">
-      <image src="/images/icons/myorder.svg" class="tab-svg" mode="aspectFit"></image>
-      <text class="tab-label">订单</text>
-    </view>
-    
-    <view class="tab-item" bindtap="onBottomTabChange" data-tab="profile">
-      <image src="/images/icons/profile.svg" class="tab-svg" mode="aspectFit"></image>
-      <text class="tab-label">我的</text>
-    </view>
-  </view>
 </view>

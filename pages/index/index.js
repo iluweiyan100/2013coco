@@ -1,7 +1,6 @@
 // index.js
 Page({
   data: {
-    currentTab: 'home'
   },
 
   onLoad() {
@@ -43,31 +42,31 @@ Page({
 
   // 连接 WiFi
   onConnectWifi() {
-    console.log('连接 WiFi');
+    let ssid = 'CoffeeShop_Guest';
+    let password = 'StoreWifi2024';
+    try {
+      const saved = wx.getStorageSync('homeSettings');
+      if (saved && saved.wifiName) {
+        ssid = saved.wifiName;
+        password = saved.wifiPassword || '';
+      }
+    } catch (e) {}
+
     wx.startWifi({
       success: () => {
         wx.connectWifi({
-          SSID: 'Coco_Cafe_WiFi',
-          password: '',
+          SSID: ssid,
+          password: password,
           success: () => {
-            wx.showToast({
-              title: 'WiFi 连接成功',
-              icon: 'success'
-            });
+            wx.showToast({ title: 'WiFi 连接成功', icon: 'success' });
           },
           fail: () => {
-            wx.showToast({
-              title: 'WiFi 连接失败',
-              icon: 'none'
-            });
+            wx.showToast({ title: 'WiFi 连接失败', icon: 'none' });
           }
         });
       },
       fail: () => {
-        wx.showToast({
-          title: '请先开启 WiFi',
-          icon: 'none'
-        });
+        wx.showToast({ title: '请先开启 WiFi', icon: 'none' });
       }
     });
   },
@@ -86,40 +85,5 @@ Page({
     wx.navigateTo({
       url: '/pages/admin/admin'
     });
-  },
-
-  // Tab 切换
-  onTabChange(e) {
-    const tab = e.currentTarget.dataset.tab;
-    console.log('切换到:', tab);
-    
-    this.setData({
-      currentTab: tab
-    });
-
-    // 根据 tab 跳转到对应页面
-    const pages = {
-      'home': '/pages/index/index',
-      'order': '/pages/order/order',
-      'orders': '/pages/orders/orders',
-      'profile': '/pages/profile/profile'
-    };
-
-    if (tab === 'home') {
-      // 当前页面，不做处理
-      return;
-    } else if (pages[tab]) {
-      // 使用 navigateTo 跳转到目标页面
-      wx.navigateTo({
-        url: pages[tab],
-        fail: (err) => {
-          console.error('跳转失败:', err);
-          wx.showToast({
-            title: '页面加载失败',
-            icon: 'none'
-          });
-        }
-      });
-    }
   }
 });

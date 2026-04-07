@@ -3,11 +3,44 @@
     "pages/index/index",
     "pages/order/order",
     "pages/orders/orders",
-    "pages/profile/profile"
+    "pages/profile/profile",
+    "pages/admin/admin"
   ],
   "window": {
     "navigationBarTextStyle": "black",
     "navigationStyle": "custom"
+  },
+  "tabBar": {
+    "color": "#8B6F5E",
+    "selectedColor": "#A3212D",
+    "backgroundColor": "#FFFFFF",
+    "borderStyle": "white",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "text": "首页",
+        "iconPath": "images/icons/index.png",
+        "selectedIconPath": "images/icons/index-active.png"
+      },
+      {
+        "pagePath": "pages/order/order",
+        "text": "点单",
+        "iconPath": "images/icons/menu.png",
+        "selectedIconPath": "images/icons/menu-active.png"
+      },
+      {
+        "pagePath": "pages/orders/orders",
+        "text": "订单",
+        "iconPath": "images/icons/myorder.png",
+        "selectedIconPath": "images/icons/myorder-active.png"
+      },
+      {
+        "pagePath": "pages/profile/profile",
+        "text": "我的",
+        "iconPath": "images/icons/profile.png",
+        "selectedIconPath": "images/icons/profile-active.png"
+      }
+    ]
   },
   "style": "v2",
   "renderer": "skyline",

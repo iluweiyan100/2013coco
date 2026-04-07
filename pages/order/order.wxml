@@ -26,7 +26,7 @@
       scroll-y 
       scroll-into-view="{{scrollToView}}"
       scroll-with-animation
-     style="width: 560rpx; height: 1302rpx; display: block; box-sizing: border-box">
+    >
       <block wx:for="{{allProducts}}" wx:key="id">
         <!-- 分类标题（每个分类的第一个商品前显示） -->
         <view 
@@ -66,27 +66,4 @@
     </scroll-view>
   </view>
 
-</view>
-
-<!-- 底部 TabBar -->
-<view class="tabbar">
-  <view class="tab-item" bindtap="onTabChange" data-tab="home">
-    <image src="/public/images/index.svg" class="tab-svg" mode="aspectFit"></image>
-    <text class="tab-label">首页</text>
-  </view>
-  
-  <view class="tab-item active" bindtap="onTabChange" data-tab="order">
-    <image src="/images/icons/menu.svg" class="tab-svg" mode="aspectFit"></image>
-    <text class="tab-label">点单</text>
-  </view>
-  
-  <view class="tab-item" bindtap="onTabChange" data-tab="orders">
-    <image src="/images/icons/myorder.svg" class="tab-svg" mode="aspectFit"></image>
-    <text class="tab-label">订单</text>
-  </view>
-  
-  <view class="tab-item" bindtap="onTabChange" data-tab="profile">
-    <image src="/images/icons/profile.svg" class="tab-svg" mode="aspectFit"></image>
-    <text class="tab-label">我的</text>
-  </view>
 </view>

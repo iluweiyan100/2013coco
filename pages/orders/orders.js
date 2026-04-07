@@ -69,37 +69,6 @@ Page({
     });
   },
 
-  // 底部 TabBar 切换
-  onBottomTabChange(e) {
-    const tab = e.currentTarget.dataset.tab;
-    
-    // 如果点击的是当前页面，不做处理
-    if (tab === 'orders') {
-      return;
-    }
-
-    // 页面映射
-    const pages = {
-      'home': '/pages/index/index',
-      'order': '/pages/order/order',
-      'profile': '/pages/profile/profile'
-    };
-
-    // 跳转到对应页面
-    if (pages[tab]) {
-      wx.navigateTo({
-        url: pages[tab],
-        fail: (err) => {
-          console.error('跳转失败:', err);
-          wx.showToast({
-            title: '页面加载失败',
-            icon: 'none'
-          });
-        }
-      });
-    }
-  },
-
   onShow() {
     // 页面显示时更新过滤后的订单
     this.updateFilteredOrders();

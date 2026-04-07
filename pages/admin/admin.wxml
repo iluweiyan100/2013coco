@@ -1,0 +1,391 @@
+<!--admin.wxml-->
+
+<!-- 顶部自定义导航栏 -->
+<navigation-bar title="管理后台" back="{{true}}" color="#5B3A29" background="#FFFFFF"></navigation-bar>
+
+<!-- 主内容滚动区 -->
+<scroll-view class="admin-scroll" scroll-y>
+  <view class="admin-body">
+
+    <!-- Tab 切换栏 -->
+    <view class="tab-bar">
+      <view class="tab-item {{activeTab === 'stats' ? 'tab-active' : ''}}" bindtap="onTabChange" data-tab="stats">
+        <text class="tab-text {{activeTab === 'stats' ? 'tab-text-active' : ''}}">数据统计</text>
+      </view>
+      <view class="tab-item {{activeTab === 'products' ? 'tab-active' : ''}}" bindtap="onTabChange" data-tab="products">
+        <text class="tab-text {{activeTab === 'products' ? 'tab-text-active' : ''}}">商品管理</text>
+      </view>
+      <view class="tab-item {{activeTab === 'orders' ? 'tab-active' : ''}}" bindtap="onTabChange" data-tab="orders">
+        <text class="tab-text {{activeTab === 'orders' ? 'tab-text-active' : ''}}">订单管理</text>
+      </view>
+      <view class="tab-item {{activeTab === 'home' ? 'tab-active' : ''}}" bindtap="onTabChange" data-tab="home">
+        <text class="tab-text {{activeTab === 'home' ? 'tab-text-active' : ''}}">首页内容</text>
+      </view>
+    </view>
+
+    <!-- ========== 数据统计 Tab ========== -->
+    <view wx:if="{{activeTab === 'stats'}}" class="tab-content">
+
+      <!-- 今日销售额 -->
+      <view class="stat-card">
+        <view class="stat-card-header">
+          <view class="stat-icon-wrap stat-icon-red">
+            <image src="/assets/CodeBubbyAssets/4_630/2.svg" class="stat-icon-img" mode="aspectFit"></image>
+          </view>
+          <text class="stat-card-label">今日销售额</text>
+        </view>
+        <text class="stat-card-value stat-value-red">¥{{todaySales}}</text>
+      </view>
+
+      <!-- 订单量 -->
+      <view class="stat-card">
+        <view class="stat-card-header">
+          <view class="stat-icon-wrap stat-icon-gold">
+            <image src="/assets/CodeBubbyAssets/4_630/3.svg" class="stat-icon-img" mode="aspectFit"></image>
+          </view>
+          <text class="stat-card-label">订单量</text>
+        </view>
+        <text class="stat-card-value stat-value-gold">{{orderCount}}</text>
+      </view>
+
+      <!-- 客单价 -->
+      <view class="stat-card">
+        <view class="stat-card-header">
+          <view class="stat-icon-wrap stat-icon-brown">
+            <image src="/assets/CodeBubbyAssets/4_630/4.svg" class="stat-icon-img" mode="aspectFit"></image>
+          </view>
+          <text class="stat-card-label">客单价</text>
+        </view>
+        <text class="stat-card-value stat-value-brown">¥{{avgOrderValue}}</text>
+      </view>
+
+      <!-- 商品销售排行 -->
+      <view class="ranking-card">
+        <text class="ranking-title">商品销售排行</text>
+        <view class="ranking-list">
+          <view
+            wx:for="{{productRanking}}"
+            wx:key="rank"
+            class="ranking-row {{index < productRanking.length - 1 ? 'ranking-row-border' : ''}}"
+          >
+            <view class="ranking-left">
+              <view class="rank-badge rank-badge-{{item.rank <= 3 ? item.rank : 'other'}}">
+                <text class="rank-num">{{item.rank}}</text>
+              </view>
+              <text class="rank-name">{{item.name}}</text>
+            </view>
+            <view class="ranking-right">
+              <text class="rank-sales">销量 {{item.sales}}</text>
+              <text class="rank-revenue">¥{{item.revenue}}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+
+    </view>
+
+    <!-- ========== 商品管理 Tab ========== -->
+    <view wx:if="{{activeTab === 'products'}}" class="tab-content">
+
+      <!-- 类别筛选器 -->
+      <view class="category-filter">
+        <view
+          wx:for="{{categoryFilters}}"
+          wx:key="value"
+          class="category-btn {{activeCategoryFilter === item.value ? 'category-btn-active' : ''}}"
+          bindtap="onCategoryFilter"
+          data-value="{{item.value}}"
+        >
+          <text class="category-btn-text {{activeCategoryFilter === item.value ? 'category-btn-text-active' : ''}}">{{item.label}} ({{item.count}})</text>
+        </view>
+      </view>
+
+      <!-- 新增商品按钮 -->
+      <view class="add-product-btn" bindtap="onAddProduct">
+        <image src="/assets/CodeBubbyAssets/4_745/2.svg" class="add-product-icon" mode="aspectFit"></image>
+        <text class="add-product-text">新增商品</text>
+      </view>
+
+      <!-- 商品列表 -->
+      <view class="product-list">
+        <view
+          wx:for="{{filteredProducts}}"
+          wx:key="id"
+          class="product-card"
+        >
+          <view class="product-card-left">
+            <image src="{{item.image}}" class="product-img" mode="aspectFill"></image>
+            <view class="product-info">
+              <text class="product-name">{{item.name}}</text>
+              <view class="product-meta">
+                <text class="product-price">¥{{item.price}}</text>
+                <view class="product-tag">
+                  <text class="product-tag-text">{{item.categoryLabel}}</text>
+                </view>
+                <view class="product-status-tag product-status-{{item.saleStatus}}">
+                  <text class="product-status-text">{{item.saleStatus === 'on' ? '上架' : item.saleStatus === 'off' ? '下架' : '售罄'}}</text>
+                </view>
+              </view>
+            </view>
+          </view>
+          <view class="product-actions">
+            <view class="product-action-btn" bindtap="onEditProduct" data-id="{{item.id}}">
+              <image src="/assets/CodeBubbyAssets/4_745/4.svg" class="product-action-icon" mode="aspectFit"></image>
+            </view>
+            <view class="product-action-btn" bindtap="onDeleteProduct" data-id="{{item.id}}">
+              <image src="/assets/CodeBubbyAssets/4_745/5.svg" class="product-action-icon" mode="aspectFit"></image>
+            </view>
+          </view>
+        </view>
+      </view>
+
+    </view>
+
+    <!-- ========== 订单管理 Tab ========== -->
+    <view wx:if="{{activeTab === 'orders'}}" class="tab-content">
+
+      <!-- 订单状态筛选器 -->
+      <view class="order-filter">
+        <view
+          wx:for="{{orderFilters}}"
+          wx:key="value"
+          class="order-filter-btn {{activeOrderFilter === item.value ? 'order-filter-btn-active' : ''}}"
+          bindtap="onOrderFilter"
+          data-value="{{item.value}}"
+        >
+          <text class="order-filter-text {{activeOrderFilter === item.value ? 'order-filter-text-active' : ''}}">{{item.label}} ({{item.count}})</text>
+        </view>
+      </view>
+
+      <!-- 订单列表 -->
+      <view class="order-list">
+        <view wx:for="{{filteredOrders}}" wx:key="id" class="order-card">
+
+          <!-- 订单头部：状态标签 + 取餐号 + 用餐方式 + 时间 + 退款按钮 -->
+          <view class="order-header">
+            <view class="order-header-left">
+              <view class="order-status-tag">
+                <image src="/assets/CodeBubbyAssets/4_1696/2.svg" class="order-status-icon" mode="aspectFit" wx:if="{{item.status === 'making'}}"></image>
+                <image src="/assets/CodeBubbyAssets/4_1696/3.svg" class="order-status-icon" mode="aspectFit" wx:if="{{item.status === 'ready'}}"></image>
+                <text class="order-status-text">{{item.status === 'pending' ? '待支付' : item.status === 'making' ? '制作中' : item.status === 'ready' ? '待取餐' : '已完成'}}</text>
+              </view>
+              <view class="order-pickup-no">
+                <text class="order-pickup-label">取餐号: </text>
+                <text class="order-pickup-num">{{item.pickupNo}}</text>
+              </view>
+              <view class="order-type-tag">
+                <text class="order-type-text">{{item.type === 'dine' ? '堂食' : '外带'}}</text>
+              </view>
+            </view>
+            <view class="order-refund-btn" bindtap="onRefundOrder" data-id="{{item.id}}">
+              <text class="order-refund-text">退款</text>
+            </view>
+          </view>
+
+          <!-- 用户 + 时间 -->
+          <view class="order-user-row">
+            <text class="order-user-text">用户: {{item.userName}}</text>
+            <text class="order-time-text">{{item.time}}</text>
+          </view>
+
+          <!-- 商品明细 -->
+          <view class="order-items-divider"></view>
+          <view class="order-items">
+            <view wx:for="{{item.items}}" wx:key="index" wx:for-item="good" class="order-item-row">
+              <view class="order-item-left">
+                <text class="order-item-name">{{good.name}}</text>
+                <text class="order-item-temp" wx:if="{{good.temp}}">{{good.temp}}</text>
+                <text class="order-item-qty">x{{good.qty}}</text>
+              </view>
+              <text class="order-item-price">¥{{good.price}}</text>
+            </view>
+          </view>
+
+          <!-- 合计 -->
+          <view class="order-total-divider"></view>
+          <view class="order-total-row">
+            <text class="order-total-label">合计</text>
+            <text class="order-total-value">¥{{item.total}}</text>
+          </view>
+
+        </view>
+      </view>
+
+    </view>
+
+    <!-- ========== 首页内容 Tab ========== -->
+    <view wx:if="{{activeTab === 'home'}}" class="tab-content">
+      <view class="home-settings-card">
+        <text class="home-settings-title">首页内容设置</text>
+        <view class="home-form-body">
+          <!-- Wi-Fi名称 -->
+          <view class="home-form-item">
+            <text class="home-form-label">Wi-Fi名称</text>
+            <input
+              class="home-form-input"
+              value="{{wifiName}}"
+              placeholder="请输入Wi-Fi名称"
+              bindinput="onInputWifiName"
+            />
+          </view>
+          <!-- Wi-Fi密码 -->
+          <view class="home-form-item">
+            <text class="home-form-label">Wi-Fi密码</text>
+            <input
+              class="home-form-input"
+              value="{{wifiPassword}}"
+              placeholder="请输入Wi-Fi密码"
+              bindinput="onInputWifiPassword"
+            />
+          </view>
+          <!-- 操作按钮 -->
+          <view class="home-form-actions">
+            <view class="home-action-save" bindtap="onSaveHomeSettings">
+              <text class="home-action-save-text">保存</text>
+            </view>
+            <view class="home-action-cancel" bindtap="onCancelHomeSettings">
+              <text class="home-action-cancel-text">取消</text>
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+  </view>
+</scroll-view>
+
+<!-- ========== 新增/编辑商品弹窗 ========== -->
+<view wx:if="{{showProductModal}}" class="pm-mask" bindtap="onCloseProductModal"></view>
+<view wx:if="{{showProductModal}}" class="pm-box">
+
+  <!-- 标题行 -->
+  <view class="pm-header">
+    <text class="pm-title">{{editingProduct.id ? '编辑商品' : '新增商品'}}</text>
+    <view class="pm-close" bindtap="onCloseProductModal">
+      <image src="/assets/CodeBubbyAssets/4_1184/2.svg" class="pm-close-icon" mode="aspectFit"></image>
+    </view>
+  </view>
+
+  <scroll-view class="pm-scroll" scroll-y>
+
+    <!-- 商品图片 -->
+    <view class="pm-field">
+      <text class="pm-label">商品图片</text>
+      <view class="pm-upload-area" bindtap="onChooseImage">
+        <block wx:if="{{editingProduct.imagePreview}}">
+          <image src="{{editingProduct.imagePreview}}" class="pm-preview-img" mode="aspectFill"></image>
+        </block>
+        <block wx:else>
+          <image src="/assets/CodeBubbyAssets/4_1184/1.svg" class="pm-upload-icon" mode="aspectFit"></image>
+          <text class="pm-upload-tip">点击或拖拽上传商品图片</text>
+          <text class="pm-upload-hint">支持 JPG、PNG 格式，建议尺寸 800x800</text>
+        </block>
+      </view>
+    </view>
+
+    <!-- 商品名称 -->
+    <view class="pm-field">
+      <text class="pm-label">商品名称</text>
+      <input
+        class="pm-input"
+        value="{{editingProduct.name}}"
+        placeholder="请输入商品名称"
+        placeholder-class="pm-placeholder"
+        bindinput="onInputProductName"
+      />
+    </view>
+
+    <!-- 商品类别 -->
+    <view class="pm-field">
+      <text class="pm-label">商品类别</text>
+      <picker
+        class="pm-picker"
+        mode="selector"
+        range="{{categoryOptions}}"
+        range-key="label"
+        value="{{editingProduct.categoryIndex}}"
+        bindchange="onPickerCategory"
+      >
+        <view class="pm-picker-inner">
+          <text class="pm-picker-text">{{editingProduct.categoryLabel}}</text>
+          <text class="pm-picker-arrow">▾</text>
+        </view>
+      </picker>
+    </view>
+
+    <!-- 价格 -->
+    <view class="pm-field">
+      <text class="pm-label">价格（元）</text>
+      <input
+        class="pm-input"
+        type="digit"
+        value="{{editingProduct.price}}"
+        placeholder="0"
+        placeholder-class="pm-placeholder"
+        bindinput="onInputProductPrice"
+      />
+    </view>
+
+    <!-- 规格 -->
+    <view class="pm-field">
+      <text class="pm-label">规格（可选）</text>
+      <input
+        class="pm-input"
+        value="{{editingProduct.spec}}"
+        placeholder="例如：中杯、大杯、单球、双球等"
+        placeholder-class="pm-placeholder"
+        bindinput="onInputSpec"
+      />
+    </view>
+
+    <!-- 商品状态 -->
+    <view class="pm-field">
+      <text class="pm-label">商品状态</text>
+      <view class="pm-status-group">
+        <view
+          class="pm-status-btn {{editingProduct.saleStatus === 'on' ? 'pm-status-active' : ''}}"
+          bindtap="onSelectStatus"
+          data-status="on"
+        >
+          <text class="pm-status-text {{editingProduct.saleStatus === 'on' ? 'pm-status-text-active' : ''}}">上架</text>
+        </view>
+        <view
+          class="pm-status-btn {{editingProduct.saleStatus === 'off' ? 'pm-status-active' : ''}}"
+          bindtap="onSelectStatus"
+          data-status="off"
+        >
+          <text class="pm-status-text {{editingProduct.saleStatus === 'off' ? 'pm-status-text-active' : ''}}">下架</text>
+        </view>
+        <view
+          class="pm-status-btn {{editingProduct.saleStatus === 'sold' ? 'pm-status-active' : ''}}"
+          bindtap="onSelectStatus"
+          data-status="sold"
+        >
+          <text class="pm-status-text {{editingProduct.saleStatus === 'sold' ? 'pm-status-text-active' : ''}}">售罄</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 冰热选项 -->
+    <view class="pm-field pm-field-row">
+      <view class="pm-checkbox" bindtap="onToggleIceHot">
+        <view class="pm-checkbox-box {{editingProduct.supportIceHot ? 'pm-checkbox-checked' : ''}}">
+          <text wx:if="{{editingProduct.supportIceHot}}" class="pm-checkbox-tick">✓</text>
+        </view>
+      </view>
+      <text class="pm-label pm-label-inline">是否支持冰/热选项</text>
+    </view>
+
+  </scroll-view>
+
+  <!-- 底部按钮 -->
+  <view class="pm-footer">
+    <view class="pm-save-btn" bindtap="onSaveProduct">
+      <text class="pm-save-text">保存</text>
+    </view>
+    <view class="pm-cancel-btn" bindtap="onCloseProductModal">
+      <text class="pm-cancel-text">取消</text>
+    </view>
+  </view>
+
+</view>

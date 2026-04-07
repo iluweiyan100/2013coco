@@ -127,36 +127,5 @@ Page({
     });
     
     // TODO: 实现购物车逻辑
-  },
-
-  // Tab 切换
-  onTabChange(e) {
-    const tab = e.currentTarget.dataset.tab;
-    
-    // 如果点击的是当前页面，不做处理
-    if (tab === 'order') {
-      return;
-    }
-
-    // 页面映射
-    const pages = {
-      'home': '/pages/index/index',
-      'orders': '/pages/orders/orders',
-      'profile': '/pages/profile/profile'
-    };
-
-    // 跳转到对应页面
-    if (pages[tab]) {
-      wx.navigateTo({
-        url: pages[tab],
-        fail: (err) => {
-          console.error('跳转失败:', err);
-          wx.showToast({
-            title: '页面加载失败',
-            icon: 'none'
-          });
-        }
-      });
-    }
   }
 });
