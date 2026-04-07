@@ -1,0 +1,304 @@
+/**index.wxss**/
+page {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #F9F6F0;
+}
+
+.scrollarea {
+  flex: 1;
+  overflow-y: hidden;
+}
+
+.container {
+  padding-bottom: 128rpx; /* 为底部 TabBar 留出空间（TabBar 固定高度） */
+}
+
+/* ========== Banner 轮播图 ========== */
+.banner-container {
+  position: relative;
+  width: 750rpx;
+  height: 480rpx;
+  margin-bottom: 40rpx;
+}
+
+.banner-image {
+  width: 100%;
+  height: 100%;
+}
+
+.banner-indicators {
+  position: absolute;
+  bottom: 30rpx;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 16rpx;
+}
+
+.indicator {
+  width: 16rpx;
+  height: 16rpx;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.indicator.active {
+  width: 48rpx;
+  border-radius: 8rpx;
+  background: #A3212D;
+}
+
+/* ========== 堂食/外带选择区 ========== */
+.dining-options {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 32rpx;
+  margin-bottom: 40rpx;
+  gap: 32rpx;
+}
+
+.option-card {
+  flex: 1;
+  background: #E7DCD1;
+  border-radius: 32rpx;
+  padding: 48rpx 32rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.08);
+}
+
+.option-icon {
+  width: 128rpx;
+  height: 128rpx;
+  background: #A3212D;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 32rpx;
+  position: relative;
+  overflow: hidden;
+}
+
+/* SVG 图标样式 */
+.option-svg {
+  width: 64rpx;
+  height: 64rpx;
+}
+
+/* 餐具图标 - 根据 Figma 实际数据精确还原 */
+.icon-svg {
+  width: 64rpx;
+  height: 64rpx;
+  position: relative;
+}
+
+.fork {
+  position: absolute;
+  left: 12rpx;
+  top: 12rpx;
+  width: 5rpx;
+  height: 24rpx;
+  background: #FFFFFF;
+  border-radius: 2.5rpx;
+}
+
+.knife {
+  position: absolute;
+  left: 24rpx;
+  top: 12rpx;
+  width: 5rpx;
+  height: 52rpx;
+  background: #FFFFFF;
+  border-radius: 2.5rpx;
+}
+
+.spoon {
+  position: absolute;
+  right: 12rpx;
+  top: 12rpx;
+  width: 13rpx;
+  height: 52rpx;
+  border: 5rpx solid #FFFFFF;
+  border-radius: 6.5rpx;
+}
+
+/* 打包盒图标 - 根据 Figma 实际数据精确还原 */
+.box-top {
+  position: absolute;
+  left: 12rpx;
+  top: 12rpx;
+  width: 46rpx;
+  height: 8rpx;
+  background: #FFFFFF;
+  border-radius: 4rpx;
+}
+
+.box-body {
+  position: absolute;
+  left: 16rpx;
+  top: 24rpx;
+  width: 38rpx;
+  height: 13rpx;
+  border: 5rpx solid #FFFFFF;
+  border-radius: 4rpx;
+}
+
+.box-lid {
+  position: absolute;
+  left: 24rpx;
+  top: 32rpx;
+  width: 24rpx;
+  height: 14rpx;
+  background: #FFFFFF;
+  border-radius: 4rpx;
+}
+
+.option-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8rpx;
+}
+
+.option-title {
+  font-size: 36rpx;
+  font-weight: 500;
+  color: #5A3A29;
+}
+
+.option-desc {
+  font-size: 24rpx;
+  color: rgba(90, 58, 41, 0.6);
+}
+
+/* ========== WiFi 连接按钮 ========== */
+.wifi-button {
+  display: flex;
+  align-items: center;
+  background: #A3212D;
+  border-radius: 32rpx;
+  padding: 32rpx;
+  margin: 0 32rpx 40rpx;
+  box-shadow: 0 8rpx 24rpx rgba(163, 33, 45, 0.3);
+}
+
+.wifi-icon-svg {
+  width: 48rpx;
+  height: 48rpx;
+  margin-right: 24rpx;
+}
+
+.wifi-text {
+  flex: 1;
+  font-size: 32rpx;
+  color: #FFFFFF;
+  font-weight: 500;
+}
+
+.arrow {
+  font-size: 28rpx;
+  color: #FFFFFF;
+  opacity: 0.8;
+}
+
+/* ========== 店员和管理入口 ========== */
+.staff-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+  padding: 0 32rpx;
+}
+
+.staff-btn {
+  display: flex;
+  align-items: center;
+  padding: 24rpx 32rpx;
+  border-radius: 32rpx;
+  box-shadow: 0 8rpx 24rpx rgba(0, 0, 0, 0.1);
+}
+
+.staff-mode {
+  background: rgba(90, 58, 41, 0.9);
+}
+
+.admin-mode {
+  background: rgba(192, 138, 77, 0.9);
+}
+
+.btn-icon {
+  width: 32rpx;
+  height: 32rpx;
+  margin-right: 16rpx;
+  position: relative;
+}
+
+.icon-shield {
+  width: 32rpx;
+  height: 32rpx;
+  border: 3rpx solid #FFFFFF;
+  border-radius: 50%;
+}
+
+.icon-settings {
+  width: 32rpx;
+  height: 32rpx;
+  border: 3rpx solid #FFFFFF;
+  border-radius: 8rpx;
+}
+
+.btn-text {
+  font-size: 28rpx;
+  color: #FFFFFF;
+  font-weight: 500;
+}
+
+/* ========== 底部 TabBar ========== */
+.tabbar {
+  position: fixed;
+  bottom: -50rpx; /* 向下移动 25px (50rpx) */
+  left: 0;
+  right: 0;
+  height: 128rpx; /* 固定高度，禁止修改 */
+  background: #FFFFFF;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  border-top: 1rpx solid #E5E5E5;
+  box-shadow: 0 -4rpx 12rpx rgba(0, 0, 0, 0.05);
+  z-index: 100;
+  padding-bottom: env(safe-area-inset-bottom); /* 底部安全区域适配 */
+}
+
+.tab-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8rpx;
+  padding: 16rpx 0;
+}
+
+.tab-svg {
+  width: 48rpx;
+  height: 48rpx;
+  display: block;
+}
+
+.tab-label {
+  font-size: 24rpx;
+  color: #999999;
+}
+
+.tab-item.active .tab-svg {
+  filter: brightness(0) saturate(100%) invert(23%) sepia(85%) saturate(1765%) hue-rotate(335deg) brightness(92%) contrast(96%);
+}
+
+.tab-item.active .tab-label {
+  color: #A3212D;
+  font-weight: 500;
+}

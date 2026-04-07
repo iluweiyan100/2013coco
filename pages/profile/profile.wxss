@@ -1,0 +1,267 @@
+/* pages/profile/profile.wxss */
+.profile-container {
+  min-height: 100vh;
+  background: #F9F5F0; /* RGB(249, 245, 240) */
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 128rpx; /* 为底部 TabBar 留出空间 */
+}
+
+/* ========== 未登录头部区域 ========== */
+.unlogin-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 280rpx; /* 从顶部到头像的距离 */
+  gap: 32rpx;
+}
+
+/* 默认头像圆形容器 */
+.avatar-circle {
+  width: 192rpx; /* 96px * 2 = 192rpx */
+  height: 192rpx;
+  border-radius: 50%;
+  background: #E7DCD1; /* RGB(231, 220, 209) */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.avatar-icon {
+  width: 96rpx;
+  height: 96rpx;
+  opacity: 0.3;
+}
+
+/* 欢迎标题 */
+.welcome-title {
+  font-family: 'Noto Serif SC', serif;
+  font-weight: 500; /* Medium */
+  font-size: 40rpx; /* 20px * 2 = 40rpx */
+  color: #5A3A29; /* RGB(90, 58, 41) */
+  line-height: 60rpx; /* 30px * 2 = 60rpx */
+  text-align: center;
+}
+
+/* 登录描述文字 */
+.login-desc {
+  font-family: 'Noto Serif SC', serif;
+  font-weight: 400; /* Regular */
+  font-size: 28rpx; /* 14px * 2 = 28rpx */
+  color: #5A3A29;
+  opacity: 0.6; /* 60% 透明度 */
+  line-height: 40rpx; /* 20px * 2 = 40rpx */
+  text-align: center;
+}
+
+/* 登录按钮 */
+.login-button {
+  margin-top: 32rpx;
+  background: #A3212D; /* RGB(163, 33, 45) */
+  color: #FFFFFF;
+  font-family: 'Noto Serif SC', serif;
+  font-weight: 500; /* Medium */
+  font-size: 28rpx; /* 14px * 2 = 28rpx */
+  padding: 16rpx 64rpx; /* 上下 8px*2, 左右 32px*2 */
+  border-radius: 20rpx; /* 10px * 2 = 20rpx */
+  border: none;
+  line-height: 40rpx; /* 20px * 2 = 40rpx */
+  box-shadow: none;
+}
+
+.login-button::after {
+  border: none;
+}
+
+/* ========== 登录后用户信息头部 ========== */
+.user-info-header {
+  background: linear-gradient(135deg, #C08A4D 0%, #D4A574 50%, #E8C9A0 100%);
+  padding: 48rpx 32rpx;
+  position: relative;
+  overflow: hidden;
+}
+
+/* 装饰性背景元素 */
+.user-info-header::before {
+  content: '';
+  position: absolute;
+  top: -100rpx;
+  right: -100rpx;
+  width: 400rpx;
+  height: 400rpx;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.2) 0%, transparent 70%);
+  border-radius: 50%;
+}
+
+.user-info-header::after {
+  content: '';
+  position: absolute;
+  bottom: -150rpx;
+  left: -100rpx;
+  width: 300rpx;
+  height: 300rpx;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.15) 0%, transparent 70%);
+  border-radius: 50%;
+}
+
+/* 用户信息卡片（悬浮效果） */
+.user-card {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border-radius: 24rpx;
+  padding: 32rpx;
+  display: flex;
+  align-items: center;
+  gap: 24rpx;
+  box-shadow: 
+    0 8rpx 24rpx rgba(0, 0, 0, 0.12),
+    0 2rpx 8rpx rgba(0, 0, 0, 0.08);
+  position: relative;
+  z-index: 1;
+}
+
+/* 用户头像 */
+.user-avatar {
+  width: 128rpx; /* 64px * 2 = 128rpx */
+  height: 128rpx;
+  border-radius: 50%;
+  border: 3rpx solid rgba(192, 138, 77, 0.3);
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.1);
+  background: #E7DCD1;
+}
+
+/* 用户详情容器 */
+.user-details {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+}
+
+/* 用户昵称 */
+.user-nickname {
+  font-family: 'Noto Serif SC', serif;
+  font-weight: 600; /* SemiBold */
+  font-size: 36rpx; /* 18px * 2 = 36rpx */
+  color: #5A3A29;
+  line-height: 52rpx;
+}
+
+/* 用户手机号 */
+.user-phone {
+  font-family: 'Noto Serif SC', serif;
+  font-weight: 400; /* Regular */
+  font-size: 28rpx; /* 14px * 2 = 28rpx */
+  color: #8B6F5E;
+  line-height: 40rpx;
+  letter-spacing: 1rpx;
+}
+
+/* ========== 登录后功能菜单列表 ========== */
+.menu-list {
+  padding: 32rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx; /* 按钮间距 12px * 2 = 24rpx */
+}
+
+/* 功能菜单按钮 */
+.menu-button {
+  background: #FFFFFF;
+  border-radius: 32rpx; /* 16px * 2 = 32rpx */
+  padding: 32rpx; /* 16px * 2 = 32rpx */
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 
+    0 -2rpx 4rpx rgba(0, 0, 0, 0.1),
+    0 2rpx 6rpx rgba(0, 0, 0, 0.1);
+}
+
+.menu-left {
+  display: flex;
+  align-items: center;
+  gap: 24rpx; /* 图标和文字间距 12px * 2 = 24rpx */
+}
+
+/* 图标圆形容器 */
+.icon-circle {
+  width: 80rpx; /* 40px * 2 = 80rpx */
+  height: 80rpx;
+  border-radius: 50%;
+  background: #E7DCD1; /* RGB(231, 220, 209) */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.menu-icon {
+  width: 40rpx;
+  height: 40rpx;
+}
+
+/* 菜单文字 */
+.menu-text {
+  font-family: 'Noto Serif SC', serif;
+  font-weight: 500; /* Medium */
+  font-size: 32rpx; /* 16px * 2 = 32rpx */
+  color: #5A3A29;
+  line-height: 48rpx; /* 24px * 2 = 48rpx */
+}
+
+/* 箭头 */
+.menu-arrow {
+  font-family: 'Noto Serif SC', serif;
+  font-weight: 500; /* Medium */
+  font-size: 32rpx; /* 16px * 2 = 32rpx */
+  color: #5A3A29;
+  opacity: 0.5; /* 50% 透明度 */
+  line-height: 48rpx; /* 24px * 2 = 48rpx */
+}
+
+/* ========== 底部 TabBar ========== */
+.tabbar {
+  position: fixed;
+  bottom: -50rpx; /* 向下移动 25px (50rpx)，与首页保持一致 */
+  left: 0;
+  right: 0;
+  height: 128rpx; /* 固定高度，禁止修改 */
+  background: #FFFFFF;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  border-top: 1rpx solid #E5E5E5;
+  box-shadow: 0 -4rpx 12rpx rgba(0, 0, 0, 0.05);
+  z-index: 100;
+  padding-bottom: env(safe-area-inset-bottom); /* 底部安全区域适配 */
+}
+
+.tab-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8rpx;
+  padding: 16rpx 0;
+}
+
+.tab-svg {
+  width: 48rpx;
+  height: 48rpx;
+  display: block;
+}
+
+.tab-label {
+  font-size: 24rpx;
+  color: #999999;
+}
+
+.tab-item.active .tab-svg {
+  filter: brightness(0) saturate(100%) invert(23%) sepia(85%) saturate(1765%) hue-rotate(335deg) brightness(92%) contrast(96%);
+}
+
+.tab-item.active .tab-label {
+  color: #A3212D;
+  font-weight: 500;
+}

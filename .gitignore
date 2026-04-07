@@ -3,7 +3,6 @@ node_modules/
 cloudfunctions/*/node_modules/
 
 # 忽略编译产物
-*.wxss
 *.wcc
 *.wxmlc
 .tmproj
