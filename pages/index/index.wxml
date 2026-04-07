@@ -13,9 +13,7 @@
         autoplay
         interval="3500"
         circular
-        indicator-dots="{{heroImages.length > 1}}"
-        indicator-color="rgba(255,255,255,0.5)"
-        indicator-active-color="#FFFFFF"
+        indicator-dots="{{false}}"
       >
         <swiper-item wx:for="{{heroImages}}" wx:key="index">
           <image src="{{item}}" mode="aspectFill" class="banner-image"></image>
