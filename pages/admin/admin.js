@@ -112,13 +112,24 @@ Page({
 
     // 英雄区轮播图（heroImages 为显示用临时 URL，_heroFileIDs 为云存储 fileID）
     heroImages: [],
-    _heroFileIDs: []
+    _heroFileIDs: [],
+    _heroModified: false  // 是否有未保存的修改，true 时 onShow 不刷新
   },
 
   onLoad() {
+    this._initCloudDB();
     this.loadHomeSettings();
     this._applyProductFilter('all');
     this._applyOrderFilter('all');
+  },
+
+  // 调用云函数自动创建所需数据库集合
+  async _initCloudDB() {
+    try {
+      await wx.cloud.callFunction({ name: 'initDB' });
+    } catch (e) {
+      console.warn('[initDB] 初始化集合失败（不影响使用）', e);
+    }
   },
 
   onBack() {
@@ -357,7 +368,8 @@ Page({
       const urls = urlRes.fileList.map(f => f.tempFileURL);
       this.setData({ heroImages: urls, _heroFileIDs: fileIDs.slice() });
     } catch (e) {
-      this.setData({ heroImages: [], _heroFileIDs: [] });
+      // 加载失败时不清空已有预览，避免因网络抖动导致图片消失
+      console.warn('[Hero] 加载云端图片失败', e);
     }
   },
 
@@ -387,37 +399,105 @@ Page({
   },
 
   // ===== 英雄区轮播图 =====
-  // heroImages：显示用（本地临时路径 或 https 临时链接）
-  // _heroFileIDs：与 heroImages 一一对应的云存储 fileID（未上传的位置为 null）
+  // heroImages：显示用临时链接（getTempFileURL 转换后的 https 链接）
+  // _heroFileIDs：与 heroImages 一一对应的云存储 fileID
+  // _heroSavedIDs：当前已保存到数据库的 fileID 列表（用于判断是否有未保存修改）
+
+  // 上传单张图片到云存储，返回 { fileID, tempURL }
+  async _uploadToCloud(filePath) {
+    const rawExt = filePath.split('?')[0].split('.').pop() || '';
+    const ext = rawExt.replace(/[^a-zA-Z]/g, '').toLowerCase() || 'jpg';
+    const cloudPath = `heroImages/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+    const uploadRes = await new Promise((resolve, reject) => {
+      wx.cloud.uploadFile({
+        cloudPath,
+        filePath,
+        success: resolve,
+        fail: reject
+      });
+    });
+    const urlRes = await wx.cloud.getTempFileURL({ fileList: [uploadRes.fileID] });
+    return { fileID: uploadRes.fileID, tempURL: urlRes.fileList[0].tempFileURL };
+  },
 
   onAddHeroImage() {
     if (this.data.heroImages.length >= 3) return;
+    this.setData({ _heroModified: true });
     wx.chooseMedia({
       count: 1,
       mediaType: ['image'],
       sourceType: ['album', 'camera'],
-      success: (res) => {
+      success: async (res) => {
         const path = res.tempFiles[0].tempFilePath;
+        // 先用本地路径即时预览
         const images = this.data.heroImages.concat([path]);
-        const fileIDs = this.data._heroFileIDs.concat([null]); // 新图尚未上传，fileID 为 null
+        const fileIDs = this.data._heroFileIDs.concat([null]);
         this.setData({ heroImages: images, _heroFileIDs: fileIDs });
+        // 立即上传到云存储，替换为持久 fileID + 临时链接
+        wx.showLoading({ title: '上传中...', mask: true });
+        try {
+          const { fileID, tempURL } = await this._uploadToCloud(path);
+          const idx = this.data.heroImages.length - 1;
+          const imgs = this.data.heroImages.slice();
+          const ids = this.data._heroFileIDs.slice();
+          imgs[idx] = tempURL;
+          ids[idx] = fileID;
+          this.setData({ heroImages: imgs, _heroFileIDs: ids });
+          wx.hideLoading();
+        } catch (e) {
+          wx.hideLoading();
+          console.error('[Hero] 上传失败', e);
+          wx.showToast({ title: '上传失败，请重试', icon: 'none' });
+          // 移除失败的图片
+          const imgs = this.data.heroImages.slice();
+          const ids = this.data._heroFileIDs.slice();
+          imgs.pop(); ids.pop();
+          this.setData({ heroImages: imgs, _heroFileIDs: ids });
+        }
+      },
+      fail: () => {
+        if (!this.data._heroFileIDs.some(id => id === null)) {
+          this.setData({ _heroModified: false });
+        }
       }
     });
   },
 
   onReplaceHeroImage(e) {
-    const index = e.currentTarget.dataset.index;
+    const index = parseInt(e.currentTarget.dataset.index);
+    this.setData({ _heroModified: true });
     wx.chooseMedia({
       count: 1,
       mediaType: ['image'],
       sourceType: ['album', 'camera'],
-      success: (res) => {
+      success: async (res) => {
         const path = res.tempFiles[0].tempFilePath;
-        const images = this.data.heroImages.slice();
-        const fileIDs = this.data._heroFileIDs.slice();
-        images[index] = path;
-        fileIDs[index] = null; // 新图尚未上传
-        this.setData({ heroImages: images, _heroFileIDs: fileIDs });
+        // 先用本地路径即时预览
+        const imgs = this.data.heroImages.slice();
+        const ids = this.data._heroFileIDs.slice();
+        imgs[index] = path;
+        ids[index] = null;
+        this.setData({ heroImages: imgs, _heroFileIDs: ids });
+        // 立即上传到云存储
+        wx.showLoading({ title: '上传中...', mask: true });
+        try {
+          const { fileID, tempURL } = await this._uploadToCloud(path);
+          const imgs2 = this.data.heroImages.slice();
+          const ids2 = this.data._heroFileIDs.slice();
+          imgs2[index] = tempURL;
+          ids2[index] = fileID;
+          this.setData({ heroImages: imgs2, _heroFileIDs: ids2 });
+          wx.hideLoading();
+        } catch (e) {
+          wx.hideLoading();
+          console.error('[Hero] 替换上传失败', e);
+          wx.showToast({ title: '上传失败，请重试', icon: 'none' });
+        }
+      },
+      fail: () => {
+        if (!this.data._heroFileIDs.some(id => id === null)) {
+          this.setData({ _heroModified: false });
+        }
       }
     });
   },
@@ -428,101 +508,41 @@ Page({
     const fileIDs = this.data._heroFileIDs.slice();
     images.splice(index, 1);
     fileIDs.splice(index, 1);
-    this.setData({ heroImages: images, _heroFileIDs: fileIDs });
+    this.setData({ heroImages: images, _heroFileIDs: fileIDs, _heroModified: true });
   },
 
   /**
-   * 保存：
-   * 1. 遍历 heroImages，fileID 为 null 的说明是新选的本地临时图片，上传到云存储
-   * 2. 将所有 fileID 写入云数据库 heroImages/config
-   * 3. 重新获取临时链接刷新显示
+   * 保存：所有图片已在选图时上传，此处只需把 fileID 列表写入数据库
    */
   async onSaveHeroImages() {
-    const { heroImages, _heroFileIDs } = this.data;
-    if (heroImages.length === 0) {
-      // 清空：直接写空数组到云数据库
-      wx.showLoading({ title: '保存中...', mask: true });
-      try {
-        const db = wx.cloud.database();
-        try {
-          await db.collection('heroImages').doc('config').set({ data: { images: [] } });
-        } catch (dbErr) {
-          await db.collection('heroImages').add({ data: { _id: 'config', images: [] } });
-        }
-        this.setData({ heroImages: [], _heroFileIDs: [] });
-        wx.hideLoading();
-        wx.showToast({ title: '保存成功', icon: 'success' });
-      } catch (e) {
-        wx.hideLoading();
-        console.error('[Hero] 清空失败', e);
-        wx.showToast({ title: '保存失败', icon: 'none' });
-      }
-      return;
-    }
-
-    wx.showLoading({ title: '上传中...', mask: true });
+    const { _heroFileIDs } = this.data;
+    wx.showLoading({ title: '保存中...', mask: true });
     try {
-      // 逐张上传，fileID 不为 null 的跳过
-      const finalFileIDs = [];
-      for (let i = 0; i < heroImages.length; i++) {
-        const src = heroImages[i];
-        const existingID = _heroFileIDs[i];
-        if (existingID) {
-          finalFileIDs.push(existingID);
-          continue;
-        }
-        // 本地临时路径，上传到云存储
-        const rawExt = src.split('?')[0].split('.').pop() || '';
-        const ext = rawExt.replace(/[^a-zA-Z]/g, '').toLowerCase() || 'jpg';
-        const cloudPath = `heroImages/${Date.now()}_${i}.${ext}`;
-        console.log(`[Hero] 上传第${i + 1}张，src=${src}, cloudPath=${cloudPath}`);
-        const uploadRes = await new Promise((resolve, reject) => {
-          wx.cloud.uploadFile({
-            cloudPath,
-            filePath: src,
-            success: resolve,
-            fail: (err) => {
-              console.error(`[Hero] uploadFile 失败，index=${i}`, err);
-              reject(err);
-            }
-          });
-        });
-        finalFileIDs.push(uploadRes.fileID);
-        console.log(`[Hero] 第${i + 1}张上传成功，fileID=${uploadRes.fileID}`);
-      }
-
-      // 写入云数据库（集合不存在时用 add 自动创建）
-      const db = wx.cloud.database();
-      try {
-        await db.collection('heroImages').doc('config').set({ data: { images: finalFileIDs } });
-      } catch (dbErr) {
-        // 集合不存在（-502005）或文档不存在，改用 add 创建
-        console.warn('[Hero] set 失败，尝试 add', dbErr);
-        await db.collection('heroImages').add({ data: { _id: 'config', images: finalFileIDs } });
-      }
-      console.log('[Hero] 云数据库写入成功', finalFileIDs);
-
-      // 获取临时链接刷新显示
-      const urlRes = await wx.cloud.getTempFileURL({ fileList: finalFileIDs });
-      const displayUrls = urlRes.fileList.map(f => f.tempFileURL);
-
-      this.setData({ heroImages: displayUrls, _heroFileIDs: finalFileIDs });
+      await wx.cloud.callFunction({
+        name: 'initDB',
+        data: { action: 'setHeroImages', images: _heroFileIDs.filter(Boolean) }
+      });
+      this.setData({ _heroModified: false });
       wx.hideLoading();
       wx.showToast({ title: '保存成功', icon: 'success' });
     } catch (e) {
       wx.hideLoading();
       console.error('[Hero] onSaveHeroImages 失败', e);
-      wx.showToast({ title: `上传失败: ${e.errMsg || e.message || '未知错误'}`, icon: 'none', duration: 3000 });
+      wx.showToast({ title: `保存失败: ${e.errMsg || e.message || '未知错误'}`, icon: 'none', duration: 3000 });
     }
   },
 
   onCancelHeroImages() {
-    // 取消：重新从云端加载，丢弃本地未保存的修改
+    this.setData({ _heroModified: false });
     this._loadHeroImagesFromCloud();
   },
 
   onReady() {},
-  onShow() {},
+  onShow() {
+    // 有未保存的修改时不刷新，避免覆盖本地预览图
+    if (this.data._heroModified) return;
+    this._loadHeroImagesFromCloud();
+  },
   onHide() {},
   onUnload() {},
   onPullDownRefresh() {},

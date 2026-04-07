@@ -1,5 +1,5 @@
 <!--index.wxml-->
-<navigation-bar title="贰零壹叁咖啡馆" back="{{false}}" color="#FFFFFF" background="transparent"></navigation-bar>
+<navigation-bar title="贰零壹叁咖啡馆" back="{{false}}" color="#3B1F0F" background="transparent"></navigation-bar>
 
 <scroll-view class="scrollarea" scroll-y type="list">
   <view class="container">

@@ -10,7 +10,10 @@ Page({
   },
 
   onShow() {
-    this._loadHeroImages();
+    // 已有图片时不重复加载（避免每次切换回首页都刷新轮播）
+    if (this.data.heroImages.length === 0) {
+      this._loadHeroImages();
+    }
   },
 
   async _loadHeroImages() {
@@ -26,7 +29,8 @@ Page({
       const urls = urlRes.fileList.map(f => f.tempFileURL);
       this.setData({ heroImages: urls });
     } catch (e) {
-      this.setData({ heroImages: [] });
+      // 加载失败时保留现有图片，不清空
+      console.warn('[Index] 加载轮播图失败', e);
     }
   },
 

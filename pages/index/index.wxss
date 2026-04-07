@@ -16,6 +16,11 @@ navigation-bar {
   z-index: 10;
 }
 
+/* 首页标题字号加大 */
+navigation-bar .weui-navigation-bar__center {
+  font-size: 22px;
+}
+
 .scrollarea {
   flex: 1;
   overflow-y: hidden;
@@ -30,7 +35,7 @@ navigation-bar {
 .banner-container {
   position: relative;
   width: 100%;
-  height: 600rpx;
+  height: 700rpx;
   margin: 0;
   display: block;
 }
