@@ -442,9 +442,8 @@ page {
 }
 
 .pm-upload-icon {
-  width: 64rpx;
-  height: 64rpx;
-  margin-bottom: 16rpx;
+  width: 96rpx;
+  height: 96rpx;
 }
 
 .pm-upload-tip {

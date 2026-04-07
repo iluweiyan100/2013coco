@@ -277,8 +277,6 @@
         </block>
         <block wx:else>
           <image src="/assets/CodeBubbyAssets/4_1184/1.svg" class="pm-upload-icon" mode="aspectFit"></image>
-          <text class="pm-upload-tip">点击或拖拽上传商品图片</text>
-          <text class="pm-upload-hint">支持 JPG、PNG 格式，建议尺寸 800x800</text>
         </block>
       </view>
     </view>
