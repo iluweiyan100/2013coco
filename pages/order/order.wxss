@@ -245,11 +245,11 @@ page {
   width: 112rpx;
   height: 112rpx;
   border-radius: 50%;
-  background: #A3212D;
+  background: #FFFFFF;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 8rpx 24rpx rgba(163, 33, 45, 0.40);
+  box-shadow: 0 8rpx 24rpx rgba(0, 0, 0, 0.15);
   z-index: 200;
 }
 
