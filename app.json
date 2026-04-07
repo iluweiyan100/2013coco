@@ -5,7 +5,8 @@
     "pages/orders/orders",
     "pages/profile/profile",
     "pages/admin/admin",
-    "pages/cart/cart"
+    "pages/cart/cart",
+    "pages/checkout/checkout"
   ],
   "window": {
     "navigationBarTextStyle": "black",

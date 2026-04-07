@@ -68,8 +68,8 @@
         <text class="cart-total-price">¥{{totalPrice}}</text>
         <text class="cart-total-count">共{{totalCount}}件</text>
       </view>
-      <view class="cart-submit-btn" bindtap="onSubmitOrder">
-        <text class="cart-submit-text">提交订单</text>
+      <view class="cart-submit-btn" bindtap="onPayNow">
+        <text class="cart-submit-text">立即支付</text>
       </view>
     </view>
   </block>

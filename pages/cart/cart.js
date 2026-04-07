@@ -64,10 +64,18 @@ Page({
     wx.navigateBack({ delta: 1 });
   },
 
-  // 提交订单
-  onSubmitOrder() {
+  // 立即支付 → 跳转 checkout 页
+  onPayNow() {
     if (this.data.cartList.length === 0) return;
-    wx.showToast({ title: '订单提交成功', icon: 'success' });
+    const { cartList, orderType, remark, totalPrice, totalCount } = this.data;
+    const params = encodeURIComponent(JSON.stringify({
+      cartList,
+      orderType,
+      remark,
+      totalPrice,
+      totalCount
+    }));
+    wx.navigateTo({ url: `/pages/checkout/checkout?data=${params}` });
   },
 
   // 重新计算合计
