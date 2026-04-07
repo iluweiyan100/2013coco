@@ -410,10 +410,14 @@ page {
   flex: 1;
   overflow-y: hidden;
   padding: 0 48rpx;
+  box-sizing: border-box;
+  width: 100%;
 }
 
 .pm-field {
   margin-bottom: 32rpx;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .pm-label {
@@ -434,6 +438,7 @@ page {
   justify-content: center;
   background: #FAF6F2;
   overflow: hidden;
+  box-sizing: border-box;
 }
 
 .pm-upload-icon {
@@ -475,9 +480,11 @@ page {
 
 .pm-picker {
   width: 100%;
+  box-sizing: border-box;
 }
 
 .pm-picker-inner {
+  width: 100%;
   height: 80rpx;
   background: #F5EDE4;
   border-radius: 16rpx;
@@ -485,6 +492,7 @@ page {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  box-sizing: border-box;
 }
 
 .pm-picker-text {
@@ -500,10 +508,13 @@ page {
 .pm-status-group {
   display: flex;
   gap: 20rpx;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .pm-status-btn {
   flex: 1;
+  min-width: 0;
   height: 72rpx;
   border-radius: 16rpx;
   border: 2rpx solid #E7DDD1;
@@ -511,6 +522,7 @@ page {
   display: flex;
   align-items: center;
   justify-content: center;
+  box-sizing: border-box;
 }
 
 .pm-status-active {
