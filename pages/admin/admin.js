@@ -444,7 +444,11 @@ Page({
       wx.showLoading({ title: '保存中...', mask: true });
       try {
         const db = wx.cloud.database();
-        await db.collection('heroImages').doc('config').set({ data: { images: [] } });
+        try {
+          await db.collection('heroImages').doc('config').set({ data: { images: [] } });
+        } catch (dbErr) {
+          await db.collection('heroImages').add({ data: { _id: 'config', images: [] } });
+        }
         this.setData({ heroImages: [], _heroFileIDs: [] });
         wx.hideLoading();
         wx.showToast({ title: '保存成功', icon: 'success' });
@@ -487,9 +491,15 @@ Page({
         console.log(`[Hero] 第${i + 1}张上传成功，fileID=${uploadRes.fileID}`);
       }
 
-      // 写入云数据库
+      // 写入云数据库（集合不存在时用 add 自动创建）
       const db = wx.cloud.database();
-      await db.collection('heroImages').doc('config').set({ data: { images: finalFileIDs } });
+      try {
+        await db.collection('heroImages').doc('config').set({ data: { images: finalFileIDs } });
+      } catch (dbErr) {
+        // 集合不存在（-502005）或文档不存在，改用 add 创建
+        console.warn('[Hero] set 失败，尝试 add', dbErr);
+        await db.collection('heroImages').add({ data: { _id: 'config', images: finalFileIDs } });
+      }
       console.log('[Hero] 云数据库写入成功', finalFileIDs);
 
       // 获取临时链接刷新显示
