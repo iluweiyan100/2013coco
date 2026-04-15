@@ -32,5 +32,6 @@ App({
   },
   
   globalData: {
+    cartItems: []  // { uid, id, name, price, image, category, spec, orderType, qty }
   }
 }); 

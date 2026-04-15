@@ -69,14 +69,14 @@ page {
 /* 商品卡片 - 紧凑布局 */
 .product-card {
   display: flex;
-  align-items: center; /* 垂直居中对齐 */
+  align-items: flex-start;
   background: #FFFFFF;
   border-radius: 16rpx;
-  padding: 24rpx; /* 上下左右统一 24rpx (12px) */
+  padding: 24rpx;
   margin-bottom: 20rpx;
   box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.06);
-  min-height: auto; /* 移除固定最小高度，由内容决定 */
-  height: auto; /* 自适应高度 */
+  min-height: auto;
+  height: auto;
 }
 
 /* 最后一个商品卡片不需要底部边距（由容器 padding-bottom 控制） */
@@ -98,9 +98,33 @@ page {
   flex: 1;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: space-between;
   gap: 8rpx;
   min-width: 0; /* 允许文本截断 */
+}
+
+/* 卡片底部：价格左 + 加减号右 */
+.product-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8rpx;
+}
+
+/* 规格标签组 */
+.spec-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8rpx;
+}
+
+.spec-tag {
+  font-size: 22rpx;
+  color: #A3212D;
+  background: #FAF0EE;
+  border-radius: 8rpx;
+  padding: 4rpx 12rpx;
+  line-height: 1.4;
 }
 
 .product-name {
@@ -129,19 +153,170 @@ page {
   white-space: nowrap;
 }
 
-/* 添加按钮 - 32×32px = 64×64rpx */
+/* 添加按钮 - 24px = 48rpx */
 .add-btn {
-  width: 64rpx;
-  height: 64rpx;
+  width: 48rpx;
+  height: 48rpx;
   background: #A3212D;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-left: 16rpx;
   flex-shrink: 0;
   cursor: pointer;
   transition: opacity 0.2s;
+}
+
+/* 数量控制区：减号 + 数字 + 加号 */
+.qty-control {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+  flex-shrink: 0;
+}
+
+.minus-btn {
+  width: 48rpx;
+  height: 48rpx;
+  border-radius: 50%;
+  border: 2rpx solid #A3212D;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.minus-line {
+  width: 20rpx;
+  height: 2rpx;
+  background: #A3212D;
+  border-radius: 2rpx;
+}
+
+.qty-num {
+  font-size: 24rpx;
+  font-weight: 600;
+  color: #3A2318;
+  min-width: 28rpx;
+  text-align: center;
+}
+
+/* ========== 规格选择小浮窗 ========== */
+.spec-mask {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 300;
+}
+
+.spec-popup {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 560rpx;
+  background: #FFFFFF;
+  border-radius: 32rpx;
+  padding: 48rpx 40rpx 40rpx;
+  z-index: 301;
+  box-shadow: 0 16rpx 48rpx rgba(0, 0, 0, 0.18);
+  box-sizing: border-box;
+}
+
+.spec-popup-title {
+  display: block;
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #3A2318;
+  text-align: center;
+  margin-bottom: 8rpx;
+}
+
+.spec-popup-subtitle {
+  display: block;
+  font-size: 26rpx;
+  color: rgba(58, 35, 24, 0.55);
+  text-align: center;
+  margin-bottom: 36rpx;
+}
+
+.spec-options {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+  margin-bottom: 28rpx;
+}
+
+/* 堂食/外带横排 */
+.spec-options-row {
+  flex-direction: row;
+  gap: 16rpx;
+}
+
+.spec-option-half,
+.spec-option-flex {
+  flex: 1;
+}
+
+.spec-option {
+  height: 80rpx;
+  border-radius: 16rpx;
+  border: 2rpx solid #E7DDD1;
+  background: #FAF6F2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.spec-option-active {
+  border-color: #A3212D;
+  background: rgba(163, 33, 45, 0.07);
+}
+
+.spec-option-text {
+  font-size: 28rpx;
+  color: #5A3A29;
+}
+
+.spec-option-text-active {
+  color: #A3212D;
+  font-weight: 500;
+}
+
+.spec-actions {
+  display: flex;
+  gap: 20rpx;
+}
+
+.spec-cancel-btn {
+  flex: 1;
+  height: 80rpx;
+  background: #F5EDE4;
+  border-radius: 40rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.spec-cancel-text {
+  font-size: 28rpx;
+  color: #8B6F5E;
+}
+
+.spec-confirm-btn {
+  flex: 1;
+  height: 80rpx;
+  background: #A3212D;
+  border-radius: 40rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.spec-confirm-text {
+  font-size: 28rpx;
+  font-weight: 500;
+  color: #FFFFFF;
 }
 
 .add-btn:active {
@@ -150,28 +325,28 @@ page {
 
 .icon-plus {
   position: relative;
-  width: 40rpx;
-  height: 40rpx;
+  width: 26rpx;
+  height: 26rpx;
 }
 
 .plus-h,
 .plus-v {
   position: absolute;
   background: #FFFFFF;
-  border-radius: 2rpx;
+  border-radius: 1rpx;
 }
 
 .plus-h {
-  width: 40rpx;
-  height: 4rpx;
+  width: 26rpx;
+  height: 2rpx;
   top: 50%;
   left: 0;
   transform: translateY(-50%);
 }
 
 .plus-v {
-  width: 4rpx;
-  height: 40rpx;
+  width: 2rpx;
+  height: 26rpx;
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);

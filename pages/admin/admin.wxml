@@ -106,15 +106,25 @@
         <text class="add-product-text">新增商品</text>
       </view>
 
+      <!-- 加载中 -->
+      <view wx:if="{{productsLoading}}" class="products-loading">
+        <text class="products-loading-text">加载中...</text>
+      </view>
+
+      <!-- 空状态 -->
+      <view wx:elif="{{filteredProducts.length === 0}}" class="products-empty">
+        <text class="products-empty-text">暂无商品，点击「新增商品」添加</text>
+      </view>
+
       <!-- 商品列表 -->
-      <view class="product-list">
+      <view wx:else class="product-list">
         <view
           wx:for="{{filteredProducts}}"
-          wx:key="id"
+          wx:key="_id"
           class="product-card"
         >
           <view class="product-card-left">
-            <image src="{{item.image}}" class="product-img" mode="aspectFill"></image>
+            <image src="{{item.imageURL || item.image || ''}}" class="product-img" mode="aspectFill"></image>
             <view class="product-info">
               <text class="product-name">{{item.name}}</text>
               <view class="product-meta">
@@ -129,10 +139,10 @@
             </view>
           </view>
           <view class="product-actions">
-            <view class="product-action-btn" bindtap="onEditProduct" data-id="{{item.id}}">
+            <view class="product-action-btn" bindtap="onEditProduct" data-id="{{item._id}}">
               <image src="/assets/CodeBubbyAssets/4_745/4.svg" class="product-action-icon" mode="aspectFit"></image>
             </view>
-            <view class="product-action-btn" bindtap="onDeleteProduct" data-id="{{item.id}}">
+            <view class="product-action-btn" bindtap="onDeleteProduct" data-id="{{item._id}}">
               <image src="/assets/CodeBubbyAssets/4_745/5.svg" class="product-action-icon" mode="aspectFit"></image>
             </view>
           </view>
@@ -299,7 +309,7 @@
 </scroll-view>
 
 <!-- ========== 新增/编辑商品弹窗 ========== -->
-<view wx:if="{{showProductModal}}" class="pm-mask" bindtap="onCloseProductModal"></view>
+<view wx:if="{{showProductModal}}" class="pm-mask" catchtap="onCloseProductModal"></view>
 <view wx:if="{{showProductModal}}" class="pm-box">
 
   <!-- 标题行 -->
@@ -355,28 +365,71 @@
       </picker>
     </view>
 
-    <!-- 价格 + 冰热选项同行 -->
-    <view class="pm-field pm-price-row">
-      <view class="pm-price-col">
-        <text class="pm-label">价格（元）</text>
-        <input
-          class="pm-input pm-input-short"
-          type="digit"
-          value="{{editingProduct.price}}"
-          placeholder="0"
-          placeholder-class="pm-placeholder"
-          bindinput="onInputProductPrice"
-        />
-      </view>
-      <view class="pm-icehot-col">
-        <text class="pm-label">冰/热</text>
-        <view class="pm-icehot-row">
-          <view class="pm-checkbox" bindtap="onToggleIceHot">
-            <view class="pm-checkbox-box {{editingProduct.supportIceHot ? 'pm-checkbox-checked' : ''}}">
-              <text wx:if="{{editingProduct.supportIceHot}}" class="pm-checkbox-tick">✓</text>
-            </view>
+    <!-- 价格独行 -->
+    <view class="pm-field">
+      <text class="pm-label">价格（元）</text>
+      <input
+        class="pm-input pm-input-short"
+        type="digit"
+        value="{{editingProduct.price}}"
+        placeholder="0"
+        placeholder-class="pm-placeholder"
+        bindinput="onInputProductPrice"
+      />
+    </view>
+
+    <!-- 温度选项 -->
+    <view class="pm-field">
+      <text class="pm-label">温度选项</text>
+      <view class="pm-checkbox-group">
+        <view class="pm-checkbox-item" bindtap="onToggleIce">
+          <view class="pm-checkbox-box {{editingProduct.supportIce ? 'pm-checkbox-checked' : ''}}">
+            <text wx:if="{{editingProduct.supportIce}}" class="pm-checkbox-tick">✓</text>
           </view>
-          <text class="pm-label pm-label-inline">支持</text>
+          <text class="pm-checkbox-label">冰</text>
+        </view>
+        <view class="pm-checkbox-item" bindtap="onToggleHot">
+          <view class="pm-checkbox-box {{editingProduct.supportHot ? 'pm-checkbox-checked' : ''}}">
+            <text wx:if="{{editingProduct.supportHot}}" class="pm-checkbox-tick">✓</text>
+          </view>
+          <text class="pm-checkbox-label">热</text>
+        </view>
+        <view class="pm-checkbox-item" bindtap="onToggleNormal">
+          <view class="pm-checkbox-box {{editingProduct.supportNormal ? 'pm-checkbox-checked' : ''}}">
+            <text wx:if="{{editingProduct.supportNormal}}" class="pm-checkbox-tick">✓</text>
+          </view>
+          <text class="pm-checkbox-label">常温</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 拼球选项（仅冰淇淋类） -->
+    <view wx:if="{{editingProduct.category === 'icecream'}}" class="pm-field">
+      <text class="pm-label">拼球选项</text>
+      <view class="pm-checkbox-group">
+        <view class="pm-checkbox-item" bindtap="onToggleScoop" data-val="单球">
+          <view class="pm-checkbox-box {{editingProduct.scoopChecked['单球'] ? 'pm-checkbox-checked' : ''}}">
+            <text wx:if="{{editingProduct.scoopChecked['单球']}}" class="pm-checkbox-tick">✓</text>
+          </view>
+          <text class="pm-checkbox-label">单球</text>
+        </view>
+        <view class="pm-checkbox-item" bindtap="onToggleScoop" data-val="双球">
+          <view class="pm-checkbox-box {{editingProduct.scoopChecked['双球'] ? 'pm-checkbox-checked' : ''}}">
+            <text wx:if="{{editingProduct.scoopChecked['双球']}}" class="pm-checkbox-tick">✓</text>
+          </view>
+          <text class="pm-checkbox-label">双球</text>
+        </view>
+        <view class="pm-checkbox-item" bindtap="onToggleScoop" data-val="三球">
+          <view class="pm-checkbox-box {{editingProduct.scoopChecked['三球'] ? 'pm-checkbox-checked' : ''}}">
+            <text wx:if="{{editingProduct.scoopChecked['三球']}}" class="pm-checkbox-tick">✓</text>
+          </view>
+          <text class="pm-checkbox-label">三球</text>
+        </view>
+        <view class="pm-checkbox-item" bindtap="onToggleScoop" data-val="四球">
+          <view class="pm-checkbox-box {{editingProduct.scoopChecked['四球'] ? 'pm-checkbox-checked' : ''}}">
+            <text wx:if="{{editingProduct.scoopChecked['四球']}}" class="pm-checkbox-tick">✓</text>
+          </view>
+          <text class="pm-checkbox-label">四球</text>
         </view>
       </view>
     </view>

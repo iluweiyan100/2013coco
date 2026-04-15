@@ -249,6 +249,18 @@ page {
   color: #FFFFFF;
 }
 
+.products-loading,
+.products-empty {
+  padding: 60rpx 0;
+  text-align: center;
+}
+
+.products-loading-text,
+.products-empty-text {
+  font-size: 26rpx;
+  color: #999;
+}
+
 .product-list {
   display: flex;
   flex-direction: column;
@@ -547,7 +559,26 @@ page {
   gap: 16rpx;
 }
 
-/* 价格+冰热同行布局 */
+/* 勾选框组（温度选项、拼球选项） */
+.pm-checkbox-group {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 24rpx;
+}
+
+.pm-checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.pm-checkbox-label {
+  font-size: 28rpx;
+  color: #3A2318;
+}
+
+/* 旧的冰热同行布局（保留兼容） */
 .pm-price-row {
   display: flex;
   flex-direction: row;

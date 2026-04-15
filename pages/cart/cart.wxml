@@ -6,7 +6,7 @@
 <view class="cart-page">
 
   <!-- 空购物车 -->
-  <view wx:if="{{cartList.length === 0}}" class="cart-empty">
+  <view wx:if="{{dineInList.length === 0 && takeawayList.length === 0}}" class="cart-empty">
     <image src="/images/icons/cart.png" class="cart-empty-icon" mode="aspectFit"></image>
     <text class="cart-empty-text">购物车还是空的</text>
     <text class="cart-empty-hint">快去点单页添加喜欢的饮品吧～</text>
@@ -19,29 +19,53 @@
   <block wx:else>
     <scroll-view class="cart-scroll" scroll-y>
 
-      <!-- 堂食/外带标签 -->
-      <view class="cart-type-bar">
-        <view class="cart-type-tag">
-          <text class="cart-type-text">{{orderType === 'dine-in' ? '堂食' : '外带'}}</text>
+      <!-- ===== 堂食分组 ===== -->
+      <view wx:if="{{dineInList.length > 0}}" class="cart-group">
+        <view class="cart-group-header">
+          <view class="cart-group-tag cart-group-tag-dine">堂食</view>
+        </view>
+        <view class="cart-list">
+          <view class="cart-item" wx:for="{{dineInList}}" wx:key="uid">
+            <image src="{{item.image}}" class="cart-item-img" mode="aspectFill"></image>
+            <view class="cart-item-info">
+              <text class="cart-item-name">{{item.name}}</text>
+              <text wx:if="{{item.spec}}" class="cart-item-temp">{{item.spec}}</text>
+              <text class="cart-item-price">¥{{item.price}}</text>
+            </view>
+            <view class="cart-item-qty-row">
+              <view class="qty-btn" bindtap="onDecQty" data-uid="{{item.uid}}">
+                <text class="qty-btn-text">−</text>
+              </view>
+              <text class="qty-num">{{item.qty}}</text>
+              <view class="qty-btn" bindtap="onIncQty" data-uid="{{item.uid}}">
+                <text class="qty-btn-text">+</text>
+              </view>
+            </view>
+          </view>
         </view>
       </view>
 
-      <!-- 商品条目 -->
-      <view class="cart-list">
-        <view class="cart-item" wx:for="{{cartList}}" wx:key="uid">
-          <image src="{{item.image}}" class="cart-item-img" mode="aspectFill"></image>
-          <view class="cart-item-info">
-            <text class="cart-item-name">{{item.name}}</text>
-            <text wx:if="{{item.temp}}" class="cart-item-temp">{{item.temp}}</text>
-            <text class="cart-item-price">¥{{item.price}}</text>
-          </view>
-          <view class="cart-item-qty-row">
-            <view class="qty-btn" bindtap="onDecQty" data-uid="{{item.uid}}">
-              <text class="qty-btn-text">−</text>
+      <!-- ===== 外带分组 ===== -->
+      <view wx:if="{{takeawayList.length > 0}}" class="cart-group">
+        <view class="cart-group-header">
+          <view class="cart-group-tag cart-group-tag-takeaway">外带</view>
+        </view>
+        <view class="cart-list">
+          <view class="cart-item" wx:for="{{takeawayList}}" wx:key="uid">
+            <image src="{{item.image}}" class="cart-item-img" mode="aspectFill"></image>
+            <view class="cart-item-info">
+              <text class="cart-item-name">{{item.name}}</text>
+              <text wx:if="{{item.spec}}" class="cart-item-temp">{{item.spec}}</text>
+              <text class="cart-item-price">¥{{item.price}}</text>
             </view>
-            <text class="qty-num">{{item.qty}}</text>
-            <view class="qty-btn" bindtap="onIncQty" data-uid="{{item.uid}}">
-              <text class="qty-btn-text">+</text>
+            <view class="cart-item-qty-row">
+              <view class="qty-btn" bindtap="onDecQty" data-uid="{{item.uid}}">
+                <text class="qty-btn-text">−</text>
+              </view>
+              <text class="qty-num">{{item.qty}}</text>
+              <view class="qty-btn" bindtap="onIncQty" data-uid="{{item.uid}}">
+                <text class="qty-btn-text">+</text>
+              </view>
             </view>
           </view>
         </view>

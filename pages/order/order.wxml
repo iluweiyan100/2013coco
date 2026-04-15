@@ -45,22 +45,48 @@
           <!-- 商品信息区 -->
           <view class="product-info">
             <text class="product-name">{{item.name}}</text>
-            <text class="product-price">¥{{item.price}}</text>
-            <text wx:if="{{item.description}}" class="product-desc">{{item.description}}</text>
-          </view>
-          
-          <!-- 添加按钮 -->
-          <view class="add-btn" bindtap="onAddToCart" data-id="{{item.id}}" hover-class="btn-active" hover-stay-time="100">
-            <view class="icon-plus">
-              <view class="plus-h"></view>
-              <view class="plus-v"></view>
+
+            <!-- 规格标签：温度选项 -->
+            <view class="spec-tags" wx:if="{{item.supportIce || item.supportHot || item.supportNormal}}">
+              <text wx:if="{{item.supportIce}}" class="spec-tag">冰</text>
+              <text wx:if="{{item.supportHot}}" class="spec-tag">热</text>
+              <text wx:if="{{item.supportNormal}}" class="spec-tag">常温</text>
+            </view>
+
+            <!-- 规格标签：拼球选项（冰淇淋） -->
+            <view class="spec-tags" wx:elif="{{item.scoopOptions && item.scoopOptions.length > 0}}">
+              <text wx:for="{{item.scoopOptions}}" wx:key="*this" class="spec-tag">{{item}}</text>
+            </view>
+
+            <!-- 底部：价格 + 加减号 -->
+            <view class="product-card-footer">
+              <text class="product-price">¥{{item.price}}</text>
+              <view class="qty-control">
+                <block wx:if="{{cartMap[item.id] > 0}}">
+                  <view class="minus-btn" bindtap="onRemoveFromCart" data-id="{{item.id}}">
+                    <view class="minus-line"></view>
+                  </view>
+                  <text class="qty-num">{{cartMap[item.id]}}</text>
+                </block>
+                <view class="add-btn" bindtap="onAddToCart" data-id="{{item.id}}" hover-class="btn-active" hover-stay-time="100">
+                  <view class="icon-plus">
+                    <view class="plus-h"></view>
+                    <view class="plus-v"></view>
+                  </view>
+                </view>
+              </view>
             </view>
           </view>
         </view>
       </block>
       
+      <!-- 加载中 -->
+      <view wx:if="{{loading}}" class="empty-state">
+        <text class="empty-text">加载中...</text>
+      </view>
+
       <!-- 空状态提示 -->
-      <view wx:if="{{allProducts.length === 0}}" class="empty-state">
+      <view wx:elif="{{allProducts.length === 0}}" class="empty-state">
         <text class="empty-text">暂无商品</text>
       </view>
 
@@ -76,5 +102,55 @@
   <image src="/images/icons/cart.png" class="cart-fab-icon" mode="aspectFit"></image>
   <view wx:if="{{cartCount > 0}}" class="cart-fab-badge">
     <text class="cart-fab-badge-text">{{cartCount}}</text>
+  </view>
+</view>
+
+<!-- 规格选择小浮窗 -->
+<view wx:if="{{showSpecModal}}" class="spec-mask" catchtap="onCancelSpec"></view>
+<view wx:if="{{showSpecModal}}" class="spec-popup">
+  <text class="spec-popup-title">{{specModalProduct.name}}</text>
+
+  <!-- 规格选项（有规格时才显示） -->
+  <block wx:if="{{specModalType !== 'none'}}">
+    <text class="spec-popup-subtitle">{{specModalType === 'temp' ? '请选择温度' : '请选择球数'}}</text>
+    <view class="spec-options spec-options-row">
+      <view
+        wx:for="{{specOptions}}"
+        wx:key="*this"
+        class="spec-option spec-option-flex {{selectedSpec === item ? 'spec-option-active' : ''}}"
+        bindtap="onSelectSpec"
+        data-val="{{item}}"
+      >
+        <text class="spec-option-text {{selectedSpec === item ? 'spec-option-text-active' : ''}}">{{item}}</text>
+      </view>
+    </view>
+  </block>
+
+  <!-- 就餐方式（始终显示） -->
+  <text class="spec-popup-subtitle">请选择就餐方式</text>
+  <view class="spec-options spec-options-row">
+    <view
+      class="spec-option spec-option-half {{selectedOrderType === 'dine-in' ? 'spec-option-active' : ''}}"
+      bindtap="onSelectOrderType"
+      data-val="dine-in"
+    >
+      <text class="spec-option-text {{selectedOrderType === 'dine-in' ? 'spec-option-text-active' : ''}}">堂食</text>
+    </view>
+    <view
+      class="spec-option spec-option-half {{selectedOrderType === 'takeaway' ? 'spec-option-active' : ''}}"
+      bindtap="onSelectOrderType"
+      data-val="takeaway"
+    >
+      <text class="spec-option-text {{selectedOrderType === 'takeaway' ? 'spec-option-text-active' : ''}}">外带</text>
+    </view>
+  </view>
+
+  <view class="spec-actions">
+    <view class="spec-cancel-btn" bindtap="onCancelSpec">
+      <text class="spec-cancel-text">取消</text>
+    </view>
+    <view class="spec-confirm-btn" bindtap="onConfirmSpec">
+      <text class="spec-confirm-text">确认</text>
+    </view>
   </view>
 </view>

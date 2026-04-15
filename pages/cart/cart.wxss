@@ -65,22 +65,34 @@ page {
   overflow-y: auto;
 }
 
-.cart-type-bar {
-  padding: 24rpx 32rpx 8rpx;
+/* ========== 分组标题 ========== */
+.cart-group {
+  margin-top: 16rpx;
 }
 
-.cart-type-tag {
+.cart-group-header {
+  padding: 20rpx 32rpx 8rpx;
+}
+
+.cart-group-tag {
   display: inline-flex;
   align-items: center;
-  background: rgba(163, 33, 45, 0.10);
-  border-radius: 12rpx;
-  padding: 8rpx 24rpx;
+  justify-content: center;
+  font-size: 24rpx;
+  font-weight: 600;
+  border-radius: 10rpx;
+  padding: 6rpx 20rpx;
+  letter-spacing: 2rpx;
 }
 
-.cart-type-text {
-  font-size: 24rpx;
+.cart-group-tag-dine {
+  background: rgba(163, 33, 45, 0.10);
   color: #A3212D;
-  font-weight: 500;
+}
+
+.cart-group-tag-takeaway {
+  background: rgba(58, 35, 24, 0.08);
+  color: #5B3A29;
 }
 
 .cart-list {

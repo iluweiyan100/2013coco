@@ -19,31 +19,15 @@ Page({
     // ===== 商品管理 =====
     activeCategoryFilter: 'all',
     categoryFilters: [
-      { value: 'all',    label: '全部',      count: 16 },
-      { value: 'coco',   label: '可可',      count: 4  },
-      { value: 'coffee', label: '咖啡',      count: 4  },
-      { value: 'icecream', label: '冰淇淋',  count: 4  },
-      { value: 'other',  label: '无咖啡因饮品', count: 4 }
+      { value: 'all',    label: '全部',        count: 0 },
+      { value: 'coco',   label: '可可',        count: 0 },
+      { value: 'coffee', label: '咖啡',        count: 0 },
+      { value: 'icecream', label: '冰淇淋',    count: 0 },
+      { value: 'other',  label: '无咖啡因饮品', count: 0 }
     ],
-    products: [
-      { id: 1,  name: '经典热可可',   price: '28', category: 'coco',     categoryLabel: '可可',      saleStatus: 'on',  image: '/assets/CodeBubbyAssets/4_745/3.svg',  spec: '', supportIceHot: true  },
-      { id: 2,  name: '榛子可可',     price: '32', category: 'coco',     categoryLabel: '可可',      saleStatus: 'on',  image: '/assets/CodeBubbyAssets/4_745/6.svg',  spec: '', supportIceHot: true  },
-      { id: 3,  name: '白巧克力可可', price: '32', category: 'coco',     categoryLabel: '可可',      saleStatus: 'on',  image: '/assets/CodeBubbyAssets/4_745/9.svg',  spec: '', supportIceHot: true  },
-      { id: 4,  name: '摩卡可可',     price: '35', category: 'coco',     categoryLabel: '可可',      saleStatus: 'on',  image: '/assets/CodeBubbyAssets/4_745/12.svg', spec: '', supportIceHot: true  },
-      { id: 5,  name: '美式咖啡',     price: '25', category: 'coffee',   categoryLabel: '咖啡',      saleStatus: 'on',  image: '/assets/CodeBubbyAssets/4_745/15.svg', spec: '', supportIceHot: true  },
-      { id: 6,  name: '拿铁咖啡',     price: '30', category: 'coffee',   categoryLabel: '咖啡',      saleStatus: 'on',  image: '/assets/CodeBubbyAssets/4_745/18.svg', spec: '', supportIceHot: true  },
-      { id: 7,  name: '卡布奇诺',     price: '30', category: 'coffee',   categoryLabel: '咖啡',      saleStatus: 'on',  image: '/assets/CodeBubbyAssets/4_745/21.svg', spec: '', supportIceHot: true  },
-      { id: 8,  name: '焦糖玛奇朵',   price: '35', category: 'coffee',   categoryLabel: '咖啡',      saleStatus: 'on',  image: '/assets/CodeBubbyAssets/4_745/24.svg', spec: '', supportIceHot: true  },
-      { id: 9,  name: '香草冰淇淋',   price: '22', category: 'icecream', categoryLabel: '冰淇淋',    saleStatus: 'on',  image: '/assets/CodeBubbyAssets/4_745/27.svg', spec: '单球/双球', supportIceHot: false },
-      { id: 10, name: '巧克力冰淇淋', price: '25', category: 'icecream', categoryLabel: '冰淇淋',    saleStatus: 'on',  image: '/assets/CodeBubbyAssets/4_745/30.svg', spec: '单球/双球', supportIceHot: false },
-      { id: 11, name: '草莓冰淇淋',   price: '25', category: 'icecream', categoryLabel: '冰淇淋',    saleStatus: 'on',  image: '/assets/CodeBubbyAssets/4_745/33.svg', spec: '单球/双球', supportIceHot: false },
-      { id: 12, name: '抹茶冰淇淋',   price: '28', category: 'icecream', categoryLabel: '冰淇淋',    saleStatus: 'on',  image: '/assets/CodeBubbyAssets/4_745/36.svg', spec: '单球/双球', supportIceHot: false },
-      { id: 13, name: '奶茶',         price: '20', category: 'other',    categoryLabel: '无咖啡因饮品', saleStatus: 'on', image: '/assets/CodeBubbyAssets/4_745/39.svg', spec: '', supportIceHot: true  },
-      { id: 14, name: '水果茶',       price: '22', category: 'other',    categoryLabel: '无咖啡因饮品', saleStatus: 'on', image: '/assets/CodeBubbyAssets/4_745/42.svg', spec: '', supportIceHot: true  },
-      { id: 15, name: '柠檬水',       price: '18', category: 'other',    categoryLabel: '无咖啡因饮品', saleStatus: 'on', image: '/assets/CodeBubbyAssets/4_745/45.svg', spec: '', supportIceHot: true  },
-      { id: 16, name: '鲜榨橙汁',     price: '25', category: 'other',    categoryLabel: '无咖啡因饮品', saleStatus: 'on', image: '/assets/CodeBubbyAssets/4_745/48.svg', spec: '', supportIceHot: false }
-    ],
+    products: [],
     filteredProducts: [],
+    productsLoading: false,
 
     // 商品弹窗
     showProductModal: false,
@@ -56,7 +40,11 @@ Page({
       categoryIndex: 0,
       saleStatus: 'on',
       spec: '',
-      supportIceHot: false,
+      supportIce: false,
+      supportHot: false,
+      supportNormal: false,
+      scoopOptions: [],
+      scoopChecked: { 单球: false, 双球: false, 三球: false, 四球: false },
       imagePreview: ''
     },
     categoryOptions: [
@@ -119,7 +107,7 @@ Page({
   onLoad() {
     this._initCloudDB();
     this.loadHomeSettings();
-    this._applyProductFilter('all');
+    this._loadProductsFromCloud();
     this._applyOrderFilter('all');
   },
 
@@ -141,11 +129,34 @@ Page({
   },
 
   // ===== 商品管理 =====
-  _applyProductFilter(category) {
-    const products = this.data.products;
-    const filtered = category === 'all'
-      ? products
-      : products.filter(p => p.category === category);
+
+  // 从云数据库加载商品列表
+  async _loadProductsFromCloud() {
+    this.setData({ productsLoading: true });
+    try {
+      const res = await wx.cloud.callFunction({ name: 'initDB', data: { action: 'getProducts' } });
+      const products = (res.result && res.result.data) || [];
+      this.setData({ products, productsLoading: false });
+      this._refreshCategoryFilters(products);
+      this._applyProductFilter(this.data.activeCategoryFilter, products);
+    } catch (e) {
+      console.warn('[Products] 加载失败', e);
+      this.setData({ productsLoading: false });
+    }
+  },
+
+  // 刷新分类筛选器的数量
+  _refreshCategoryFilters(products) {
+    const filters = this.data.categoryFilters.map(f => {
+      if (f.value === 'all') return { ...f, count: products.length };
+      return { ...f, count: products.filter(p => p.category === f.value).length };
+    });
+    this.setData({ categoryFilters: filters });
+  },
+
+  _applyProductFilter(category, products) {
+    const list = products || this.data.products;
+    const filtered = category === 'all' ? list : list.filter(p => p.category === category);
     this.setData({ filteredProducts: filtered, activeCategoryFilter: category });
   },
 
@@ -166,31 +177,48 @@ Page({
         categoryIndex: 0,
         saleStatus: 'on',
         spec: '',
-        supportIceHot: false,
-        imagePreview: ''
+        supportIce: false,
+        supportHot: false,
+        supportNormal: false,
+        scoopOptions: [],
+        scoopChecked: { 单球: false, 双球: false, 三球: false, 四球: false },
+        imagePreview: '',
+        imageFileID: ''
       }
     });
   },
 
   onEditProduct(e) {
     const id = e.currentTarget.dataset.id;
-    const product = this.data.products.find(p => p.id === id);
+    const product = this.data.products.find(p => p._id === id);
     if (!product) return;
     const categoryOptions = this.data.categoryOptions;
     const categoryIndex = categoryOptions.findIndex(c => c.value === product.category);
+    // 兼容旧数据：supportIceHot:true 映射为 supportIce+supportHot
+    const legacyIceHot = product.supportIceHot || false;
     this.setData({
       showProductModal: true,
       editingProduct: {
-        id: product.id,
+        id: product._id,
         name: product.name,
-        price: product.price,
+        price: String(product.price),
         category: product.category,
         categoryLabel: product.categoryLabel,
         categoryIndex: categoryIndex >= 0 ? categoryIndex : 0,
         saleStatus: product.saleStatus,
         spec: product.spec || '',
-        supportIceHot: product.supportIceHot || false,
-        imagePreview: product.image || ''
+        supportIce: product.supportIce !== undefined ? product.supportIce : legacyIceHot,
+        supportHot: product.supportHot !== undefined ? product.supportHot : legacyIceHot,
+        supportNormal: product.supportNormal || false,
+        scoopOptions: product.scoopOptions || [],
+        scoopChecked: {
+          单球: (product.scoopOptions || []).indexOf('单球') >= 0,
+          双球: (product.scoopOptions || []).indexOf('双球') >= 0,
+          三球: (product.scoopOptions || []).indexOf('三球') >= 0,
+          四球: (product.scoopOptions || []).indexOf('四球') >= 0
+        },
+        imagePreview: product.imageURL || product.image || '',
+        imageFileID: product.imageFileID || ''
       }
     });
   },
@@ -199,14 +227,33 @@ Page({
     this.setData({ showProductModal: false });
   },
 
+  // 选择商品图片并立即上传到云存储
   onChooseImage() {
     wx.chooseMedia({
       count: 1,
       mediaType: ['image'],
       sourceType: ['album', 'camera'],
-      success: (res) => {
+      success: async (res) => {
         const path = res.tempFiles[0].tempFilePath;
         this.setData({ 'editingProduct.imagePreview': path });
+        wx.showLoading({ title: '上传中...', mask: true });
+        try {
+          const rawExt = path.split('?')[0].split('.').pop() || '';
+          const ext = rawExt.replace(/[^a-zA-Z]/g, '').toLowerCase() || 'jpg';
+          const cloudPath = `products/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+          const uploadRes = await new Promise((resolve, reject) => {
+            wx.cloud.uploadFile({ cloudPath, filePath: path, success: resolve, fail: reject });
+          });
+          const urlRes = await wx.cloud.getTempFileURL({ fileList: [uploadRes.fileID] });
+          this.setData({
+            'editingProduct.imagePreview': urlRes.fileList[0].tempFileURL,
+            'editingProduct.imageFileID': uploadRes.fileID
+          });
+          wx.hideLoading();
+        } catch (e) {
+          wx.hideLoading();
+          wx.showToast({ title: '图片上传失败', icon: 'none' });
+        }
       }
     });
   },
@@ -218,11 +265,17 @@ Page({
   onPickerCategory(e) {
     const index = parseInt(e.detail.value);
     const option = this.data.categoryOptions[index];
-    this.setData({
+    const update = {
       'editingProduct.categoryIndex': index,
       'editingProduct.category': option.value,
       'editingProduct.categoryLabel': option.label
-    });
+    };
+    // 切换类别时重置拼球选项，避免残留数据写入数据库
+    if (option.value !== 'icecream') {
+      update['editingProduct.scoopOptions'] = [];
+      update['editingProduct.scoopChecked'] = { 单球: false, 双球: false, 三球: false, 四球: false };
+    }
+    this.setData(update);
   },
 
   onInputProductPrice(e) {
@@ -237,53 +290,75 @@ Page({
     this.setData({ 'editingProduct.saleStatus': e.currentTarget.dataset.status });
   },
 
-  onToggleIceHot() {
-    this.setData({ 'editingProduct.supportIceHot': !this.data.editingProduct.supportIceHot });
+  onToggleIce() {
+    this.setData({ 'editingProduct.supportIce': !this.data.editingProduct.supportIce });
   },
 
-  onSaveProduct() {
-    const ep = this.data.editingProduct;
-    if (!ep.name) {
-      wx.showToast({ title: '请输入商品名称', icon: 'none' });
-      return;
-    }
-    if (!ep.price) {
-      wx.showToast({ title: '请输入价格', icon: 'none' });
-      return;
-    }
-    const products = this.data.products.slice();
-    if (ep.id) {
-      const idx = products.findIndex(p => p.id === ep.id);
-      if (idx >= 0) {
-        products[idx] = {
-          ...products[idx],
-          name: ep.name,
-          price: ep.price,
-          category: ep.category,
-          categoryLabel: ep.categoryLabel,
-          saleStatus: ep.saleStatus,
-          spec: ep.spec,
-          supportIceHot: ep.supportIceHot,
-          image: ep.imagePreview || products[idx].image
-        };
-      }
+  onToggleHot() {
+    this.setData({ 'editingProduct.supportHot': !this.data.editingProduct.supportHot });
+  },
+
+  onToggleNormal() {
+    this.setData({ 'editingProduct.supportNormal': !this.data.editingProduct.supportNormal });
+  },
+
+  onToggleScoop(e) {
+    const val = e.currentTarget.dataset.val;
+    const current = this.data.editingProduct.scoopOptions.slice();
+    const idx = current.indexOf(val);
+    if (idx >= 0) {
+      current.splice(idx, 1);
     } else {
-      const newId = Date.now();
-      products.push({
-        id: newId,
-        name: ep.name,
-        price: ep.price,
-        category: ep.category,
-        categoryLabel: ep.categoryLabel,
-        saleStatus: ep.saleStatus,
-        spec: ep.spec,
-        supportIceHot: ep.supportIceHot,
-        image: ep.imagePreview || ''
-      });
+      current.push(val);
     }
-    this.setData({ products, showProductModal: false });
-    this._applyProductFilter(this.data.activeCategoryFilter);
-    wx.showToast({ title: '保存成功', icon: 'success' });
+    const checked = {
+      单球: current.indexOf('单球') >= 0,
+      双球: current.indexOf('双球') >= 0,
+      三球: current.indexOf('三球') >= 0,
+      四球: current.indexOf('四球') >= 0
+    };
+    this.setData({
+      'editingProduct.scoopOptions': current,
+      'editingProduct.scoopChecked': checked
+    });
+  },
+
+  async onSaveProduct() {
+    const ep = this.data.editingProduct;
+    if (!ep.name) { wx.showToast({ title: '请输入商品名称', icon: 'none' }); return; }
+    if (!ep.price) { wx.showToast({ title: '请输入价格', icon: 'none' }); return; }
+
+    const productData = {
+      name: ep.name,
+      price: ep.price,
+      category: ep.category,
+      categoryLabel: ep.categoryLabel,
+      saleStatus: ep.saleStatus,
+      spec: ep.spec || '',
+      supportIce: ep.supportIce || false,
+      supportHot: ep.supportHot || false,
+      supportNormal: ep.supportNormal || false,
+      scoopOptions: ep.category === 'icecream' ? (ep.scoopOptions || []) : [],
+      imageFileID: ep.imageFileID || '',
+      imageURL: ep.imagePreview || ''
+    };
+
+    wx.showLoading({ title: '保存中...', mask: true });
+    try {
+      if (ep.id) {
+        await wx.cloud.callFunction({ name: 'initDB', data: { action: 'updateProduct', id: ep.id, product: productData } });
+      } else {
+        await wx.cloud.callFunction({ name: 'initDB', data: { action: 'addProduct', product: productData } });
+      }
+      wx.hideLoading();
+      this.setData({ showProductModal: false });
+      wx.showToast({ title: '保存成功', icon: 'success' });
+      this._loadProductsFromCloud();
+    } catch (e) {
+      wx.hideLoading();
+      wx.showToast({ title: '保存失败，请重试', icon: 'none' });
+      console.error('[Products] 保存失败', e);
+    }
   },
 
   onDeleteProduct(e) {
@@ -291,12 +366,18 @@ Page({
     wx.showModal({
       title: '确认删除',
       content: '删除后不可恢复，是否继续？',
-      success: (res) => {
+      success: async (res) => {
         if (res.confirm) {
-          const products = this.data.products.filter(p => p.id !== id);
-          this.setData({ products });
-          this._applyProductFilter(this.data.activeCategoryFilter);
-          wx.showToast({ title: '已删除', icon: 'success' });
+          wx.showLoading({ title: '删除中...', mask: true });
+          try {
+            await wx.cloud.callFunction({ name: 'initDB', data: { action: 'deleteProduct', id } });
+            wx.hideLoading();
+            wx.showToast({ title: '已删除', icon: 'success' });
+            this._loadProductsFromCloud();
+          } catch (e) {
+            wx.hideLoading();
+            wx.showToast({ title: '删除失败', icon: 'none' });
+          }
         }
       }
     });
