@@ -5,7 +5,6 @@ Page({
   },
 
   onLoad() {
-    this.getUserInfo();
     this._loadHeroImages();
   },
 
@@ -34,21 +33,7 @@ Page({
     }
   },
 
-  // 获取用户信息
-  getUserInfo() {
-    wx.cloud.callFunction({
-      name: 'getOpenId',
-      success: res => {
-        console.log('用户 OpenID:', res.result.openid);
-        this.globalData = {
-          openid: res.result.openid
-        };
-      },
-      fail: err => {
-        console.error('获取用户信息失败:', err);
-      }
-    });
-  },
+
 
   // 堂食点击
   onDineInTap() {

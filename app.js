@@ -11,27 +11,33 @@ App({
       });
     }
 
-    // 获取用户信息
-    wx.getSetting({
+    // 获取用户 openid
+    this.getOpenId();
+  },
+
+  // 获取 openid
+  getOpenId() {
+    wx.cloud.callFunction({
+      name: 'getOpenId',
       success: res => {
-        if (res.authSetting['scope.userInfo']) {
-          // 已经授权，可以直接调用 getUserInfo 获取头像昵称
-          wx.getUserInfo({
-            success: res => {
-              this.globalData.userInfo = res.userInfo;
-              // 由于 getUserInfo 是网络请求，可能会在 Page.onLoad 之后才返回
-              // 所以此处加入 callback 以防止这种情况
-              if (this.userInfoReadyCallback) {
-                this.userInfoReadyCallback(res);
-              }
-            }
-          });
+        console.log('用户 OpenID:', res.result.openid);
+        this.globalData.openid = res.result.openid;
+        this.globalData.user = res.result.user;
+
+        // 触发 openid 准备就绪回调
+        if (this.openidReadyCallback) {
+          this.openidReadyCallback(res.result);
         }
+      },
+      fail: err => {
+        console.error('获取用户信息失败:', err);
       }
     });
   },
   
   globalData: {
-    cartItems: []  // { uid, id, name, price, image, category, spec, orderType, qty }
+    cartItems: [], // { uid, id, name, price, image, category, spec, orderType, qty }
+    openid: '',
+    user: null // 用户完整信息 { _id, openid, nickName, avatarUrl, createTime, updateTime }
   }
 }); 

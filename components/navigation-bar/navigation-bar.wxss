@@ -65,7 +65,8 @@
   flex-direction: row;
   align-items: center;
   justify-content: center;
-  font-weight: bold;
+  font-weight: 400;
+  font-family: 'Noto Serif SC', serif;
   flex: 1;
   height: 100%;
 }
