@@ -1,6 +1,6 @@
 // 云函数入口文件 - 支付结果回调
 const cloud = require('wx-server-sdk')
-cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
+cloud.init({ env: 'cloud3-d2gbcvyqkbc0fbf94' })
 const db = cloud.database()
 
 exports.main = async (event, context) => {

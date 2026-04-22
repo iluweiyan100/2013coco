@@ -1,6 +1,6 @@
 const cloud = require('wx-server-sdk')
 
-cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
+cloud.init({ env: 'cloud3-d2gbcvyqkbc0fbf94' })
 
 /**
  * 初始化数据库集合 & 写入数据

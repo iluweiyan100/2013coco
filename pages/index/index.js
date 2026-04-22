@@ -19,12 +19,14 @@ Page({
     try {
       const db = wx.cloud.database();
       const res = await db.collection('heroImages').doc('config').get();
-      const fileIDs = (res.data && res.data.images) || [];
-      if (fileIDs.length === 0) {
+      const images = (res.data && res.data.images) || [];
+      if (images.length === 0) {
         this.setData({ heroImages: [] });
         return;
       }
-      const urlRes = await wx.cloud.getTempFileURL({ fileList: fileIDs });
+      // 提取 fileID 字符串列表
+      const fileList = images.map(img => img.fileID || img).filter(Boolean);
+      const urlRes = await wx.cloud.getTempFileURL({ fileList });
       const urls = urlRes.fileList.map(f => f.tempFileURL);
       this.setData({ heroImages: urls });
     } catch (e) {
