@@ -155,7 +155,7 @@
     <view wx:if="{{activeTab === 'orders'}}" class="tab-content">
 
       <!-- 订单状态筛选器 -->
-      <view class="order-filter">
+      <scroll-view scroll-x class="order-filter">
         <view
           wx:for="{{orderFilters}}"
           wx:key="value"
@@ -165,7 +165,7 @@
         >
           <text class="order-filter-text {{activeOrderFilter === item.value ? 'order-filter-text-active' : ''}}">{{item.label}} ({{item.count}})</text>
         </view>
-      </view>
+      </scroll-view>
 
       <!-- 订单列表 -->
       <view class="order-list">
@@ -174,10 +174,10 @@
           <!-- 订单头部：状态标签 + 取餐号 + 用餐方式 + 时间 + 退款按钮 -->
           <view class="order-header">
             <view class="order-header-left">
-              <view class="order-status-tag">
+              <view class="order-status-tag" bindtap="updateOrderStatus" data-id="{{item._id}}" data-status="{{item.status === 'making' ? 'ready' : item.status === 'ready' ? 'done' : 'making'}}">
                 <image src="/assets/CodeBubbyAssets/4_1696/2.svg" class="order-status-icon" mode="aspectFit" wx:if="{{item.status === 'making'}}"></image>
                 <image src="/assets/CodeBubbyAssets/4_1696/3.svg" class="order-status-icon" mode="aspectFit" wx:if="{{item.status === 'ready'}}"></image>
-                <text class="order-status-text">{{item.status === 'pending' ? '待支付' : item.status === 'making' ? '制作中' : item.status === 'ready' ? '待取餐' : '已完成'}}</text>
+                <text class="order-status-text">{{item.status === 'pending' ? '待支付' : item.status === 'making' ? '制作中' : item.status === 'ready' ? '待取餐' : item.status === 'refunded' ? '已退款' : '已完成'}}</text>
               </view>
               <view class="order-pickup-no">
                 <text class="order-pickup-label">取餐号: </text>
@@ -187,8 +187,8 @@
                 <text class="order-type-text">{{item.type === 'dine' ? '堂食' : '外带'}}</text>
               </view>
             </view>
-            <view class="order-refund-btn" bindtap="onRefundOrder" data-id="{{item.id}}">
-              <text class="order-refund-text">退款</text>
+            <view class="order-refund-btn {{item.status === 'refunded' ? 'order-refund-disabled' : ''}}" bindtap="item.status !== 'refunded' ? 'onRefundOrder' : ''" data-id="{{item._id}}">
+              <text class="order-refund-text">{{item.status === 'refunded' ? '已退款' : '退款'}}</text>
             </view>
           </view>
 
@@ -209,6 +209,12 @@
               </view>
               <text class="order-item-price">¥{{good.price}}</text>
             </view>
+          </view>
+
+          <!-- 备注 -->
+          <view wx:if="{{item.remark}}" class="order-remark">
+            <text class="order-remark-label">备注: </text>
+            <text class="order-remark-text">{{item.remark}}</text>
           </view>
 
           <!-- 合计 -->

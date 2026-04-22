@@ -50,7 +50,7 @@
     "disableSWC": true
   },
   "compileType": "miniprogram",
-  "libVersion": "latest",
+  "libVersion": "3.15.1",
   "projectname": "微信点单小程序",
   "isGameTourist": false,
   "condition": {
@@ -75,5 +75,6 @@
   },
   "simulatorPluginLibVersion": {},
   "editorSetting": {},
-  "cloudbaseRoot": "cloudbaserc.json"
+  "cloudbaseRoot": "cloudbaserc.json/",
+  "appid": "wxb5fb01ff608eaa3e"
 }

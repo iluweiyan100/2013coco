@@ -3,12 +3,12 @@
 
 <view class="orders-container">
   <!-- 当前订单状态区 -->
-  <view class="current-order-section">
+  <view class="current-order-section" wx:if="{{currentOrder}}">
     <text class="section-label">您的订单</text>
     <view class="order-header">
       <view class="pickup-info">
-        <text class="pickup-number">A05</text>
-        <text class="order-status">制作中</text>
+        <text class="pickup-number">{{currentOrder.pickupNumber}}</text>
+        <text class="order-status">{{currentOrder.statusText}}</text>
       </view>
     </view>
   </view>

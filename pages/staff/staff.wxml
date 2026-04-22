@@ -1,0 +1,172 @@
+<!-- staff.wxml -->
+<navigation-bar 
+  title="店员点单窗口" 
+  back="{{true}}" 
+  color="#5B3A29" 
+  background="#FFFFFF"
+></navigation-bar>
+
+<view class="staff-container">
+  <!-- 左栏：新订单（2/3） -->
+  <view class="new-orders-section">
+    <view class="section-header">
+      <text class="section-title">新订单</text>
+      <view class="refresh-btn" bindtap="onRefresh">
+        <text class="refresh-icon">↻</text>
+      </view>
+    </view>
+    
+    <!-- 堂食订单区 -->
+    <view class="order-type-section dine-section">
+      <view class="type-header">
+        <text class="type-title">堂食</text>
+        <text class="type-count">({{dineInOrders.length}})</text>
+      </view>
+      <scroll-view class="order-list" scroll-y>
+        <view wx:if="{{dineInOrders.length === 0}}" class="empty-tip">
+          <text class="empty-text">暂无堂食订单</text>
+        </view>
+        <view 
+          wx:for="{{dineInOrders}}" 
+          wx:key="_id" 
+          class="order-card dine-card"
+        >
+          <!-- 订单头部 -->
+          <view class="card-header">
+            <view class="pickup-no-wrapper">
+              <text class="pickup-no">{{item.pickupNumber}}</text>
+            </view>
+            <text class="order-time">{{item.time}}</text>
+          </view>
+          
+          <!-- 商品明细 -->
+          <view class="items-divider"></view>
+          <view class="order-items">
+            <view 
+              wx:for="{{item.items}}" 
+              wx:key="index" 
+              wx:for-item="product"
+              class="item-row"
+            >
+              <view class="item-left">
+                <text class="item-name">{{product.name}}</text>
+                <text class="item-temp" wx:if="{{product.temperature}}">
+                  {{product.temperature}}
+                </text>
+                <text class="item-qty">x{{product.quantity}}</text>
+              </view>
+              <text class="item-price">¥{{product.price}}</text>
+            </view>
+          </view>
+          
+          <!-- 备注 -->
+          <view wx:if="{{item.remark}}" class="order-remark">
+            <text class="remark-label">备注：</text>
+            <text class="remark-text">{{item.remark}}</text>
+          </view>
+          
+          <!-- 完成按钮 -->
+          <view class="card-divider"></view>
+          <button 
+            class="complete-btn" 
+            bindtap="onCompleteOrder" 
+            data-id="{{item._id}}"
+          >
+            完成
+          </button>
+        </view>
+      </scroll-view>
+    </view>
+    
+    <!-- 外带订单区 -->
+    <view class="order-type-section takeaway-section">
+      <view class="type-header">
+        <text class="type-title">外带</text>
+        <text class="type-count">({{takeawayOrders.length}})</text>
+      </view>
+      <scroll-view class="order-list" scroll-y>
+        <view wx:if="{{takeawayOrders.length === 0}}" class="empty-tip">
+          <text class="empty-text">暂无外带订单</text>
+        </view>
+        <view 
+          wx:for="{{takeawayOrders}}" 
+          wx:key="_id" 
+          class="order-card takeaway-card"
+        >
+          <!-- 订单头部 -->
+          <view class="card-header">
+            <view class="pickup-no-wrapper">
+              <text class="pickup-no">{{item.pickupNumber}}</text>
+            </view>
+            <text class="order-time">{{item.time}}</text>
+          </view>
+          
+          <!-- 商品明细 -->
+          <view class="items-divider"></view>
+          <view class="order-items">
+            <view 
+              wx:for="{{item.items}}" 
+              wx:key="index" 
+              wx:for-item="product"
+              class="item-row"
+            >
+              <view class="item-left">
+                <text class="item-name">{{product.name}}</text>
+                <text class="item-temp" wx:if="{{product.temperature}}">
+                  {{product.temperature}}
+                </text>
+                <text class="item-qty">x{{product.quantity}}</text>
+              </view>
+              <text class="item-price">¥{{product.price}}</text>
+            </view>
+          </view>
+          
+          <!-- 备注 -->
+          <view wx:if="{{item.remark}}" class="order-remark">
+            <text class="remark-label">备注：</text>
+            <text class="remark-text">{{item.remark}}</text>
+          </view>
+          
+          <!-- 完成按钮 -->
+          <view class="card-divider"></view>
+          <button 
+            class="complete-btn" 
+            bindtap="onCompleteOrder" 
+            data-id="{{item._id}}"
+          >
+            完成
+          </button>
+        </view>
+      </scroll-view>
+    </view>
+  </view>
+  
+  <!-- 右栏：已完成（1/3） -->
+  <view class="completed-orders-section">
+    <view class="section-header">
+      <text class="section-title">已完成</text>
+      <text class="section-count">({{completedOrders.length}})</text>
+    </view>
+    <scroll-view class="completed-list" scroll-y>
+      <view wx:if="{{completedOrders.length === 0}}" class="empty-tip">
+        <text class="empty-text">暂无已完成订单</text>
+      </view>
+      <view 
+        wx:for="{{completedOrders}}" 
+        wx:key="_id" 
+        class="completed-card"
+      >
+        <view class="completed-header">
+          <text class="completed-pickup-no">{{item.pickupNumber}}</text>
+          <text class="completed-type">
+            {{item.orderType === 'dine-in' ? '堂食' : '外带'}}
+          </text>
+        </view>
+        <view class="completed-info">
+          <text class="completed-time">完成时间: {{item.completeTime}}</text>
+          <text class="completed-total">¥{{item.totalAmount}}</text>
+        </view>
+      </view>
+    </scroll-view>
+  </view>
+</view>

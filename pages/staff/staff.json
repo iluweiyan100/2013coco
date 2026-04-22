@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "店员点单窗口",
+  "navigationStyle": "custom",
+  "usingComponents": {
+    "navigation-bar": "/components/navigation-bar/navigation-bar"
+  }
+}

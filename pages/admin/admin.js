@@ -57,39 +57,14 @@ Page({
     // ===== 订单管理 =====
     activeOrderFilter: 'all',
     orderFilters: [
-      { value: 'all',      label: '全部',   count: 2 },
-      { value: 'pending',  label: '待支付', count: 0 },
-      { value: 'making',   label: '制作中', count: 1 },
-      { value: 'ready',    label: '待取餐', count: 1 },
-      { value: 'done',     label: '已完成', count: 0 }
+      { value: 'all',      label: '全部',     count: 0 },
+      { value: 'pending',  label: '待支付',   count: 0 },
+      { value: 'making',   label: '制作中',   count: 0 },
+      { value: 'ready',    label: '待取餐',   count: 0 },
+      { value: 'done',     label: '已完成',   count: 0 },
+      { value: 'refunded', label: '已退款',   count: 0 }
     ],
-    orders: [
-      {
-        id: 'O001',
-        status: 'making',
-        pickupNo: 'A05',
-        type: 'dine',
-        userName: '微信用户',
-        time: '04-03 18:04',
-        items: [
-          { name: '经典热可可', temp: '热', qty: 1, price: 28 },
-          { name: '拿铁咖啡',   temp: '冷', qty: 2, price: 60 }
-        ],
-        total: 88
-      },
-      {
-        id: 'O002',
-        status: 'ready',
-        pickupNo: 'B12',
-        type: 'takeaway',
-        userName: '微信用户',
-        time: '04-03 18:07',
-        items: [
-          { name: '巧克力冰淇淋', temp: '', qty: 2, price: 50 }
-        ],
-        total: 50
-      }
-    ],
+    orders: [],
     filteredOrders: [],
 
     // ===== 首页内容 =====
@@ -108,6 +83,7 @@ Page({
     this._initCloudDB();
     this.loadHomeSettings();
     this._loadProductsFromCloud();
+    this._loadOrdersFromCloud();
     this._applyOrderFilter('all');
   },
 
@@ -384,6 +360,60 @@ Page({
   },
 
   // ===== 订单管理 =====
+
+  // 从云数据库加载订单列表
+  async _loadOrdersFromCloud() {
+    try {
+      const db = wx.cloud.database();
+      const res = await db.collection('orders')
+        .orderBy('createTime', 'desc')
+        .limit(100)
+        .get();
+
+      // 转换云数据库订单数据格式
+      const orders = res.data.map(order => {
+        const createTime = order.createTime || {};
+        const timeStr = createTime.$date
+          ? new Date(createTime.$date).toLocaleString('zh-CN', {
+              month: '2-digit',
+              day: '2-digit',
+              hour: '2-digit',
+              minute: '2-digit'
+            }).replace(/\//g, '-')
+          : '';
+
+        return {
+          id: order._id || order.id || '',
+          _id: order._id,
+          status: order.status || 'making',
+          pickupNo: order.pickupNumber || '',
+          type: order.orderType === 'dine-in' ? 'dine' : 'takeaway',
+          userName: '微信用户',
+          time: timeStr,
+          items: (order.products || []).map(p => ({
+            name: p.name || '',
+            temp: p.temperature === '冰' ? '冰' : p.temperature === '热' ? '热' : '',
+            qty: p.quantity || 1,
+            price: p.price || 0
+          })),
+          total: order.totalAmount || 0,
+          remark: order.remark || ''
+        };
+      });
+
+      // 更新订单筛选器数量
+      const orderFilters = this.data.orderFilters.map(f => {
+        if (f.value === 'all') return { ...f, count: orders.length };
+        return { ...f, count: orders.filter(o => o.status === f.value).length };
+      });
+
+      this.setData({ orders, orderFilters });
+      this._applyOrderFilter(this.data.activeOrderFilter);
+    } catch (e) {
+      console.warn('[Orders] 加载失败', e);
+    }
+  },
+
   _applyOrderFilter(status) {
     const orders = this.data.orders;
     const filtered = status === 'all'
@@ -400,13 +430,55 @@ Page({
     const id = e.currentTarget.dataset.id;
     wx.showModal({
       title: '确认退款',
-      content: '退款后订单将关闭，是否继续？',
-      success: (res) => {
+      content: '退款后订单状态将变为"已退款"，是否继续？',
+      success: async (res) => {
         if (res.confirm) {
-          wx.showToast({ title: '退款成功', icon: 'success' });
-          const orders = this.data.orders.filter(o => o.id !== id);
-          this.setData({ orders });
-          this._applyOrderFilter(this.data.activeOrderFilter);
+          wx.showLoading({ title: '处理中...', mask: true });
+          try {
+            const db = wx.cloud.database();
+            await db.collection('orders').doc(id).update({
+              data: { 
+                status: 'refunded',
+                refundTime: db.serverDate()
+              }
+            });
+            wx.hideLoading();
+            wx.showToast({ title: '退款成功', icon: 'success' });
+            this._loadOrdersFromCloud();
+          } catch (e) {
+            wx.hideLoading();
+            wx.showToast({ title: '操作失败', icon: 'none' });
+            console.error('[Orders] 退款失败', e);
+          }
+        }
+      }
+    });
+  },
+
+  // 更新订单状态
+  async updateOrderStatus(e) {
+    const { id, status } = e.currentTarget.dataset;
+    const statusText = status === 'making' ? '制作中' : status === 'ready' ? '待取餐' : '已完成';
+
+    wx.showModal({
+      title: '确认操作',
+      content: `确认将订单状态更改为"${statusText}"?`,
+      success: async (res) => {
+        if (res.confirm) {
+          wx.showLoading({ title: '处理中...', mask: true });
+          try {
+            const db = wx.cloud.database();
+            await db.collection('orders').doc(id).update({
+              data: { status }
+            });
+            wx.hideLoading();
+            wx.showToast({ title: '更新成功', icon: 'success' });
+            this._loadOrdersFromCloud();
+          } catch (e) {
+            wx.hideLoading();
+            wx.showToast({ title: '操作失败', icon: 'none' });
+            console.error('[Orders] 更新状态失败', e);
+          }
         }
       }
     });
@@ -623,6 +695,7 @@ Page({
     // 有未保存的修改时不刷新，避免覆盖本地预览图
     if (this.data._heroModified) return;
     this._loadHeroImagesFromCloud();
+    this._loadOrdersFromCloud();
   },
   onHide() {},
   onUnload() {},

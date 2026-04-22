@@ -1,53 +1,132 @@
 // pages/orders/orders.js
 Page({
   data: {
-    currentTab: 'all', // all, pending, completed（订单列表的 Tab）
-    filteredOrders: [], // 过滤后的订单列表
-    orders: [
-      {
-        id: 1,
-        pickupNumber: 'A05',
-        date: '04-03',
-        time: '17:31',
-        orderType: '堂食',
-        status: 'making',
-        statusText: '制作中',
-        statusIcon: 'clock',
-        products: [
-          { name: '经典热可可', option: '热', quantity: 1, price: 28 },
-          { name: '拿铁咖啡', option: '冷', quantity: 2, price: 60 }
-        ],
-        totalAmount: 88
-      },
-      {
-        id: 2,
-        pickupNumber: 'B12',
-        date: '04-03',
-        time: '17:34',
-        orderType: '外带',
-        status: 'pending',
-        statusText: '待取餐',
-        statusIcon: 'bag',
-        products: [
-          { name: '巧克力冰淇淋', quantity: 2, price: 50 }
-        ],
-        totalAmount: 50
-      }
-    ]
+    currentTab: 'all',
+    filteredOrders: [],
+    orders: [],
+    currentOrder: null, // 当前正在进行的订单
+    openid: ''
   },
 
   onLoad(options) {
-    // 页面加载时初始化过滤订单
-    this.updateFilteredOrders();
+    this.loadOrders();
   },
 
-  // 订单列表 Tab 切换（全部/待使用/已完成）
+  onShow() {
+    this.loadOrders();
+  },
+
+  // 从数据库加载订单
+  loadOrders() {
+    const openid = wx.getStorageSync('openid');
+    if (!openid) {
+      this.setData({
+        orders: [],
+        filteredOrders: []
+      });
+      return;
+    }
+
+    this.setData({
+      openid: openid
+    });
+
+    const db = wx.cloud.database();
+    db.collection('orders')
+      .where({
+        openid: openid
+      })
+      .orderBy('createTime', 'desc')
+      .get({
+        success: (res) => {
+          const orders = res.data.map(order => this.formatOrder(order));
+          this.setData({
+            orders: orders
+          });
+          this.updateFilteredOrders();
+          this.updateCurrentOrder();
+        },
+        fail: (err) => {
+          console.error('获取订单失败:', err);
+          wx.showToast({
+            title: '获取订单失败',
+            icon: 'none'
+          });
+        }
+      });
+  },
+
+  // 格式化订单数据
+  formatOrder(order) {
+    const createTime = new Date(order.createTime);
+    const month = (createTime.getMonth() + 1).toString().padStart(2, '0');
+    const day = createTime.getDate().toString().padStart(2, '0');
+    const hour = createTime.getHours().toString().padStart(2, '0');
+    const minute = createTime.getMinutes().toString().padStart(2, '0');
+
+    let status = 'pending';
+    let statusText = '待取餐';
+    let statusIcon = 'bag';
+
+    if (order.status === 'pending') {
+      status = 'pending';
+      statusText = '待支付';
+      statusIcon = 'clock';
+    } else if (order.status === 'making') {
+      status = 'making';
+      statusText = '制作中';
+      statusIcon = 'clock';
+    } else if (order.status === 'ready') {
+      status = 'ready';
+      statusText = '待取餐';
+      statusIcon = 'bag';
+    } else if (order.status === 'done') {
+      status = 'completed';
+      statusText = '已完成';
+      statusIcon = 'check';
+    } else if (order.status === 'refunded') {
+      status = 'refunded';
+      statusText = '已退款';
+      statusIcon = 'close';
+    }
+
+    return {
+      id: order._id,
+      pickupNumber: order.pickupNumber || '',
+      date: `${month}-${day}`,
+      time: `${hour}:${minute}`,
+      orderType: order.orderType === 'dine-in' ? '堂食' : '外带',
+      status: status,
+      statusText: statusText,
+      statusIcon: statusIcon,
+      products: order.products || [],
+      totalAmount: order.totalAmount || 0,
+      createTime: order.createTime
+    };
+  },
+
+  // 更新当前正在进行的订单
+  updateCurrentOrder() {
+    const { orders } = this.data;
+    const currentOrder = orders.find(order => order.status === 'making' || order.status === 'pending');
+
+    if (currentOrder) {
+      this.setData({
+        currentOrder: currentOrder
+      });
+    } else {
+      this.setData({
+        currentOrder: null
+      });
+    }
+  },
+
+  // Tab 切换
   onTabChange(e) {
     const tab = e.currentTarget.dataset.tab;
     this.setData({
       currentTab: tab
     });
-    // 更新过滤后的订单
     this.updateFilteredOrders();
   },
 
@@ -55,22 +134,17 @@ Page({
   updateFilteredOrders() {
     const { currentTab, orders } = this.data;
     let filtered = [];
-    
+
     if (currentTab === 'all') {
       filtered = orders;
     } else if (currentTab === 'pending') {
-      filtered = orders.filter(order => order.status === 'making' || order.status === 'pending');
+      filtered = orders.filter(order => ['making', 'ready', 'pending'].includes(order.status));
     } else if (currentTab === 'completed') {
-      filtered = orders.filter(order => order.status === 'completed');
+      filtered = orders.filter(order => ['done', 'refunded'].includes(order.status));
     }
-    
+
     this.setData({
       filteredOrders: filtered
     });
-  },
-
-  onShow() {
-    // 页面显示时更新过滤后的订单
-    this.updateFilteredOrders();
   }
 });

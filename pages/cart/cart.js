@@ -66,34 +66,76 @@ Page({
     wx.navigateBack({ delta: 1 });
   },
 
-  // 立即支付：分笔生成订单（堂食一笔 + 外带一笔）
-  onPayNow() {
+  // 立即支付：调用云函数创建支付订单
+  async onPayNow() {
     const { dineInList, takeawayList, remark } = this.data;
     const totalItems = [...dineInList, ...takeawayList];
     if (totalItems.length === 0) return;
 
-    // TODO: 实际项目需先请求服务端获取预付单参数
-    wx.requestPayment({
-      timeStamp: '',
-      nonceStr: '',
-      package: '',
-      signType: 'MD5',
-      paySign: '',
-      success: () => {
-        const orders = [];
-        if (dineInList.length > 0) {
-          orders.push(this._buildOrder(dineInList, 'dine-in', remark));
-        }
-        if (takeawayList.length > 0) {
-          orders.push(this._buildOrder(takeawayList, 'takeaway', remark));
-        }
-        this._saveOrders(orders);
-      },
-      fail: (err) => {
-        if (err.errMsg && err.errMsg.indexOf('cancel') !== -1) return;
-        wx.showToast({ title: '支付失败，请重试', icon: 'none' });
+    wx.showLoading({ title: '正在下单...', mask: true });
+
+    try {
+      // 1. 先创建订单记录（状态为 pending）
+      const orders = [];
+      if (dineInList.length > 0) {
+        orders.push(this._buildOrder(dineInList, 'dine-in', remark));
       }
-    });
+      if (takeawayList.length > 0) {
+        orders.push(this._buildOrder(takeawayList, 'takeaway', remark));
+      }
+
+      const orderIds = await this._createPendingOrders(orders);
+      
+      // 2. 获取支付参数（只支付第一笔订单）
+      const firstOrder = orders[0];
+      const totalAmount = orders.reduce((s, o) => s + o.totalAmount, 0);
+      
+      const paymentRes = await wx.cloud.callFunction({
+        name: 'createPayment',
+        data: {
+          totalAmount: totalAmount,
+          orderId: orderIds[0],
+          openid: wx.getStorageSync('openid')
+        }
+      });
+
+      wx.hideLoading();
+
+      if (!paymentRes.result || !paymentRes.result.paymentParams) {
+        throw new Error('获取支付参数失败');
+      }
+
+      // 3. 调起支付
+      const params = paymentRes.result.paymentParams;
+      await wx.requestPayment({
+        timeStamp: params.timeStamp,
+        nonceStr: params.nonceStr,
+        package: params.package,
+        signType: params.signType,
+        paySign: params.paySign
+      });
+
+      // 4. 支付成功，清空购物车并跳转
+      app.globalData.cartItems = [];
+      wx.showToast({ title: '支付成功', icon: 'success', duration: 1200 });
+      setTimeout(() => {
+        wx.reLaunch({ url: '/pages/orders/orders' });
+      }, 1400);
+
+    } catch (e) {
+      wx.hideLoading();
+      console.error('[Pay] 支付流程失败:', e);
+      if (e.errMsg && e.errMsg.indexOf('cancel') !== -1) {
+        // 用户取消支付，删除pending订单
+        await this._deletePendingOrders();
+      } else {
+        wx.showToast({ 
+          title: e.message || '支付失败，请重试', 
+          icon: 'none',
+          duration: 2000
+        });
+      }
+    }
   },
 
   // 构建单笔订单对象
@@ -124,22 +166,52 @@ Page({
     };
   },
 
-  // 保存订单列表并跳转
-  _saveOrders(orders) {
+  // 创建待支付订单记录，返回订单ID数组
+  async _createPendingOrders(orders) {
+    const openid = wx.getStorageSync('openid');
+    const db = wx.cloud.database();
+
+    const orderIds = [];
+
+    for (const order of orders) {
+      const letters = 'ABCDEFGH';
+      const pickupNumber = letters[Math.floor(Math.random() * letters.length)] +
+        String(Math.floor(Math.random() * 99) + 1).padStart(2, '0');
+
+      const res = await db.collection('orders').add({
+        data: {
+          openid: openid,
+          pickupNumber: pickupNumber,
+          orderType: order.orderType === '堂食' ? 'dine-in' : 'takeaway',
+          status: 'pending', // 待支付状态
+          remark: order.remark || '',
+          products: order.products,
+          totalAmount: order.totalAmount,
+          createTime: db.serverDate()
+        }
+      });
+      orderIds.push(res._id);
+    }
+
+    return orderIds;
+  },
+
+  // 删除待支付订单（支付取消时调用）
+  async _deletePendingOrders() {
+    const openid = wx.getStorageSync('openid');
+    const db = wx.cloud.database();
+    const _ = db.command;
+
     try {
-      const ORDER_KEY = 'co_orders';
-      const list = wx.getStorageSync(ORDER_KEY) || [];
-      orders.forEach(o => list.unshift(o));
-      wx.setStorageSync(ORDER_KEY, list);
-    } catch (e) { console.error(e); }
-
-    // 清空购物车
-    app.globalData.cartItems = [];
-
-    wx.showToast({ title: '支付成功', icon: 'success', duration: 1200 });
-    setTimeout(() => {
-      wx.reLaunch({ url: '/pages/orders/orders' });
-    }, 1400);
+      await db.collection('orders')
+        .where({
+          openid: openid,
+          status: 'pending'
+        })
+        .remove();
+    } catch (e) {
+      console.warn('[Pay] 删除pending订单失败', e);
+    }
   },
 
   // 重新计算合计
