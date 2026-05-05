@@ -86,15 +86,24 @@ Page({
 
       const orderIds = await this._createPendingOrders(orders);
       
-      // 2. 获取支付参数（只支付第一笔订单）
-      const firstOrder = orders[0];
+      // 2. 计算 outTradeNo（≤32字符）并回写到每条订单，供 callback 批量查询
       const totalAmount = orders.reduce((s, o) => s + o.totalAmount, 0);
+      const outTradeNo = orderIds.length === 1
+        ? orderIds[0]
+        : orderIds[0].slice(0, 26) + '_' + orderIds.length;
+
+      // 回写 outTradeNo 到所有关联订单
+      const db2 = wx.cloud.database();
+      await Promise.all(orderIds.map(id =>
+        db2.collection('orders').doc(id).update({ data: { outTradeNo } })
+      ));
       
       const paymentRes = await wx.cloud.callFunction({
         name: 'createPayment',
         data: {
           totalAmount: totalAmount,
-          orderId: orderIds[0],
+          orderId: outTradeNo,
+          orderIds: orderIds,
           openid: wx.getStorageSync('openid')
         }
       });
@@ -152,13 +161,13 @@ Page({
       pickupNumber,
       date: `${pad(now.getMonth() + 1)}-${pad(now.getDate())}`,
       time: `${pad(now.getHours())}:${pad(now.getMinutes())}`,
-      orderType: orderType === 'dine-in' ? '堂食' : '外带',
+      orderType,  // 直接保持英文 'dine-in' / 'takeaway'
       status: 'making',
       statusText: '制作中',
       remark,
       products: items.map(item => ({
         name: item.name,
-        option: item.spec || '',
+        temperature: item.spec || '',  // 与 staff 页面字段对齐
         quantity: item.qty,
         price: parseFloat(item.price) * item.qty
       })),
@@ -173,22 +182,27 @@ Page({
 
     const orderIds = [];
 
-    for (const order of orders) {
-      const letters = 'ABCDEFGH';
-      const pickupNumber = letters[Math.floor(Math.random() * letters.length)] +
-        String(Math.floor(Math.random() * 99) + 1).padStart(2, '0');
+    // 同一批订单（堂食+外带）共用同一个取餐编号
+    const letters = 'ABCDEFGH';
+    const sharedPickupNumber = letters[Math.floor(Math.random() * letters.length)] +
+      String(Math.floor(Math.random() * 99) + 1).padStart(2, '0');
 
+    for (const order of orders) {
       const res = await db.collection('orders').add({
         data: {
           openid: openid,
-          pickupNumber: pickupNumber,
-          orderType: order.orderType === '堂食' ? 'dine-in' : 'takeaway',
-          status: 'pending', // 待支付状态
+          pickupNumber: sharedPickupNumber,
+          orderType: order.orderType,  // 已是英文 'dine-in' / 'takeaway'
+          status: 'pending',
           remark: order.remark || '',
           products: order.products,
           totalAmount: order.totalAmount,
           createTime: db.serverDate()
         }
+      });
+      // 写入 orderId 和 outTradeNo 字段，供支付回调查询使用
+      await db.collection('orders').doc(res._id).update({
+        data: { orderId: res._id, outTradeNo: '' }  // outTradeNo 待拿到后统一回写
       });
       orderIds.push(res._id);
     }
@@ -218,7 +232,7 @@ Page({
   _refreshTotal(list) {
     const l = list || [];
     const totalCount = l.reduce((s, i) => s + i.qty, 0);
-    const totalPrice = l.reduce((s, i) => s + parseFloat(i.price) * i.qty, 0).toFixed(0);
+    const totalPrice = l.reduce((s, i) => s + parseFloat(String(i.price).replace(/[^\d.]/g, '')) * i.qty, 0).toFixed(2);
     this.setData({ totalCount, totalPrice });
   }
 });

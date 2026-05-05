@@ -4,6 +4,7 @@
   "description": "支付结果回调",
   "main": "index.js",
   "dependencies": {
-    "wx-server-sdk": "~2.6.3"
+    "wx-server-sdk": "~2.6.3",
+    "xml2js": "^0.6.2"
   }
 }

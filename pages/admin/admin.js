@@ -693,12 +693,27 @@ Page({
   onReady() {},
   onShow() {
     // 有未保存的修改时不刷新，避免覆盖本地预览图
-    if (this.data._heroModified) return;
-    this._loadHeroImagesFromCloud();
+    if (!this.data._heroModified) {
+      this._loadHeroImagesFromCloud();
+    }
     this._loadOrdersFromCloud();
+    // 每 10 秒自动刷新订单
+    this._orderPollTimer = setInterval(() => {
+      this._loadOrdersFromCloud();
+    }, 10000);
   },
-  onHide() {},
-  onUnload() {},
+  onHide() {
+    if (this._orderPollTimer) {
+      clearInterval(this._orderPollTimer);
+      this._orderPollTimer = null;
+    }
+  },
+  onUnload() {
+    if (this._orderPollTimer) {
+      clearInterval(this._orderPollTimer);
+      this._orderPollTimer = null;
+    }
+  },
   onPullDownRefresh() {},
   onReachBottom() {},
   onShareAppMessage() {}

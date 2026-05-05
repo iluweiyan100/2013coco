@@ -24,6 +24,9 @@ App({
         this.globalData.openid = res.result.openid;
         this.globalData.user = res.result.user;
 
+        // 同步存入 Storage，方便各页面同步读取
+        wx.setStorageSync('openid', res.result.openid);
+
         // 触发 openid 准备就绪回调
         if (this.openidReadyCallback) {
           this.openidReadyCallback(res.result);

@@ -31,3 +31,7 @@ logs/
 !.vscode/launch.json
 !.vscode/extensions.json
 !.vscode/mcp.json
+1745080857_20260505_cert/apiclient_key.pem
+.gitignore
+1745080857_20260505_cert/apiclient_cert.p12
+1745080857_20260505_cert/apiclient_cert.pem

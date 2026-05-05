@@ -16,128 +16,131 @@
       </view>
     </view>
     
-    <!-- 堂食订单区 -->
-    <view class="order-type-section dine-section">
-      <view class="type-header">
-        <text class="type-title">堂食</text>
-        <text class="type-count">({{dineInOrders.length}})</text>
-      </view>
-      <scroll-view class="order-list" scroll-y>
-        <view wx:if="{{dineInOrders.length === 0}}" class="empty-tip">
-          <text class="empty-text">暂无堂食订单</text>
+    <!-- 堂食+外带并排容器（横屏时水平排列） -->
+    <view class="orders-body">
+      <!-- 堂食订单区 -->
+      <view class="order-type-section dine-section">
+        <view class="type-header">
+          <text class="type-title">堂食</text>
+          <text class="type-count">({{dineInOrders.length}})</text>
         </view>
-        <view 
-          wx:for="{{dineInOrders}}" 
-          wx:key="_id" 
-          class="order-card dine-card"
-        >
-          <!-- 订单头部 -->
-          <view class="card-header">
-            <view class="pickup-no-wrapper">
-              <text class="pickup-no">{{item.pickupNumber}}</text>
-            </view>
-            <text class="order-time">{{item.time}}</text>
+        <scroll-view class="order-list" scroll-y>
+          <view wx:if="{{dineInOrders.length === 0}}" class="empty-tip">
+            <text class="empty-text">暂无堂食订单</text>
           </view>
-          
-          <!-- 商品明细 -->
-          <view class="items-divider"></view>
-          <view class="order-items">
-            <view 
-              wx:for="{{item.items}}" 
-              wx:key="index" 
-              wx:for-item="product"
-              class="item-row"
-            >
-              <view class="item-left">
-                <text class="item-name">{{product.name}}</text>
-                <text class="item-temp" wx:if="{{product.temperature}}">
-                  {{product.temperature}}
-                </text>
-                <text class="item-qty">x{{product.quantity}}</text>
-              </view>
-              <text class="item-price">¥{{product.price}}</text>
-            </view>
-          </view>
-          
-          <!-- 备注 -->
-          <view wx:if="{{item.remark}}" class="order-remark">
-            <text class="remark-label">备注：</text>
-            <text class="remark-text">{{item.remark}}</text>
-          </view>
-          
-          <!-- 完成按钮 -->
-          <view class="card-divider"></view>
-          <button 
-            class="complete-btn" 
-            bindtap="onCompleteOrder" 
-            data-id="{{item._id}}"
+          <view 
+            wx:for="{{dineInOrders}}" 
+            wx:key="_id" 
+            class="order-card dine-card"
           >
-            完成
-          </button>
-        </view>
-      </scroll-view>
-    </view>
-    
-    <!-- 外带订单区 -->
-    <view class="order-type-section takeaway-section">
-      <view class="type-header">
-        <text class="type-title">外带</text>
-        <text class="type-count">({{takeawayOrders.length}})</text>
-      </view>
-      <scroll-view class="order-list" scroll-y>
-        <view wx:if="{{takeawayOrders.length === 0}}" class="empty-tip">
-          <text class="empty-text">暂无外带订单</text>
-        </view>
-        <view 
-          wx:for="{{takeawayOrders}}" 
-          wx:key="_id" 
-          class="order-card takeaway-card"
-        >
-          <!-- 订单头部 -->
-          <view class="card-header">
-            <view class="pickup-no-wrapper">
-              <text class="pickup-no">{{item.pickupNumber}}</text>
-            </view>
-            <text class="order-time">{{item.time}}</text>
-          </view>
-          
-          <!-- 商品明细 -->
-          <view class="items-divider"></view>
-          <view class="order-items">
-            <view 
-              wx:for="{{item.items}}" 
-              wx:key="index" 
-              wx:for-item="product"
-              class="item-row"
-            >
-              <view class="item-left">
-                <text class="item-name">{{product.name}}</text>
-                <text class="item-temp" wx:if="{{product.temperature}}">
-                  {{product.temperature}}
-                </text>
-                <text class="item-qty">x{{product.quantity}}</text>
+            <!-- 订单头部 -->
+            <view class="card-header">
+              <view class="pickup-no-wrapper">
+                <text class="pickup-no">{{item.pickupNumber}}</text>
               </view>
-              <text class="item-price">¥{{product.price}}</text>
+              <text class="order-time">{{item.time}}</text>
             </view>
+            
+            <!-- 商品明细 -->
+            <view class="items-divider"></view>
+            <view class="order-items">
+              <view 
+                wx:for="{{item.items}}" 
+                wx:key="index" 
+                wx:for-item="product"
+                class="item-row"
+              >
+                <view class="item-left">
+                  <text class="item-name">{{product.name}}</text>
+                  <text class="item-temp" wx:if="{{product.temperature}}">
+                    {{product.temperature}}
+                  </text>
+                  <text class="item-qty">x{{product.quantity}}</text>
+                </view>
+                <text class="item-price">¥{{product.price}}</text>
+              </view>
+            </view>
+            
+            <!-- 备注 -->
+            <view wx:if="{{item.remark}}" class="order-remark">
+              <text class="remark-label">备注：</text>
+              <text class="remark-text">{{item.remark}}</text>
+            </view>
+            
+            <!-- 完成按钮 -->
+            <view class="card-divider"></view>
+            <button 
+              class="complete-btn" 
+              bindtap="onCompleteOrder" 
+              data-id="{{item._id}}"
+            >
+              完成
+            </button>
           </view>
-          
-          <!-- 备注 -->
-          <view wx:if="{{item.remark}}" class="order-remark">
-            <text class="remark-label">备注：</text>
-            <text class="remark-text">{{item.remark}}</text>
-          </view>
-          
-          <!-- 完成按钮 -->
-          <view class="card-divider"></view>
-          <button 
-            class="complete-btn" 
-            bindtap="onCompleteOrder" 
-            data-id="{{item._id}}"
-          >
-            完成
-          </button>
+        </scroll-view>
+      </view>
+      
+      <!-- 外带订单区 -->
+      <view class="order-type-section takeaway-section">
+        <view class="type-header">
+          <text class="type-title">外带</text>
+          <text class="type-count">({{takeawayOrders.length}})</text>
         </view>
-      </scroll-view>
+        <scroll-view class="order-list" scroll-y>
+          <view wx:if="{{takeawayOrders.length === 0}}" class="empty-tip">
+            <text class="empty-text">暂无外带订单</text>
+          </view>
+          <view 
+            wx:for="{{takeawayOrders}}" 
+            wx:key="_id" 
+            class="order-card takeaway-card"
+          >
+            <!-- 订单头部 -->
+            <view class="card-header">
+              <view class="pickup-no-wrapper">
+                <text class="pickup-no">{{item.pickupNumber}}</text>
+              </view>
+              <text class="order-time">{{item.time}}</text>
+            </view>
+            
+            <!-- 商品明细 -->
+            <view class="items-divider"></view>
+            <view class="order-items">
+              <view 
+                wx:for="{{item.items}}" 
+                wx:key="index" 
+                wx:for-item="product"
+                class="item-row"
+              >
+                <view class="item-left">
+                  <text class="item-name">{{product.name}}</text>
+                  <text class="item-temp" wx:if="{{product.temperature}}">
+                    {{product.temperature}}
+                  </text>
+                  <text class="item-qty">x{{product.quantity}}</text>
+                </view>
+                <text class="item-price">¥{{product.price}}</text>
+              </view>
+            </view>
+            
+            <!-- 备注 -->
+            <view wx:if="{{item.remark}}" class="order-remark">
+              <text class="remark-label">备注：</text>
+              <text class="remark-text">{{item.remark}}</text>
+            </view>
+            
+            <!-- 完成按钮 -->
+            <view class="card-divider"></view>
+            <button 
+              class="complete-btn" 
+              bindtap="onCompleteOrder" 
+              data-id="{{item._id}}"
+            >
+              完成
+            </button>
+          </view>
+        </scroll-view>
+      </view>
     </view>
   </view>
   

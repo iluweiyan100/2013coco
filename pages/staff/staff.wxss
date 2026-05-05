@@ -43,6 +43,14 @@
   color: #666666;
 }
 
+/* 新订单区域的堂食/外带容器 */
+.orders-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
 /* 订单类型区域 */
 .order-type-section {
   flex: 1;
@@ -287,4 +295,199 @@
   font-size: 28rpx;
   font-weight: bold;
   color: #666666;
+}
+
+/* ===== iPad 横屏适配（所有尺寸用 px，避免 rpx 随宽屏放大） ===== */
+@media (orientation: landscape) and (min-width: 600px) {
+
+  .staff-container {
+    height: 100vh;
+  }
+
+  /* 左栏比例更大 */
+  .new-orders-section {
+    flex: 3;
+    border-right: 2px solid #e0e0e0;
+  }
+
+  /* section 标题栏 */
+  .section-header {
+    padding: 10px 16px;
+  }
+
+  .section-title {
+    font-size: 15px;
+  }
+
+  .refresh-btn {
+    width: 28px;
+    height: 28px;
+  }
+
+  .refresh-icon {
+    font-size: 16px;
+  }
+
+  /* 堂食/外带改为左右并排 */
+  .orders-body {
+    flex-direction: row;
+  }
+
+  .order-type-section {
+    border-right: 1px solid #e0e0e0;
+  }
+
+  .order-type-section:last-child {
+    border-right: none;
+  }
+
+  /* 类型标题栏 */
+  .type-header {
+    padding: 8px 14px;
+  }
+
+  .type-title {
+    font-size: 13px;
+    margin-right: 4px;
+  }
+
+  .type-count {
+    font-size: 12px;
+  }
+
+  /* 订单列表内边距 */
+  .order-list {
+    padding: 8px;
+  }
+
+  /* 订单卡片 */
+  .order-card {
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    border-radius: 8px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.07);
+  }
+
+  .dine-card {
+    border-left: 4px solid #FF6B35;
+  }
+
+  .takeaway-card {
+    border-left: 4px solid #4A90E2;
+  }
+
+  .card-header {
+    margin-bottom: 8px;
+  }
+
+  /* 取号大字 */
+  .pickup-no {
+    font-size: 28px;
+    letter-spacing: 1px;
+  }
+
+  .order-time {
+    font-size: 11px;
+  }
+
+  /* 商品明细 */
+  .items-divider {
+    margin: 6px 0;
+  }
+
+  .order-items {
+    margin-bottom: 6px;
+  }
+
+  .item-row {
+    padding: 5px 0;
+  }
+
+  .item-name {
+    font-size: 13px;
+    margin-right: 6px;
+  }
+
+  .item-temp {
+    font-size: 11px;
+    padding: 2px 5px;
+    margin-right: 6px;
+  }
+
+  .item-qty {
+    font-size: 11px;
+  }
+
+  .item-price {
+    font-size: 13px;
+  }
+
+  /* 备注 */
+  .order-remark {
+    padding: 6px 8px;
+    margin-bottom: 6px;
+  }
+
+  .remark-label,
+  .remark-text {
+    font-size: 11px;
+  }
+
+  .card-divider {
+    margin: 6px 0;
+  }
+
+  /* 完成按钮 */
+  .complete-btn {
+    height: 34px;
+    line-height: 34px;
+    font-size: 13px;
+    border-radius: 6px;
+  }
+
+  /* 已完成栏固定宽度 */
+  .completed-orders-section {
+    flex: 0 0 200px;
+    min-width: 200px;
+  }
+
+  .completed-list {
+    padding: 8px;
+  }
+
+  .completed-card {
+    padding: 8px 10px;
+    margin-bottom: 8px;
+    border-radius: 6px;
+    border-left: 3px solid #999999;
+  }
+
+  .completed-pickup-no {
+    font-size: 22px;
+  }
+
+  .completed-type {
+    font-size: 11px;
+    padding: 2px 6px;
+  }
+
+  .completed-time {
+    font-size: 11px;
+  }
+
+  .completed-total {
+    font-size: 12px;
+  }
+
+  .section-count {
+    font-size: 12px;
+  }
+
+  .empty-tip {
+    padding: 40px 0;
+  }
+
+  .empty-text {
+    font-size: 12px;
+  }
 }

@@ -20,8 +20,8 @@
         </swiper-item>
       </swiper>
 
-      <!-- 无自定义图片时：默认占位图 -->
-      <image wx:else src="/images/banner.jpg" mode="aspectFill" class="banner-image"></image>
+      <!-- 无自定义图片时：显示品牌色占位背景（通过 CSS 处理） -->
+      <view wx:else class="banner-placeholder"></view>
     </view>
 
     <!-- 堂食/外带选择区 -->
