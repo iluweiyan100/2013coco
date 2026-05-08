@@ -15,8 +15,8 @@
     <view class="tab-item {{currentTab === 'all' ? 'active' : ''}}" bindtap="onTabChange" data-tab="all">
       <text class="tab-text">全部</text>
     </view>
-    <view class="tab-item {{currentTab === 'pending' ? 'active' : ''}}" bindtap="onTabChange" data-tab="pending">
-      <text class="tab-text">待使用</text>
+    <view class="tab-item {{currentTab === 'making' ? 'active' : ''}}" bindtap="onTabChange" data-tab="making">
+      <text class="tab-text">制作中</text>
     </view>
     <view class="tab-item {{currentTab === 'completed' ? 'active' : ''}}" bindtap="onTabChange" data-tab="completed">
       <text class="tab-text">已完成</text>

@@ -35,7 +35,9 @@ Page({
       statusBarHeight: systemInfo.statusBarHeight
     });
     const type = options.type || '';  // 首页未传则为空
+    console.log('[Order] onLoad 接收到的 type 参数:', type);
     this.setData({ orderType: type });
+    console.log('[Order] 设置后的 orderType:', this.data.orderType);
     this._loadProducts();
   },
 
@@ -126,6 +128,7 @@ Page({
       const sortedScoop = isScoop
         ? product.scoopOptions.slice().sort((a, b) => ORDER.indexOf(a) - ORDER.indexOf(b))
         : [];
+      console.log('[Order] 打开规格弹窗，orderType:', this.data.orderType);
       this.setData({
         showSpecModal: true,
         specModalProduct: product,
@@ -134,6 +137,7 @@ Page({
         selectedSpec: isScoop ? (sortedScoop.includes('单球') ? '单球' : sortedScoop[0]) : (tempOptions.length > 0 ? tempOptions[0] : ''),
         selectedOrderType: this.data.orderType  // 首页传入则预选
       });
+      console.log('[Order] 设置后 selectedOrderType:', this.data.orderType);
       return;
     }
 

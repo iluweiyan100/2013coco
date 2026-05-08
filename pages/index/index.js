@@ -45,16 +45,16 @@ Page({
   // 堂食点击
   onDineInTap() {
     console.log('选择堂食');
-    wx.navigateTo({
-      url: '/pages/menu/menu?type=dine-in'
+    wx.reLaunch({
+      url: '/pages/order/order?type=dine-in'
     });
   },
 
   // 外带点击
   onTakeawayTap() {
     console.log('选择外带');
-    wx.navigateTo({
-      url: '/pages/menu/menu?type=takeaway'
+    wx.reLaunch({
+      url: '/pages/order/order?type=takeaway'
     });
   },
 
