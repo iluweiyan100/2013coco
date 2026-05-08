@@ -1,6 +1,14 @@
 <!--order.wxml-->
 
-<navigation-bar title="点单" back="{{false}}" color="#5A3A29" background="#FFFFFF"></navigation-bar>
+<!-- 导航栏 -->
+<view class="navbar" style="padding-top: {{statusBarHeight}}px; height: calc({{statusBarHeight}}px + 44px);">
+  <view class="navbar-content">
+    <text class="navbar-title">点 单</text>
+  </view>
+</view>
+
+<!-- 占位空间，防止内容被导航栏遮挡 -->
+<view class="navbar-placeholder" style="height: calc({{statusBarHeight}}px + 44px);"></view>
 
 <view class="order-container">
   

@@ -1,5 +1,13 @@
 <!-- pages/profile/profile.wxml -->
-<navigation-bar title="我的" back="{{false}}" color="#5A3A29" background="#FFFFFF" />
+<!-- 导航栏 -->
+<view class="navbar" style="padding-top: {{statusBarHeight}}px; height: calc({{statusBarHeight}}px + 44px);">
+  <view class="navbar-content">
+    <text class="navbar-title">我 的</text>
+  </view>
+</view>
+
+<!-- 占位空间，防止内容被导航栏遮挡 -->
+<view class="navbar-placeholder" style="height: calc({{statusBarHeight}}px + 44px);"></view>
 
 <view class="profile-container">
 
@@ -24,14 +32,10 @@
         <input type="number" class="phone-input" placeholder="请输入手机号" bindinput="onPhoneInput" value="{{tempPhone}}" maxlength="11" />
       </view>
 
-      <!-- 标题 -->
-      <text class="welcome-title">欢迎使用贰零壹叁咖啡点单系统</text>
-
-      <!-- 描述文字 -->
-      <text class="login-desc">登录后可查看订单历史记录</text>
-
       <!-- 登录按钮 -->
-      <button class="login-button" bindtap="onLogin">确认登录</button>
+      <view class="login-button-wrapper">
+        <text class="login-button-text" bindtap="onLogin">确认登录</text>
+      </view>
     </view>
   </block>
 

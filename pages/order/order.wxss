@@ -6,6 +6,40 @@ page {
   background: #F9F5F0; /* RGB(249, 245, 240) */
 }
 
+/* ========== 导航栏 ========== */
+.navbar {
+  width: 100%;
+  background: white;
+  border-bottom: 1.3rpx #E7DDD1 solid;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 100;
+  box-sizing: border-box;
+}
+
+.navbar-content {
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.navbar-title {
+  font-size: 40rpx;
+  color: #5B3A29;
+  font-family: Noto Serif SC;
+  font-weight: 500;
+  line-height: 44px;
+}
+
+.navbar-placeholder {
+  width: 100%;
+}
+
 .order-container {
   flex: 1;
   display: flex;

@@ -3,6 +3,7 @@ const app = getApp();
 
 Page({
   data: {
+    statusBarHeight: 0,
     currentCategory: '',
     cartCount: 0,
     cartMap: {},   // { productId: totalQty }
@@ -29,6 +30,10 @@ Page({
   },
 
   onLoad(options) {
+    const systemInfo = wx.getSystemInfoSync();
+    this.setData({
+      statusBarHeight: systemInfo.statusBarHeight
+    });
     const type = options.type || '';  // 首页未传则为空
     this.setData({ orderType: type });
     this._loadProducts();

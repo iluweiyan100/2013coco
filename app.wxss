@@ -1,4 +1,12 @@
 /**app.wxss**/
+
+/* 仓耳舒圆体字体加载 */
+@font-face {
+  font-family: 'CangerShuYuanTi';
+  src: url('https://636c-cloud3-d2gbcvyqkbc0fbf94-1419079738.tcb.qcloud.la/fonts/仓耳舒圆体 W03.TTF');
+  font-display: swap;
+}
+
 page {
   --primary-color: #6A5ACD;
   --secondary-color: #9370DB;
@@ -6,11 +14,9 @@ page {
   --light-text: #888888;
   --background: #F5F5F5;
   --white: #FFFFFF;
-  
+
   background-color: var(--background);
-  font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Helvetica,
-    'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei UI', 'Microsoft YaHei',
-    Arial, sans-serif;
+  font-family: 'CangerShuYuanTi', '仓耳舒圆体', 'SourceHanSerif', 'Noto Serif SC', 'Source Han Serif SC', 'SimSun', serif;
   font-size: 14px;
   color: var(--text-color);
   box-sizing: border-box;

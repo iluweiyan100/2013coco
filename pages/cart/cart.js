@@ -74,6 +74,24 @@ Page({
 
     wx.showLoading({ title: '正在下单...', mask: true });
 
+    // 确保有 openid
+    let openid = wx.getStorageSync('openid');
+    if (!openid) {
+      const app = getApp();
+      if (app.globalData.openid) {
+        openid = app.globalData.openid;
+        wx.setStorageSync('openid', openid);
+      } else {
+        wx.hideLoading();
+        wx.showToast({
+          title: '用户未登录，请重新打开小程序',
+          icon: 'none'
+        });
+        return;
+      }
+    }
+    console.log('[PayNow] openid:', openid);
+
     try {
       // 1. 先创建订单记录（状态为 pending）
       const orders = [];
@@ -177,7 +195,19 @@ Page({
 
   // 创建待支付订单记录，返回订单ID数组
   async _createPendingOrders(orders) {
-    const openid = wx.getStorageSync('openid');
+    let openid = wx.getStorageSync('openid');
+    if (!openid) {
+      // 如果没有 openid，先获取
+      const app = getApp();
+      if (app.globalData.openid) {
+        openid = app.globalData.openid;
+        wx.setStorageSync('openid', openid);
+      } else {
+        throw new Error('用户未登录，请重新打开小程序');
+      }
+    }
+    console.log('[CreatePendingOrders] openid:', openid);
+
     const db = wx.cloud.database();
 
     const orderIds = [];

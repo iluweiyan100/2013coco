@@ -1,10 +1,15 @@
 // index.js
 Page({
   data: {
+    statusBarHeight: 0,
     heroImages: []
   },
 
   onLoad() {
+    const systemInfo = wx.getSystemInfoSync();
+    this.setData({
+      statusBarHeight: systemInfo.statusBarHeight
+    });
     this._loadHeroImages();
   },
 

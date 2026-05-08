@@ -4,11 +4,15 @@ Page({
     currentTab: 'all',
     filteredOrders: [],
     orders: [],
-    currentOrder: null, // 当前正在进行的订单
+    currentOrder: null,
     openid: ''
   },
 
   onLoad(options) {
+    const systemInfo = wx.getSystemInfoSync();
+    this.setData({
+      statusBarHeight: systemInfo.statusBarHeight
+    });
     this.loadOrders();
   },
 
@@ -18,14 +22,21 @@ Page({
 
   // 从数据库加载订单
   loadOrders() {
-    const openid = wx.getStorageSync('openid');
+    let openid = wx.getStorageSync('openid');
     if (!openid) {
-      this.setData({
-        orders: [],
-        filteredOrders: []
-      });
-      return;
+      const app = getApp();
+      if (app.globalData.openid) {
+        openid = app.globalData.openid;
+        wx.setStorageSync('openid', openid);
+      } else {
+        this.setData({
+          orders: [],
+          filteredOrders: []
+        });
+        return;
+      }
     }
+    console.log('[LoadOrders] openid:', openid);
 
     this.setData({
       openid: openid
@@ -39,12 +50,17 @@ Page({
       .orderBy('createTime', 'desc')
       .get({
         success: (res) => {
+          console.log('[LoadOrders] 查询结果数量:', res.data.length);
+          console.log('[LoadOrders] 原始订单数据:', res.data);
           const orders = res.data.map(order => this.formatOrder(order));
+          console.log('[LoadOrders] 格式化后订单数据:', orders);
           this.setData({
             orders: orders
+          }, () => {
+            console.log('[LoadOrders] setData 完成，当前 orders:', this.data.orders);
+            this.updateFilteredOrders();
+            this.updateCurrentOrder();
           });
-          this.updateFilteredOrders();
-          this.updateCurrentOrder();
         },
         fail: (err) => {
           console.error('获取订单失败:', err);
@@ -66,20 +82,20 @@ Page({
 
     let status = 'pending';
     let statusText = '待取餐';
-    let statusIcon = 'bag';
+    let statusIcon = '2';
 
     if (order.status === 'pending') {
       status = 'pending';
       statusText = '待支付';
-      statusIcon = 'clock';
+      statusIcon = '1';
     } else if (order.status === 'making') {
       status = 'making';
       statusText = '制作中';
-      statusIcon = 'clock';
+      statusIcon = '1';
     } else if (order.status === 'ready') {
       status = 'ready';
       statusText = '待取餐';
-      statusIcon = 'bag';
+      statusIcon = '2';
     } else if (order.status === 'done') {
       status = 'completed';
       statusText = '已完成';
@@ -110,6 +126,8 @@ Page({
     const { orders } = this.data;
     const currentOrder = orders.find(order => order.status === 'making' || order.status === 'pending');
 
+    console.log('[updateCurrentOrder] currentOrder:', currentOrder);
+
     if (currentOrder) {
       this.setData({
         currentOrder: currentOrder
@@ -133,6 +151,8 @@ Page({
   // 根据当前 Tab 过滤订单
   updateFilteredOrders() {
     const { currentTab, orders } = this.data;
+    console.log('[updateFilteredOrders] currentTab:', currentTab);
+    console.log('[updateFilteredOrders] orders 数量:', orders.length);
     let filtered = [];
 
     if (currentTab === 'all') {
@@ -143,6 +163,7 @@ Page({
       filtered = orders.filter(order => ['done', 'refunded'].includes(order.status));
     }
 
+    console.log('[updateFilteredOrders] filteredOrders 数量:', filtered.length);
     this.setData({
       filteredOrders: filtered
     });

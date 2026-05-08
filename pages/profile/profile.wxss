@@ -1,4 +1,39 @@
 /* pages/profile/profile.wxss */
+
+/* ========== 导航栏 ========== */
+.navbar {
+  width: 100%;
+  background: white;
+  border-bottom: 1.3rpx #E7DDD1 solid;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 100;
+  box-sizing: border-box;
+}
+
+.navbar-content {
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.navbar-title {
+  font-size: 40rpx;
+  color: #5B3A29;
+  font-family: Noto Serif SC;
+  font-weight: 500;
+  line-height: 44px;
+}
+
+.navbar-placeholder {
+  width: 100%;
+}
+
 .profile-container {
   min-height: 100vh;
   background: #F9F5F0;
@@ -48,6 +83,8 @@
 
 .nickname-input-wrapper {
   width: 480rpx;
+  box-sizing: border-box;
+  flex-shrink: 0;
 }
 
 .nickname-input {
@@ -56,12 +93,14 @@
   border: 2rpx solid #E7DCD1;
   border-radius: 16rpx;
   padding: 0 24rpx;
-  font-family: 'Noto Serif SC', serif;
+  font-family: 'SourceHanSerif', 'Noto Serif SC', 'Source Han Serif SC', 'SimSun', serif;
   font-weight: 400 !important;
-  font-size: 28rpx;
+  font-size: 28rpx !important;
   background: #FFFFFF;
-  color: #5A3A29;
+  color: #5A3A29 !important;
   text-align: center;
+  box-sizing: border-box;
+  line-height: 80rpx;
 }
 
 .nickname-input::placeholder {
@@ -70,6 +109,8 @@
 
 .phone-input-wrapper {
   width: 480rpx;
+  box-sizing: border-box;
+  flex-shrink: 0;
 }
 
 .phone-input {
@@ -78,53 +119,35 @@
   border: 2rpx solid #E7DCD1;
   border-radius: 16rpx;
   padding: 0 24rpx;
-  font-family: 'Noto Serif SC', serif;
+  font-family: 'SourceHanSerif', 'Noto Serif SC', 'Source Han Serif SC', 'SimSun', serif;
   font-weight: 400 !important;
-  font-size: 28rpx;
+  font-size: 28rpx !important;
   background: #FFFFFF;
-  color: #5A3A29;
+  color: #5A3A29 !important;
   text-align: center;
+  box-sizing: border-box;
+  line-height: 80rpx;
 }
 
 .phone-input::placeholder {
   color: #B8A99E;
 }
 
-.welcome-title {
-  font-family: 'Noto Serif SC', serif;
-  font-weight: 400 !important;
-  font-size: 40rpx;
-  color: #5A3A29;
-  line-height: 60rpx;
-  text-align: center;
-}
-
-.login-desc {
-  font-family: 'Noto Serif SC', serif;
-  font-weight: 400 !important;
-  font-size: 28rpx;
-  color: #5A3A29;
-  opacity: 0.6;
-  line-height: 40rpx;
-  text-align: center;
-}
-
-.login-button {
+.login-button-wrapper {
   margin-top: 32rpx;
   background: #A3212D;
-  color: #FFFFFF;
-  font-family: 'Noto Serif SC', serif;
-  font-weight: 400 !important;
-  font-size: 28rpx;
   padding: 16rpx 64rpx;
   border-radius: 20rpx;
-  border: none;
-  line-height: 40rpx;
   box-shadow: none;
 }
 
-.login-button::after {
-  border: none;
+.login-button-text {
+  font-family: 'SourceHanSerif', 'Noto Serif SC', 'Source Han Serif SC', 'SimSun', serif;
+  font-weight: 500 !important;
+  font-size: 28rpx !important;
+  color: #FFFFFF !important;
+  line-height: 40rpx;
+  text-align: center;
 }
 
 .user-info-header {

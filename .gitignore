@@ -35,3 +35,20 @@ logs/
 .gitignore
 1745080857_20260505_cert/apiclient_cert.p12
 1745080857_20260505_cert/apiclient_cert.pem
+cloudfunctions/createPayment/apiclient_key.pem
+
+# 忽略图片文件
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.svg
+*.webp
+*.bmp
+*.ico
+*.tiff
+
+# 忽略文字文件
+*.txt
+*.md
+

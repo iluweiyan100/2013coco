@@ -7,18 +7,37 @@ page {
   position: relative;
 }
 
-/* 导航栏浮于 banner 之上，透明背景 */
-navigation-bar {
-  position: absolute;
+/* ========== 导航栏 ========== */
+.navbar {
+  width: 100%;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: fixed;
   top: 0;
   left: 0;
-  right: 0;
-  z-index: 10;
+  z-index: 100;
+  box-sizing: border-box;
 }
 
-/* 首页标题字号加大 */
-navigation-bar .weui-navigation-bar__center {
-  font-size: 22px;
+.navbar-content {
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.navbar-title {
+  font-size: 40rpx;
+  color: #3B1F0F;
+  font-family: Noto Serif SC;
+  font-weight: 500;
+  line-height: 44px;
+}
+
+.navbar-placeholder {
+  width: 100%;
 }
 
 .scrollarea {

@@ -58,17 +58,30 @@
 }
 
 .weui-navigation-bar__center {
-  font-size: 17px;
   text-align: center;
   position: relative;
   display: flex;
   flex-direction: row;
   align-items: center;
   justify-content: center;
-  font-weight: 400;
-  font-family: 'Noto Serif SC', serif;
   flex: 1;
-  height: 100%;
+  height: 44px;
+}
+
+.weui-navigation-bar__title-content {
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 44px !important;
+}
+
+.weui-navigation-bar__title-text {
+  font-size: 40rpx !important;
+  font-weight: 500 !important;
+  font-family: 'Noto Serif SC', serif !important;
+  color: inherit;
+  white-space: nowrap;
 }
 
 .weui-navigation-bar__loading {
