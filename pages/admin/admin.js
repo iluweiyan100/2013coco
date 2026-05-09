@@ -5,16 +5,10 @@ Page({
     activeTab: 'stats',
 
     // ===== 数据统计 =====
-    todaySales: 2580,
-    orderCount: 45,
-    avgOrderValue: 57,
-    productRanking: [
-      { rank: 1, name: '经典热可可', sales: 128, revenue: 3584 },
-      { rank: 2, name: '拿铁咖啡',   sales: 96,  revenue: 2880 },
-      { rank: 3, name: '榛子可可',   sales: 72,  revenue: 2304 },
-      { rank: 4, name: '美式咖啡',   sales: 54,  revenue: 1350 },
-      { rank: 5, name: '白巧克力可可', sales: 48, revenue: 1536 }
-    ],
+    todaySales: 0,
+    orderCount: 0,
+    avgOrderValue: 0,
+    productRanking: [],
 
     // ===== 商品管理 =====
     activeCategoryFilter: 'all',
@@ -58,9 +52,7 @@ Page({
     activeOrderFilter: 'all',
     orderFilters: [
       { value: 'all',      label: '全部',     count: 0 },
-      { value: 'pending',  label: '待支付',   count: 0 },
       { value: 'making',   label: '制作中',   count: 0 },
-      { value: 'ready',    label: '待取餐',   count: 0 },
       { value: 'done',     label: '已完成',   count: 0 },
       { value: 'refunded', label: '已退款',   count: 0 }
     ],
@@ -68,23 +60,39 @@ Page({
     filteredOrders: [],
 
     // ===== 首页内容 =====
-    wifiName: 'CoffeeShop_Guest',
-    wifiPassword: 'StoreWifi2024',
-    _wifiNameSaved: 'CoffeeShop_Guest',
-    _wifiPasswordSaved: 'StoreWifi2024',
+    wifiName: '',
+    wifiPassword: '',
+    _wifiNameSaved: '',
+    _wifiPasswordSaved: '',
 
     // 英雄区轮播图（heroImages 为显示用临时 URL，_heroFileIDs 为云存储 fileID）
     heroImages: [],
     _heroFileIDs: [],
-    _heroModified: false  // 是否有未保存的修改，true 时 onShow 不刷新
+    _heroModified: false,  // 是否有未保存的修改，true 时 onShow 不刷新
+
+    // 分享配置
+    shareConfig: {
+      shareTitle: '',
+      timelineTitle: '',
+      shareImage: '',
+      timelineImage: '',
+      path: ''
+    },
+    _shareConfig: {},  // 保存 fileID，用于云端存储
+    _shareConfigSaved: {},  // 保存的配置，用于取消时恢复
   },
 
   onLoad() {
     this._initCloudDB();
+  },
+
+  onReady() {
+    // 页面渲染完成后加载数据，确保云初始化完成
     this.loadHomeSettings();
     this._loadProductsFromCloud();
     this._loadOrdersFromCloud();
     this._applyOrderFilter('all');
+    this._loadStatisticsFromCloud();
   },
 
   // 调用云函数自动创建所需数据库集合
@@ -101,7 +109,12 @@ Page({
   },
 
   onTabChange(e) {
-    this.setData({ activeTab: e.currentTarget.dataset.tab });
+    const newTab = e.currentTarget.dataset.tab;
+    this.setData({ activeTab: newTab });
+    // 切换到数据统计 Tab 时刷新统计数据
+    if (newTab === 'stats') {
+      this._loadStatisticsFromCloud();
+    }
   },
 
   // ===== 商品管理 =====
@@ -359,6 +372,113 @@ Page({
     });
   },
 
+  // ===== 数据统计 =====
+
+  /**
+   * 从云数据库加载统计数据
+   * 包括：今日销售额、订单量、客单价、商品销售排行
+   */
+  async _loadStatisticsFromCloud() {
+    try {
+      const db = wx.cloud.database();
+
+      // 获取今天的开始时间（北京时间，考虑时区）
+      const now = new Date();
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      // 北京时间 UTC+8，需要减去 8 小时的偏移
+      todayStart.setHours(todayStart.getHours() - 8);
+
+      // 转换为云数据库需要的日期格式
+      const startDate = new Date(todayStart.getTime());
+
+      // 查询今天的订单（排除已退款的）
+      const todayRes = await db.collection('orders')
+        .where({
+          createTime: db.command.gte(startDate),
+          status: db.command.neq('refunded')
+        })
+        .get();
+
+      const todayOrders = todayRes.data || [];
+
+      // 计算今日销售额和订单量
+      let todayTotalAmount = 0;
+      todayOrders.forEach(order => {
+        todayTotalAmount += order.totalAmount || 0;
+      });
+
+      // 查询所有订单（用于计算商品销售排行，排除已退款的）
+      const allRes = await db.collection('orders')
+        .where({
+          status: db.command.neq('refunded')
+        })
+        .get();
+
+      const allOrders = allRes.data || [];
+
+      // 统计商品销售数据
+      const productStats = {}; // { name: { sales: 0, revenue: 0 } }
+      allOrders.forEach(order => {
+        const products = order.products || [];
+        products.forEach(product => {
+          const name = product.name || '未知商品';
+          const quantity = product.quantity || 1;
+          const price = product.price || 0;
+          const revenue = price * quantity;
+
+          if (!productStats[name]) {
+            productStats[name] = { sales: 0, revenue: 0 };
+          }
+          productStats[name].sales += quantity;
+          productStats[name].revenue += revenue;
+        });
+      });
+
+      // 转换为数组并排序（按销量降序）
+      const rankingList = Object.entries(productStats)
+        .map(([name, stats], index) => ({
+          rank: index + 1,
+          name,
+          sales: stats.sales,
+          revenue: Math.round(stats.revenue * 100) / 100 // 保留两位小数
+        }))
+        .sort((a, b) => b.sales - a.sales)
+        .slice(0, 5); // 只取前 5 名
+
+      // 重新设置排名（因为排序后 rank 可能不连续）
+      rankingList.forEach((item, index) => {
+        item.rank = index + 1;
+      });
+
+      // 计算客单价（总销售额 / 订单数）
+      let totalAmount = 0;
+      allOrders.forEach(order => {
+        totalAmount += order.totalAmount || 0;
+      });
+      const avgOrderValue = allOrders.length > 0
+        ? Math.round((totalAmount / allOrders.length) * 100) / 100
+        : 0;
+
+      // 更新数据
+      this.setData({
+        todaySales: Math.round(todayTotalAmount * 100) / 100,
+        orderCount: allOrders.length,
+        avgOrderValue,
+        productRanking: rankingList
+      });
+
+      console.log('[Statistics] 加载成功', {
+        todaySales: this.data.todaySales,
+        orderCount: this.data.orderCount,
+        avgOrderValue: this.data.avgOrderValue,
+        productRanking: this.data.productRanking
+      });
+    } catch (e) {
+      console.error('[Statistics] 加载失败', e);
+      wx.showToast({ title: '统计数据加载失败', icon: 'none' });
+    }
+  },
+
   // ===== 订单管理 =====
 
   // 从云数据库加载订单列表
@@ -397,7 +517,12 @@ Page({
             price: p.price || 0
           })),
           total: order.totalAmount || 0,
-          remark: order.remark || ''
+          remark: order.remark || '',
+          // 保留支付相关字段用于退款
+          orderId: order.orderId,
+          outTradeNo: order.outTradeNo,
+          transactionId: order.transactionId,
+          totalAmount: order.totalAmount
         };
       });
 
@@ -428,22 +553,65 @@ Page({
 
   onRefundOrder(e) {
     const id = e.currentTarget.dataset.id;
+
+    // 从当前订单列表中找到该订单
+    const order = this.data.orders.find(o => o._id === id);
+    if (!order) {
+      wx.showToast({ title: '订单不存在', icon: 'none' });
+      return;
+    }
+
+    // 检查订单状态
+    if (order.status === 'refunded') {
+      wx.showToast({ title: '该订单已退款', icon: 'none' });
+      return;
+    }
+
+    // 检查是否有关联订单（堂食+外带）
+    const hasRelatedOrder = this.data.orders.some(o =>
+      o._id !== id && o.outTradeNo === order.outTradeNo
+    );
+
+    // 构造确认提示内容
+    let confirmContent = `退款后订单状态将变为"已退款"，退款金额为 ¥${(order.totalAmount || order.total || 0).toFixed(2)}，是否继续？`;
+    if (hasRelatedOrder) {
+      confirmContent = `此订单与另一订单共享同一笔支付（总金额 ¥${(order.totalAmount || order.total || 0).toFixed(2)}），将发起部分退款，是否继续？`;
+    }
+
     wx.showModal({
       title: '确认退款',
-      content: '退款后订单状态将变为"已退款"，是否继续？',
+      content: confirmContent,
       success: async (res) => {
         if (res.confirm) {
           wx.showLoading({ title: '处理中...', mask: true });
           try {
-            const db = wx.cloud.database();
-            await db.collection('orders').doc(id).update({
-              data: { 
-                status: 'refunded',
-                refundTime: db.serverDate()
+            // 调用退款云函数
+            const result = await wx.cloud.callFunction({
+              name: 'refundPayment',
+              data: {
+                orderId: order._id,
+                outTradeNo: order.outTradeNo,
+                transactionId: order.transactionId,
+                refundAmount: order.totalAmount || order.total || 0
               }
             });
+
             wx.hideLoading();
-            wx.showToast({ title: '退款成功', icon: 'success' });
+
+            // 根据返回结果显示不同提示
+            if (result.result && result.result.alreadyRefunded) {
+              wx.showToast({ title: '订单已退款', icon: 'success' });
+            } else if (result.result && result.result.isPartialRefund) {
+              wx.showToast({
+                title: '部分退款成功',
+                icon: 'success',
+                duration: 2000
+              });
+            } else {
+              wx.showToast({ title: '退款成功', icon: 'success' });
+            }
+
+            // 刷新订单列表
             this._loadOrdersFromCloud();
           } catch (e) {
             wx.hideLoading();
@@ -486,22 +654,55 @@ Page({
 
   // ===== 首页内容 =====
   loadHomeSettings() {
-    try {
-      const saved = wx.getStorageSync('homeSettings');
-      if (saved) {
-        this.setData({
-          wifiName: saved.wifiName || 'CoffeeShop_Guest',
-          wifiPassword: saved.wifiPassword || 'StoreWifi2024',
-          _wifiNameSaved: saved.wifiName || 'CoffeeShop_Guest',
-          _wifiPasswordSaved: saved.wifiPassword || 'StoreWifi2024'
-        });
-      }
-    } catch (e) {
-      // ignore
-    }
-
     // 加载英雄区轮播图（从云数据库读取，转换 fileID 为临时链接）
     this._loadHeroImagesFromCloud();
+    // 从云数据库加载 Wi-Fi 设置
+    this._loadWifiSettingsFromCloud();
+    // 加载分享配置
+    this._loadShareConfigFromCloud();
+  },
+
+  /**
+   * 从云数据库加载 Wi-Fi 设置
+   */
+  async _loadWifiSettingsFromCloud() {
+    console.log('[WiFi] 开始从云端加载 Wi-Fi 设置');
+    try {
+      const db = wx.cloud.database();
+      const res = await db.collection('homeSettings').doc('config').get();
+      const data = res.data || {};
+      console.log('[WiFi] 云端数据:', data);
+      this.setData({
+        wifiName: data.wifiName || '',
+        wifiPassword: data.wifiPassword || '',
+        _wifiNameSaved: data.wifiName || '',
+        _wifiPasswordSaved: data.wifiPassword || ''
+      });
+      console.log('[WiFi] 加载完成，wifiName:', data.wifiName, 'wifiPassword:', data.wifiPassword);
+    } catch (e) {
+      console.error('[WiFi] 从云端加载失败', e);
+      // 云端加载失败或文档不存在时，尝试从本地加载（首次使用时文档不存在是正常的）
+      if (e.errMsg && e.errMsg.includes('cannot find document')) {
+        // 文档不存在是正常的首次使用情况，不显示警告
+        console.log('[WiFi] 云端无配置文档，首次使用');
+      } else {
+        console.warn('[WiFi] 从云端加载失败，尝试本地存储', e);
+      }
+      try {
+        const saved = wx.getStorageSync('homeSettings');
+        if (saved) {
+          this.setData({
+            wifiName: saved.wifiName || '',
+            wifiPassword: saved.wifiPassword || '',
+            _wifiNameSaved: saved.wifiName || '',
+            _wifiPasswordSaved: saved.wifiPassword || ''
+          });
+          console.log('[WiFi] 从本地加载成功');
+        }
+      } catch (localErr) {
+        console.warn('[WiFi] 从本地加载也失败', localErr);
+      }
+    }
   },
 
   /**
@@ -536,12 +737,27 @@ Page({
 
   onSaveHomeSettings() {
     const { wifiName, wifiPassword } = this.data;
-    wx.setStorageSync('homeSettings', { wifiName, wifiPassword });
-    this.setData({
-      _wifiNameSaved: wifiName,
-      _wifiPasswordSaved: wifiPassword
+
+    // 保存到云数据库，以便其他设备同步
+    wx.cloud.callFunction({
+      name: 'initDB',
+      data: {
+        action: 'setHomeSettings',
+        wifiName,
+        wifiPassword
+      }
+    }).then(() => {
+      // 同时保存到本地存储
+      wx.setStorageSync('homeSettings', { wifiName, wifiPassword });
+      this.setData({
+        _wifiNameSaved: wifiName,
+        _wifiPasswordSaved: wifiPassword
+      });
+      wx.showToast({ title: '保存成功', icon: 'success' });
+    }).catch(e => {
+      console.error('[Admin] 保存 Wi-Fi 设置失败', e);
+      wx.showToast({ title: '保存失败', icon: 'none' });
     });
-    wx.showToast({ title: '保存成功', icon: 'success' });
   },
 
   onCancelHomeSettings() {
@@ -690,13 +906,221 @@ Page({
     this._loadHeroImagesFromCloud();
   },
 
-  onReady() {},
+  // ===== 分享链接设置 =====
+
+  /**
+   * 将临时 URL 转换为 fileID（兼容旧数据）
+   * 临时 URL 格式：https://636c-cloud3-d2gbcvyqkbc0fbf94-1419079738.tcb.qcloud.la/path/to/file.jpg
+   * fileID 格式：cloud://636c-cloud3-d2gbcvyqkbc0fbf94-1419079738.tcb.qcloud.la/path/to/file.jpg
+   */
+  _convertTempURLToFileID(url) {
+    if (!url) return '';
+    // 已经是 fileID 格式，直接返回
+    if (url.startsWith('cloud://')) return url;
+    // 将 https:// 替换为 cloud://
+    if (url.startsWith('https://')) {
+      return url.replace('https://', 'cloud://');
+    }
+    return url;
+  },
+
+  /**
+   * 从云数据库加载分享配置
+   * 参考英雄区轮播图的简洁实现，将 fileID 转换为临时链接用于显示
+   */
+  async _loadShareConfigFromCloud() {
+    console.log('[Share] 开始从云端加载分享配置');
+    try {
+      const db = wx.cloud.database();
+      const res = await db.collection('share_config').doc('index_share').get();
+      const data = res.data || {};
+      console.log('[Share] 云端数据:', data);
+
+      // 兼容旧数据：将临时 URL 转换为 fileID
+      const shareImageFileID = this._convertTempURLToFileID(data.shareImage);
+      const timelineImageFileID = this._convertTempURLToFileID(data.timelineImage);
+
+      // 获取图片 fileID 列表
+      const imageFileIDs = [];
+      if (shareImageFileID) imageFileIDs.push(shareImageFileID);
+      if (timelineImageFileID) imageFileIDs.push(timelineImageFileID);
+
+      // 转换 fileID 为临时链接
+      let shareImageURL = '';
+      let timelineImageURL = '';
+      if (imageFileIDs.length > 0) {
+        try {
+          const urlRes = await wx.cloud.getTempFileURL({ fileList: imageFileIDs });
+          const urlMap = {};
+          urlRes.fileList.forEach((item, index) => {
+            urlMap[imageFileIDs[index]] = item.tempFileURL;
+          });
+          shareImageURL = shareImageFileID ? urlMap[shareImageFileID] || '' : '';
+          timelineImageURL = timelineImageFileID ? urlMap[timelineImageFileID] || '' : '';
+        } catch (e) {
+          console.warn('[Share] 获取图片临时链接失败', e);
+        }
+      }
+
+      const finalConfig = {
+        shareConfig: {
+          shareTitle: data.shareTitle || '',
+          timelineTitle: data.timelineTitle || '',
+          shareImage: shareImageURL,
+          timelineImage: timelineImageURL,
+          path: data.path || ''
+        },
+        _shareConfig: {
+          shareImage: shareImageFileID,
+          timelineImage: timelineImageFileID
+        },
+        _shareConfigSaved: {
+          shareTitle: data.shareTitle || '',
+          timelineTitle: data.timelineTitle || '',
+          shareImage: shareImageFileID,
+          timelineImage: timelineImageFileID,
+          path: data.path || '',
+          shareImageURL: shareImageURL,
+          timelineImageURL: timelineImageURL
+        }
+      };
+      console.log('[Share] 设置数据:', finalConfig);
+      this.setData(finalConfig);
+      console.log('[Share] 加载完成');
+    } catch (e) {
+      console.error('[Share] 加载分享配置失败', e);
+      // 加载失败或文档不存在时使用空值（首次使用时文档不存在是正常的）
+      if (e.errMsg && e.errMsg.includes('cannot find document')) {
+        console.log('[Share] 云端无配置文档，首次使用');
+      } else {
+        console.warn('[Share] 加载分享配置失败', e);
+      }
+    }
+  },
+
+  onInputShareTitle(e) {
+    this.setData({ 'shareConfig.shareTitle': e.detail.value });
+  },
+
+  onInputTimelineTitle(e) {
+    this.setData({ 'shareConfig.timelineTitle': e.detail.value });
+  },
+
+  onInputSharePath(e) {
+    this.setData({ 'shareConfig.path': e.detail.value });
+  },
+
+  /**
+   * 选择分享图片
+   */
+  onChooseShareImage(e) {
+    const type = e.currentTarget.dataset.type; // 'share' 或 'timeline'
+    wx.chooseMedia({
+      count: 1,
+      mediaType: ['image'],
+      sourceType: ['album', 'camera'],
+      success: async (res) => {
+        const path = res.tempFiles[0].tempFilePath;
+        wx.showLoading({ title: '上传中...', mask: true });
+        try {
+          // 上传到云存储
+          const rawExt = path.split('?')[0].split('.').pop() || '';
+          const ext = rawExt.replace(/[^a-zA-Z]/g, '').toLowerCase() || 'jpg';
+          const cloudPath = `share-images/${type}_${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+          const uploadRes = await new Promise((resolve, reject) => {
+            wx.cloud.uploadFile({
+              cloudPath,
+              filePath: path,
+              success: resolve,
+              fail: reject
+            });
+          });
+          // 获取临时链接
+          const urlRes = await wx.cloud.getTempFileURL({ fileList: [uploadRes.fileID] });
+          const tempURL = urlRes.fileList[0].tempFileURL;
+          // 更新配置
+          if (type === 'share') {
+            this.setData({ 'shareConfig.shareImage': tempURL, '_shareConfig.shareImage': uploadRes.fileID });
+          } else {
+            this.setData({ 'shareConfig.timelineImage': tempURL, '_shareConfig.timelineImage': uploadRes.fileID });
+          }
+          wx.hideLoading();
+          wx.showToast({ title: '上传成功', icon: 'success' });
+        } catch (e) {
+          wx.hideLoading();
+          console.error('[Share] 上传图片失败', e);
+          wx.showToast({ title: '上传失败，请重试', icon: 'none' });
+        }
+      }
+    });
+  },
+
+  /**
+   * 保存分享配置到云数据库
+   */
+  async onSaveShareConfig() {
+    const { shareConfig, _shareConfig } = this.data;
+    wx.showLoading({ title: '保存中...', mask: true });
+    try {
+      await wx.cloud.callFunction({
+        name: 'initDB',
+        data: {
+          action: 'setShareConfig',
+          shareTitle: shareConfig.shareTitle,
+          timelineTitle: shareConfig.timelineTitle,
+          shareImage: _shareConfig.shareImage || '', // 保存 fileID 而不是临时链接
+          timelineImage: _shareConfig.timelineImage || '', // 保存 fileID 而不是临时链接
+          path: shareConfig.path
+        }
+      });
+      // 更新保存的配置，同时保存显示用的临时链接和持久用的 fileID
+      this.setData({
+        _shareConfigSaved: {
+          shareTitle: shareConfig.shareTitle,
+          timelineTitle: shareConfig.timelineTitle,
+          shareImage: _shareConfig.shareImage || '', // fileID
+          timelineImage: _shareConfig.timelineImage || '', // fileID
+          path: shareConfig.path,
+          shareImageURL: shareConfig.shareImage, // 临时链接用于取消时恢复
+          timelineImageURL: shareConfig.timelineImage // 临时链接用于取消时恢复
+        }
+      });
+      wx.hideLoading();
+      wx.showToast({ title: '保存成功', icon: 'success' });
+    } catch (e) {
+      wx.hideLoading();
+      console.error('[Share] 保存失败', e);
+      wx.showToast({ title: '保存失败，请重试', icon: 'none' });
+    }
+  },
+
+  onCancelShareConfig() {
+    const { _shareConfigSaved } = this.data;
+    this.setData({
+      shareConfig: {
+        shareTitle: _shareConfigSaved.shareTitle || '',
+        timelineTitle: _shareConfigSaved.timelineTitle || '',
+        shareImage: _shareConfigSaved.shareImageURL || '',
+        timelineImage: _shareConfigSaved.timelineImageURL || '',
+        path: _shareConfigSaved.path || ''
+      },
+      _shareConfig: {
+        shareImage: _shareConfigSaved.shareImage || '',
+        timelineImage: _shareConfigSaved.timelineImage || ''
+      }
+    });
+  },
+
   onShow() {
     // 有未保存的修改时不刷新，避免覆盖本地预览图
     if (!this.data._heroModified) {
       this._loadHeroImagesFromCloud();
     }
     this._loadOrdersFromCloud();
+    // 刷新统计数据
+    if (this.data.activeTab === 'stats') {
+      this._loadStatisticsFromCloud();
+    }
     // 每 10 秒自动刷新订单
     this._orderPollTimer = setInterval(() => {
       this._loadOrdersFromCloud();

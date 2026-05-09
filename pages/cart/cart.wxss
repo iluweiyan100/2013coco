@@ -6,6 +6,54 @@ page {
   background: #F9F6F0;
 }
 
+/* ========== 导航栏 ========== */
+.navbar {
+  width: 100%;
+  background: #F9F6F0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 100;
+  box-sizing: border-box;
+}
+
+.navbar-content {
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.back-btn {
+  position: absolute;
+  left: 32rpx;
+  height: 44px;
+  display: flex;
+  align-items: center;
+}
+
+.back-icon {
+  width: 24px;
+  height: 24px;
+  color: #5B3A29;
+}
+
+.navbar-title {
+  font-size: 40rpx;
+  color: #5B3A29;
+  font-family: 'CangerShuYuanTi', Noto Serif SC;
+  font-weight: 500;
+  line-height: 44px;
+}
+
+.navbar-placeholder {
+  width: 100%;
+}
+
 .cart-page {
   flex: 1;
   display: flex;
@@ -35,12 +83,14 @@ page {
   font-weight: 500;
   color: #3A2318;
   margin-bottom: 16rpx;
+  font-family: 'CangerShuYuanTi', Noto Serif SC;
 }
 
 .cart-empty-hint {
   font-size: 26rpx;
   color: rgba(58, 35, 24, 0.50);
   margin-bottom: 64rpx;
+  font-family: 'CangerShuYuanTi', Noto Serif SC;
 }
 
 .cart-empty-btn {
@@ -57,6 +107,7 @@ page {
   font-size: 30rpx;
   font-weight: 500;
   color: #FFFFFF;
+  font-family: 'CangerShuYuanTi', Noto Serif SC;
 }
 
 /* ========== 商品列表 ========== */
@@ -83,6 +134,7 @@ page {
   border-radius: 10rpx;
   padding: 6rpx 20rpx;
   letter-spacing: 2rpx;
+  font-family: 'CangerShuYuanTi', Noto Serif SC;
 }
 
 .cart-group-tag-dine {
@@ -135,6 +187,7 @@ page {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-family: 'CangerShuYuanTi', Noto Serif SC;
 }
 
 .cart-item-temp {
@@ -199,12 +252,14 @@ page {
 .cart-remark-label {
   font-size: 26rpx;
   color: rgba(58, 35, 24, 0.60);
+  font-family: 'CangerShuYuanTi', Noto Serif SC;
 }
 
 .cart-remark-input {
   font-size: 28rpx;
   color: #3A2318;
   height: 60rpx;
+  font-family: 'CangerShuYuanTi', Noto Serif SC;
 }
 
 .cart-remark-placeholder {
@@ -231,17 +286,20 @@ page {
 .cart-total-label {
   font-size: 26rpx;
   color: rgba(58, 35, 24, 0.60);
+  font-family: 'CangerShuYuanTi', Noto Serif SC;
 }
 
 .cart-total-price {
   font-size: 44rpx;
   font-weight: 700;
   color: #A3212D;
+  font-family: 'CangerShuYuanTi', Noto Serif SC;
 }
 
 .cart-total-count {
   font-size: 22rpx;
   color: rgba(58, 35, 24, 0.45);
+  font-family: 'CangerShuYuanTi', Noto Serif SC;
 }
 
 .cart-submit-btn {
@@ -258,4 +316,5 @@ page {
   font-size: 32rpx;
   font-weight: 500;
   color: #FFFFFF;
+  font-family: 'CangerShuYuanTi', Noto Serif SC;
 }

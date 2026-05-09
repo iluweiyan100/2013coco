@@ -25,7 +25,7 @@
 .navbar-title {
   font-size: 40rpx !important;
   color: #5B3A29;
-  font-family: Noto Serif SC !important;
+  font-family: 'CangerShuYuanTi', Noto Serif SC !important;
   font-weight: 500 !important;
   line-height: 44px;
 }
@@ -67,7 +67,7 @@
 .tab-text {
   font-size: 28rpx;
   color: #5B3A29;
-  font-family: Noto Serif SC;
+  font-family: 'CangerShuYuanTi', Noto Serif SC;
   font-weight: 500;
 }
 
@@ -113,7 +113,7 @@
 .pickup-label {
   font-size: 32rpx;
   color: #5B3A29;
-  font-family: Noto Serif SC;
+  font-family: 'CangerShuYuanTi', Noto Serif SC;
   font-weight: 400;
   margin-right: 16rpx;
 }
@@ -121,7 +121,7 @@
 .pickup-number {
   font-size: 48rpx;
   color: #A3212D;
-  font-family: Noto Serif SC;
+  font-family: 'CangerShuYuanTi', Noto Serif SC;
   font-weight: 400;
 }
 
@@ -135,7 +135,7 @@
 .order-time {
   font-size: 28rpx;
   color: rgba(91, 58, 41, 0.60);
-  font-family: Noto Serif SC;
+  font-family: 'CangerShuYuanTi', Noto Serif SC;
   font-weight: 400;
 }
 
@@ -145,7 +145,7 @@
   border-radius: 8rpx;
   font-size: 24rpx;
   color: rgba(91, 58, 41, 0.60);
-  font-family: Noto Serif SC;
+  font-family: 'CangerShuYuanTi', Noto Serif SC;
   font-weight: 400;
 }
 
@@ -164,7 +164,7 @@
 .status-text {
   font-size: 28rpx;
   color: #A3212D;
-  font-family: Noto Serif SC;
+  font-family: 'CangerShuYuanTi', Noto Serif SC;
   font-weight: 400;
 }
 
@@ -193,7 +193,7 @@
 .product-name {
   font-size: 28rpx;
   color: #5B3A29;
-  font-family: Noto Serif SC;
+  font-family: 'CangerShuYuanTi', Noto Serif SC;
   font-weight: 400;
   line-height: 48rpx;
 }
@@ -201,7 +201,7 @@
 .product-option {
   font-size: 24rpx;
   color: rgba(91, 58, 41, 0.50);
-  font-family: Noto Serif SC;
+  font-family: 'CangerShuYuanTi', Noto Serif SC;
   font-weight: 400;
   line-height: 48rpx;
 }
@@ -209,7 +209,7 @@
 .product-quantity {
   font-size: 28rpx;
   color: rgba(91, 58, 41, 0.50);
-  font-family: Noto Serif SC;
+  font-family: 'CangerShuYuanTi', Noto Serif SC;
   font-weight: 400;
   line-height: 48rpx;
 }
@@ -217,7 +217,7 @@
 .product-price {
   font-size: 28rpx;
   color: #C08A4D;
-  font-family: Noto Serif SC;
+  font-family: 'CangerShuYuanTi', Noto Serif SC;
   font-weight: 400;
   line-height: 48rpx;
   text-align: right;
@@ -235,14 +235,14 @@
 .total-label {
   font-size: 32rpx;
   color: #5B3A29;
-  font-family: Noto Serif SC;
+  font-family: 'CangerShuYuanTi', Noto Serif SC;
   font-weight: 400;
 }
 
 .total-amount {
   font-size: 40rpx;
   color: #C08A4D;
-  font-family: Noto Serif SC;
+  font-family: 'CangerShuYuanTi', Noto Serif SC;
   font-weight: 400;
 }
 
@@ -257,5 +257,5 @@
 .empty-text {
   font-size: 28rpx;
   color: #999999;
-  font-family: Noto Serif SC;
+  font-family: 'CangerShuYuanTi', Noto Serif SC;
 }

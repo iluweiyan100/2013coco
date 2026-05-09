@@ -1,0 +1,49 @@
+<!-- pages/orders-brief/orders-brief.wxml -->
+<view class="orders-brief-container">
+  <!-- 导航栏 -->
+  <view class="navbar" style="padding-top: {{statusBarHeight}}px; height: calc({{statusBarHeight}}px + 44px);">
+    <view class="navbar-content">
+      <view class="back-btn" bindtap="onBack">
+        <image class="back-icon" src="/images/icons/back.svg" mode="aspectFit"></image>
+      </view>
+      <text class="navbar-title">我的订单</text>
+    </view>
+  </view>
+
+  <!-- 占位空间，防止内容被导航栏遮挡 -->
+  <view class="navbar-placeholder" style="height: calc({{statusBarHeight}}px + 44px);"></view>
+
+  <!-- 订单列表 -->
+  <scroll-view class="orders-list" scroll-y="true">
+    <block wx:for="{{orders}}" wx:key="id">
+      <view class="order-card">
+        <!-- 订单简要信息 -->
+        <view class="order-summary">
+          <view class="order-left">
+            <text class="pickup-number">{{item.pickupNumber}}</text>
+            <text class="order-type">{{item.orderType === 'dine-in' ? '堂食' : '外带'}}</text>
+          </view>
+          <view class="order-right">
+            <text class="order-time">{{item.date}} {{item.time}}</text>
+          </view>
+        </view>
+
+        <!-- 商品简要 -->
+        <view class="product-brief">
+          <text class="product-text">{{item.productSummary}}</text>
+        </view>
+
+        <!-- 底部信息 -->
+        <view class="order-bottom">
+          <text class="total-price">¥{{item.totalAmount}}</text>
+          <text class="product-count">共{{item.productCount}}件</text>
+        </view>
+      </view>
+    </block>
+
+    <!-- 空状态 -->
+    <view wx:if="{{orders.length === 0}}" class="empty-state">
+      <text class="empty-text">暂无订单</text>
+    </view>
+  </scroll-view>
+</view>

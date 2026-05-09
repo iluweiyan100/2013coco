@@ -3,6 +3,7 @@ const app = getApp();
 
 Page({
   data: {
+    statusBarHeight: 0,
     remark: '',
     dineInList: [],
     takeawayList: [],
@@ -11,6 +12,10 @@ Page({
   },
 
   onLoad() {
+    const systemInfo = wx.getSystemInfoSync();
+    this.setData({
+      statusBarHeight: systemInfo.statusBarHeight
+    });
     this._syncFromGlobal();
   },
 
@@ -59,6 +64,11 @@ Page({
   // 备注
   onRemarkInput(e) {
     this.setData({ remark: e.detail.value });
+  },
+
+  // 返回上一页
+  onBack() {
+    wx.navigateBack({ delta: 1 });
   },
 
   // 去点单

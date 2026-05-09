@@ -69,14 +69,14 @@
       </view>
 
       <!-- 联系客服 -->
-      <view class="menu-button" bindtap="onMenuItem" data-action="service">
+      <button class="menu-button" open-type="contact" session-from="profile" bindcontact="onContactMessage" style="width: 689rpx; display: flex; box-sizing: border-box; left: 0rpx; top: 0rpx">
         <view class="menu-left">
           <view class="icon-circle">
             <image src="/public/images/kefu.svg" class="menu-icon" mode="aspectFit"></image>
           </view>
           <text class="menu-text">联系客服</text>
         </view>
-      </view>
+      </button>
 
       <!-- 设置 -->
       <view class="menu-button" bindtap="onMenuItem" data-action="settings">

@@ -256,57 +256,6 @@ page {
   opacity: 0.8;
 }
 
-/* ========== 店员和管理入口 ========== */
-.staff-section {
-  display: flex;
-  flex-direction: column;
-  gap: 16rpx;
-  padding: 0 32rpx;
-}
-
-.staff-btn {
-  display: flex;
-  align-items: center;
-  padding: 24rpx 32rpx;
-  border-radius: 32rpx;
-  box-shadow: 0 8rpx 24rpx rgba(0, 0, 0, 0.1);
-}
-
-.staff-mode {
-  background: rgba(90, 58, 41, 0.9);
-}
-
-.admin-mode {
-  background: rgba(192, 138, 77, 0.9);
-}
-
-.btn-icon {
-  width: 32rpx;
-  height: 32rpx;
-  margin-right: 16rpx;
-  position: relative;
-}
-
-.icon-shield {
-  width: 32rpx;
-  height: 32rpx;
-  border: 3rpx solid #FFFFFF;
-  border-radius: 50%;
-}
-
-.icon-settings {
-  width: 32rpx;
-  height: 32rpx;
-  border: 3rpx solid #FFFFFF;
-  border-radius: 8rpx;
-}
-
-.btn-text {
-  font-size: 28rpx;
-  color: #FFFFFF;
-  font-weight: 500;
-}
-
 /* ========== 底部 TabBar ========== */
 .tabbar {
   position: fixed;

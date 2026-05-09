@@ -31,7 +31,7 @@ page {
 .navbar-title {
   font-size: 40rpx;
   color: #5B3A29;
-  font-family: Noto Serif SC;
+  font-family: 'CangerShuYuanTi', Noto Serif SC;
   font-weight: 500;
   line-height: 44px;
 }
@@ -71,6 +71,7 @@ page {
   font-size: 28rpx;
   color: #5A3A29;
   position: relative;
+  font-family: 'CangerShuYuanTi', Noto Serif SC;
 }
 
 .sidebar-item.active {
@@ -93,6 +94,7 @@ page {
   font-size: 28rpx;
   font-weight: 600;
   color: #5A3A29;
+  font-family: 'CangerShuYuanTi', Noto Serif SC;
 }
 
 /* 第一个分类标题不需要顶部间距 */
@@ -169,6 +171,7 @@ page {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-family: 'CangerShuYuanTi', Noto Serif SC;
 }
 
 .product-price {
@@ -264,6 +267,7 @@ page {
   color: #3A2318;
   text-align: center;
   margin-bottom: 8rpx;
+  font-family: 'CangerShuYuanTi', Noto Serif SC;
 }
 
 .spec-popup-subtitle {
@@ -272,6 +276,7 @@ page {
   color: rgba(58, 35, 24, 0.55);
   text-align: center;
   margin-bottom: 36rpx;
+  font-family: 'CangerShuYuanTi', Noto Serif SC;
 }
 
 .spec-options {
@@ -310,6 +315,7 @@ page {
 .spec-option-text {
   font-size: 28rpx;
   color: #5A3A29;
+  font-family: 'CangerShuYuanTi', Noto Serif SC;
 }
 
 .spec-option-text-active {
@@ -335,6 +341,7 @@ page {
 .spec-cancel-text {
   font-size: 28rpx;
   color: #8B6F5E;
+  font-family: 'CangerShuYuanTi', Noto Serif SC;
 }
 
 .spec-confirm-btn {
@@ -351,6 +358,7 @@ page {
   font-size: 28rpx;
   font-weight: 500;
   color: #FFFFFF;
+  font-family: 'CangerShuYuanTi', Noto Serif SC;
 }
 
 .add-btn:active {
@@ -397,6 +405,7 @@ page {
 .empty-text {
   font-size: 28rpx;
   color: #999999;
+  font-family: 'CangerShuYuanTi', Noto Serif SC;
 }
 
 /* ========== TabBar ========== */

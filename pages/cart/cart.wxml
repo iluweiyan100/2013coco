@@ -1,9 +1,18 @@
 <!--cart.wxml-->
 
-<!-- 顶部自定义导航栏，与胶囊按钮同高 -->
-<navigation-bar title="购物车" back="{{true}}" color="#5B3A29" background="#F9F6F0"></navigation-bar>
-
 <view class="cart-page">
+  <!-- 导航栏 -->
+  <view class="navbar" style="padding-top: {{statusBarHeight}}px; height: calc({{statusBarHeight}}px + 44px);">
+    <view class="navbar-content">
+      <view class="back-btn" bindtap="onBack">
+        <image class="back-icon" src="/images/icons/back.svg" mode="aspectFit"></image>
+      </view>
+      <text class="navbar-title">购物车</text>
+    </view>
+  </view>
+
+  <!-- 占位空间，防止内容被导航栏遮挡 -->
+  <view class="navbar-placeholder" style="height: calc({{statusBarHeight}}px + 44px);"></view>
 
   <!-- 空购物车 -->
   <view wx:if="{{dineInList.length === 0 && takeawayList.length === 0}}" class="cart-empty">

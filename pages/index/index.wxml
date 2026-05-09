@@ -35,7 +35,7 @@
     <!-- 堂食/外带选择区 -->
     <view class="dining-options">
       <!-- 堂食 -->
-      <view class="option-card" bindtap="onDineInTap">
+      <view class="option-card" bindtap="onDineInTap" bindlongpress="onDineInLongPress">
         <view class="option-icon dine-in-icon">
           <image src="/images/icons/dine-in.svg" class="option-svg" mode="aspectFit"></image>
         </view>
@@ -62,23 +62,6 @@
       <image src="/public/images/wifi.svg" class="wifi-icon-svg" mode="aspectFit"></image>
       <text class="wifi-text">店内WiFi</text>
       <text class="arrow">→</text>
-    </view>
-
-    <!-- 店员和管理入口 -->
-    <view class="staff-section">
-      <view class="staff-btn staff-mode" bindtap="onStaffMode">
-        <view class="btn-icon">
-          <view class="icon-shield"></view>
-        </view>
-        <text class="btn-text">店员制作端</text>
-      </view>
-      
-      <view class="staff-btn admin-mode" bindtap="onAdminMode">
-        <view class="btn-icon">
-          <view class="icon-settings"></view>
-        </view>
-        <text class="btn-text">管理后台</text>
-      </view>
     </view>
 
   </view>

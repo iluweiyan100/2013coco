@@ -208,18 +208,15 @@ Page({
 
     switch (action) {
       case 'orders':
-        // 跳转到订单历史页
+        // 跳转到订单简要页
         wx.navigateTo({
-          url: '/pages/orders/orders'
+          url: '/pages/orders-brief/orders-brief'
         });
         break;
 
       case 'service':
-        // 联系客服（功能开发中）
-        wx.showToast({
-          title: '功能开发中',
-          icon: 'none'
-        });
+        // 联系客服
+        // 已通过 open-type="contact" 实现，此处无需处理
         break;
 
       case 'settings':
@@ -241,5 +238,10 @@ Page({
       default:
         break;
     }
+  },
+
+  // 客服消息发送回调
+  onContactMessage(e) {
+    console.log('客服消息已发送', e.detail);
   }
 });

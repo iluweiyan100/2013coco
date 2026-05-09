@@ -3,6 +3,7 @@
     "pages/index/index",
     "pages/order/order",
     "pages/orders/orders",
+    "pages/orders-brief/orders-brief",
     "pages/profile/profile",
     "pages/admin/admin",
     "pages/staff/staff",

@@ -47,7 +47,7 @@
         </view>
 
         <!-- 商品列表 -->
-        <view class="product-list" style="height: 81rpx; display: block; box-sizing: border-box">
+        <view class="product-list">
           <block wx:for="{{item.products}}" wx:for-item="product" wx:key="index">
             <view class="product-item">
               <view class="product-info">

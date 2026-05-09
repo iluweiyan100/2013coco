@@ -187,7 +187,7 @@
                 <text class="order-type-text">{{item.type === 'dine' ? '堂食' : '外带'}}</text>
               </view>
             </view>
-            <view class="order-refund-btn {{item.status === 'refunded' ? 'order-refund-disabled' : ''}}" bindtap="item.status !== 'refunded' ? 'onRefundOrder' : ''" data-id="{{item._id}}">
+            <view class="order-refund-btn {{item.status === 'refunded' ? 'order-refund-disabled' : ''}}" bindtap="onRefundOrder" data-id="{{item._id}}">
               <text class="order-refund-text">{{item.status === 'refunded' ? '已退款' : '退款'}}</text>
             </view>
           </view>
@@ -304,6 +304,76 @@
               <text class="home-action-save-text">保存</text>
             </view>
             <view class="home-action-cancel" bindtap="onCancelHomeSettings">
+              <text class="home-action-cancel-text">取消</text>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <!-- 分享链接设置 -->
+      <view class="home-settings-card">
+        <text class="home-settings-title">分享链接编辑</text>
+        <view class="home-form-body">
+          <!-- 分享给朋友标题 -->
+          <view class="home-form-item">
+            <text class="home-form-label">分享给朋友标题</text>
+            <input
+              class="home-form-input"
+              value="{{shareConfig.shareTitle}}"
+              placeholder="请输入分享给朋友的标题"
+              bindinput="onInputShareTitle"
+            />
+          </view>
+          <!-- 分享到朋友圈标题 -->
+          <view class="home-form-item">
+            <text class="home-form-label">分享到朋友圈标题</text>
+            <input
+              class="home-form-input"
+              value="{{shareConfig.timelineTitle}}"
+              placeholder="请输入分享到朋友圈的标题"
+              bindinput="onInputTimelineTitle"
+            />
+          </view>
+          <!-- 分享给朋友图片 -->
+          <view class="home-form-item">
+            <text class="home-form-label">分享给朋友图片</text>
+            <view class="share-image-upload" bindtap="onChooseShareImage" data-type="share">
+              <block wx:if="{{shareConfig.shareImage}}">
+                <image src="{{shareConfig.shareImage}}" class="share-image-preview" mode="aspectFill"></image>
+              </block>
+              <block wx:else>
+                <image src="/assets/CodeBubbyAssets/4_1184/1.svg" class="share-image-placeholder" mode="aspectFit"></image>
+              </block>
+            </view>
+          </view>
+          <!-- 分享到朋友圈图片 -->
+          <view class="home-form-item">
+            <text class="home-form-label">分享到朋友圈图片</text>
+            <view class="share-image-upload" bindtap="onChooseShareImage" data-type="timeline">
+              <block wx:if="{{shareConfig.timelineImage}}">
+                <image src="{{shareConfig.timelineImage}}" class="share-image-preview" mode="aspectFill"></image>
+              </block>
+              <block wx:else>
+                <image src="/assets/CodeBubbyAssets/4_1184/1.svg" class="share-image-placeholder" mode="aspectFit"></image>
+              </block>
+            </view>
+          </view>
+          <!-- 分享路径 -->
+          <view class="home-form-item">
+            <text class="home-form-label">分享路径</text>
+            <input
+              class="home-form-input"
+              value="{{shareConfig.path}}"
+              placeholder="/pages/index/index"
+              bindinput="onInputSharePath"
+            />
+          </view>
+          <!-- 操作按钮 -->
+          <view class="home-form-actions">
+            <view class="home-action-save" bindtap="onSaveShareConfig">
+              <text class="home-action-save-text">保存</text>
+            </view>
+            <view class="home-action-cancel" bindtap="onCancelShareConfig">
               <text class="home-action-cancel-text">取消</text>
             </view>
           </view>
