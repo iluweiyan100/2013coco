@@ -15,6 +15,48 @@ Page({
       statusBarHeight: systemInfo.statusBarHeight
     });
     this.checkLoginStatus();
+
+    // 获取用户信息（包括昵称）
+    this.getUserProfile();
+  },
+
+  // 获取用户信息
+  getUserProfile() {
+    // 检查本地存储中是否已有用户信息
+    const cachedUserInfo = wx.getStorageSync('userInfo');
+    if (cachedUserInfo && cachedUserInfo.nickName) {
+      // 如果本地有缓存，直接使用
+      this.setData({
+        tempNickname: cachedUserInfo.nickName
+      });
+      return;
+    }
+
+    // 尝试从云端获取用户信息
+    wx.cloud.callFunction({
+      name: 'getOpenId',
+      success: (res) => {
+        const openid = res.result.openid;
+        const db = wx.cloud.database();
+        db.collection('users').doc(openid).get({
+          success: (userRes) => {
+            if (userRes.data && userRes.data.nickName) {
+              // 如果云端有用户信息，自动填充昵称
+              this.setData({
+                tempNickname: userRes.data.nickName
+              });
+            }
+          },
+          fail: (err) => {
+            console.log('云端用户信息不存在:', err);
+            // 不需要提示，保持空值让用户输入
+          }
+        });
+      },
+      fail: (err) => {
+        console.log('获取 openid 失败:', err);
+      }
+    });
   },
 
   onShow() {
@@ -52,6 +94,12 @@ Page({
     this.setData({
       tempNickname: e.detail.value
     });
+  },
+
+  // 昵称输入框获得焦点
+  onNicknameFocus() {
+    console.log('[Profile] 昵称输入框获得焦点');
+    // 如果昵称已经是微信昵称，不需要额外处理
   },
 
   // 输入手机号

@@ -127,12 +127,17 @@
             <image src="{{item.imageURL || item.image || ''}}" class="product-img" mode="aspectFill"></image>
             <view class="product-info">
               <text class="product-name">{{item.name}}</text>
+              <!-- 咖啡类商品：烘焙度和处理法标签 -->
+              <view class="coffee-info-tags" wx:if="{{item.category === 'coffee' && (item.roastLevel || item.processingMethod)}}">
+                <text wx:if="{{item.roastLevel}}" class="coffee-tag roast-tag" bindtap="onQuickEditRoast" data-id="{{item._id}}" data-roast="{{item.roastLevel}}">{{item.roastLevel}}</text>
+                <text wx:if="{{item.processingMethod}}" class="coffee-tag process-tag" bindtap="onQuickEditProcessing" data-id="{{item._id}}" data-processing="{{item.processingMethod}}">{{item.processingMethod}}</text>
+              </view>
               <view class="product-meta">
                 <text class="product-price">¥{{item.price}}</text>
                 <view class="product-tag">
                   <text class="product-tag-text">{{item.categoryLabel}}</text>
                 </view>
-                <view class="product-status-tag product-status-{{item.saleStatus}}">
+                <view class="product-status-tag product-status-{{item.saleStatus}}" bindtap="onQuickEditStatus" data-id="{{item._id}}" data-status="{{item.saleStatus}}">
                   <text class="product-status-text">{{item.saleStatus === 'on' ? '上架' : item.saleStatus === 'off' ? '下架' : '售罄'}}</text>
                 </view>
               </view>
@@ -510,6 +515,76 @@
       </view>
     </view>
 
+    <!-- 烘焙度和处理法（仅咖啡类） -->
+    <view wx:if="{{editingProduct.category === 'coffee'}}" class="pm-field">
+      <text class="pm-label">烘焙度</text>
+
+      <!-- 烘焙度预设选项 -->
+      <view class="pm-roast-group">
+        <picker
+          mode="selector"
+          range="{{roastLevelOptions}}"
+          value="{{editingProduct.roastLevelIndex}}"
+          bindchange="onPickerRoastLevel"
+        >
+          <view class="pm-picker-inner pm-picker-small">
+            <text class="pm-picker-text">{{editingProduct.roastLevel || '请选择烘焙度'}}</text>
+            <text class="pm-picker-arrow">▾</text>
+          </view>
+        </picker>
+      </view>
+
+      <!-- 自定义烘焙度输入 -->
+      <view class="pm-custom-input-wrapper">
+        <view class="pm-custom-input-label">
+          <text class="pm-custom-input-text">自定义：</text>
+        </view>
+        <input
+          class="pm-input pm-input-small"
+          value="{{editingProduct.customRoast}}"
+          placeholder="或输入自定义烘焙度"
+          placeholder-class="pm-placeholder"
+          bindinput="onInputCustomRoast"
+          bindblur="onBlurCustomRoast"
+        />
+      </view>
+    </view>
+
+    <!-- 处理法（仅咖啡类） -->
+    <view wx:if="{{editingProduct.category === 'coffee'}}" class="pm-field">
+      <text class="pm-label">处理法</text>
+
+      <!-- 处理法预设选项 -->
+      <view class="pm-process-group">
+        <picker
+          mode="selector"
+          range="{{processingMethodOptions}}"
+          value="{{editingProduct.processingMethodIndex}}"
+          bindchange="onPickerProcessingMethod"
+        >
+          <view class="pm-picker-inner pm-picker-small">
+            <text class="pm-picker-text">{{editingProduct.processingMethod || '请选择处理法'}}</text>
+            <text class="pm-picker-arrow">▾</text>
+          </view>
+        </picker>
+      </view>
+
+      <!-- 自定义处理法输入 -->
+      <view class="pm-custom-input-wrapper">
+        <view class="pm-custom-input-label">
+          <text class="pm-custom-input-text">自定义：</text>
+        </view>
+        <input
+          class="pm-input pm-input-small"
+          value="{{editingProduct.customProcessing}}"
+          placeholder="或输入自定义处理法"
+          placeholder-class="pm-placeholder"
+          bindinput="onInputCustomProcessing"
+          bindblur="onBlurCustomProcessing"
+        />
+      </view>
+    </view>
+
     <!-- 规格 -->
     <view class="pm-field">
       <text class="pm-label">规格（可选）</text>
@@ -562,4 +637,117 @@
     </view>
   </view>
 
+</view>
+
+<!-- ========== 快速编辑烘焙度弹窗 ========== -->
+<view wx:if="{{showQuickRoastModal}}" class="quick-modal-mask" catchtap="onCloseQuickRoastModal"></view>
+<view wx:if="{{showQuickRoastModal}}" class="quick-modal-box">
+  <view class="quick-modal-header">
+    <text class="quick-modal-title">选择烘焙度</text>
+    <view class="quick-modal-close" bindtap="onCloseQuickRoastModal">
+      <text class="quick-modal-close-text">✕</text>
+    </view>
+  </view>
+  <view class="quick-modal-content">
+    <view class="quick-option-list">
+      <view
+        wx:for="{{roastLevelOptions}}"
+        wx:key="*this"
+        class="quick-option-item {{item === quickEditingRoast ? 'quick-option-selected' : ''}}"
+        bindtap="onSelectQuickRoast"
+        data-roast="{{item}}"
+      >
+        <text class="quick-option-text">{{item}}</text>
+        <text wx:if="{{item === quickEditingRoast}}" class="quick-option-check">✓</text>
+      </view>
+    </view>
+  </view>
+  <view class="quick-modal-footer">
+    <view class="quick-modal-btn quick-modal-cancel" bindtap="onCloseQuickRoastModal">
+      <text class="quick-modal-btn-text">取消</text>
+    </view>
+    <view class="quick-modal-btn quick-modal-confirm" bindtap="onSaveQuickRoast">
+      <text class="quick-modal-btn-text">确定</text>
+    </view>
+  </view>
+</view>
+
+<!-- ========== 快速编辑处理法弹窗 ========== -->
+<view wx:if="{{showQuickProcessingModal}}" class="quick-modal-mask" catchtap="onCloseQuickProcessingModal"></view>
+<view wx:if="{{showQuickProcessingModal}}" class="quick-modal-box">
+  <view class="quick-modal-header">
+    <text class="quick-modal-title">选择处理法</text>
+    <view class="quick-modal-close" bindtap="onCloseQuickProcessingModal">
+      <text class="quick-modal-close-text">✕</text>
+    </view>
+  </view>
+  <view class="quick-modal-content">
+    <view class="quick-option-list">
+      <view
+        wx:for="{{processingMethodOptions}}"
+        wx:key="*this"
+        class="quick-option-item {{item === quickEditingProcessing ? 'quick-option-selected' : ''}}"
+        bindtap="onSelectQuickProcessing"
+        data-processing="{{item}}"
+      >
+        <text class="quick-option-text">{{item}}</text>
+        <text wx:if="{{item === quickEditingProcessing}}" class="quick-option-check">✓</text>
+      </view>
+    </view>
+  </view>
+  <view class="quick-modal-footer">
+    <view class="quick-modal-btn quick-modal-cancel" bindtap="onCloseQuickProcessingModal">
+      <text class="quick-modal-btn-text">取消</text>
+    </view>
+    <view class="quick-modal-btn quick-modal-confirm" bindtap="onSaveQuickProcessing">
+      <text class="quick-modal-btn-text">确定</text>
+    </view>
+  </view>
+</view>
+
+<!-- ========== 快速编辑商品状态弹窗 ========== -->
+<view wx:if="{{showQuickStatusModal}}" class="quick-modal-mask" catchtap="onCloseQuickStatusModal"></view>
+<view wx:if="{{showQuickStatusModal}}" class="quick-modal-box">
+  <view class="quick-modal-header">
+    <text class="quick-modal-title">选择商品状态</text>
+    <view class="quick-modal-close" bindtap="onCloseQuickStatusModal">
+      <text class="quick-modal-close-text">✕</text>
+    </view>
+  </view>
+  <view class="quick-modal-content">
+    <view class="quick-option-list">
+      <view
+        class="quick-option-item {{quickEditingStatus === 'on' ? 'quick-option-selected' : ''}}"
+        bindtap="onSelectQuickStatus"
+        data-status="on"
+      >
+        <text class="quick-option-text">上架</text>
+        <text wx:if="{{quickEditingStatus === 'on'}}" class="quick-option-check">✓</text>
+      </view>
+      <view
+        class="quick-option-item {{quickEditingStatus === 'off' ? 'quick-option-selected' : ''}}"
+        bindtap="onSelectQuickStatus"
+        data-status="off"
+      >
+        <text class="quick-option-text">下架</text>
+        <text wx:if="{{quickEditingStatus === 'off'}}" class="quick-option-check">✓</text>
+      </view>
+      <view
+        class="quick-option-item {{quickEditingStatus === 'sold' ? 'quick-option-selected' : ''}}"
+        bindtap="onSelectQuickStatus"
+        data-status="sold"
+      >
+        <text class="quick-option-text">售罄</text>
+        <text wx:if="{{quickEditingStatus === 'sold'}}" class="quick-option-check">✓</text>
+      </view>
+    </view>
+  </view>
+  <view class="quick-modal-footer">
+    <view class="quick-modal-btn quick-modal-cancel" bindtap="onCloseQuickStatusModal">
+      <text class="quick-modal-btn-text">取消</text>
+    </view>
+    <view class="quick-modal-btn quick-modal-confirm" bindtap="onSaveQuickStatus">
+      <text class="quick-modal-btn-text">确定</text>
+    </view>
+  </view>
 </view>

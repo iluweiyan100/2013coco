@@ -24,7 +24,14 @@
 
       <!-- 昵称输入 -->
       <view class="nickname-input-wrapper">
-        <input type="nickname" class="nickname-input" placeholder="请输入昵称" bindinput="onNicknameInput" value="{{tempNickname}}" />
+        <input
+          type="nickname"
+          class="nickname-input"
+          placeholder="{{tempNickname || '请输入昵称'}}"
+          bindinput="onNicknameInput"
+          bindfocus="onNicknameFocus"
+          value="{{tempNickname}}"
+        />
       </view>
 
       <!-- 手机号输入 -->

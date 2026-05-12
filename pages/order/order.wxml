@@ -54,11 +54,15 @@
           <view class="product-info">
             <text class="product-name">{{item.name}}</text>
 
-            <!-- 规格标签：温度选项 -->
-            <view class="spec-tags" wx:if="{{item.supportIce || item.supportHot || item.supportNormal}}">
+            <!-- 规格标签：合并显示冰/热/常温和咖啡烘焙度/处理法 -->
+            <view class="spec-tags" wx:if="{{item.supportIce || item.supportHot || item.supportNormal || (item.categoryId === 'coffee' && (item.roastLevel || item.processingMethod))}}">
+              <!-- 温度选项（冰/热/常温） -->
               <text wx:if="{{item.supportIce}}" class="spec-tag">冰</text>
               <text wx:if="{{item.supportHot}}" class="spec-tag">热</text>
               <text wx:if="{{item.supportNormal}}" class="spec-tag">常温</text>
+              <!-- 咖啡类商品：烘焙度和处理法标签 -->
+              <text wx:if="{{item.categoryId === 'coffee' && item.roastLevel}}" class="coffee-tag roast-tag">{{item.roastLevel}}</text>
+              <text wx:if="{{item.categoryId === 'coffee' && item.processingMethod}}" class="coffee-tag process-tag">{{item.processingMethod}}</text>
             </view>
 
             <!-- 规格标签：拼球选项（冰淇淋） -->

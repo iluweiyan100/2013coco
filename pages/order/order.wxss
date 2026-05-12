@@ -163,6 +163,30 @@ page {
   line-height: 1.4;
 }
 
+/* ========== 咖啡信息标签 ========== */
+.coffee-info-tags {
+  display: flex;
+  gap: 8rpx;
+  margin: 8rpx 0;
+}
+
+.coffee-tag {
+  font-size: 20rpx;
+  padding: 4rpx 12rpx;
+  border-radius: 4rpx;
+  font-weight: 400;
+}
+
+.roast-tag {
+  background: rgba(139, 90, 43, 0.15);
+  color: #8B5A2B;
+}
+
+.process-tag {
+  background: rgba(114, 140, 153, 0.15);
+  color: #728C99;
+}
+
 .product-name {
   font-size: 32rpx; /* 16px */
   font-weight: 500;

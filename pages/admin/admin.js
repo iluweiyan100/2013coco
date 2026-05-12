@@ -39,7 +39,14 @@ Page({
       supportNormal: false,
       scoopOptions: [],
       scoopChecked: { 单球: false, 双球: false, 三球: false, 四球: false },
-      imagePreview: ''
+      imagePreview: '',
+      // 新增咖啡相关字段
+      roastLevel: '',           // 烘焙度
+      roastLevelIndex: 0,       // 烘焙度选择器索引
+      customRoast: '',          // 自定义烘焙度
+      processingMethod: '',     // 处理法
+      processingMethodIndex: 0, // 处理法选择器索引
+      customProcessing: ''      // 自定义处理法
     },
     categoryOptions: [
       { value: 'coco',     label: '可可' },
@@ -47,6 +54,30 @@ Page({
       { value: 'icecream', label: '冰淇淋' },
       { value: 'other',    label: '无咖啡因饮品' }
     ],
+    // 烘焙度选项
+    roastLevelOptions: [
+      '浅烘焙',
+      '中浅烘焙',
+      '中烘焙',
+      '中深烘焙',
+      '深烘焙',
+      '极深烘焙'
+    ],
+    // 处理法选项
+    processingMethodOptions: [
+      '日晒',
+      '水洗',
+      '蜜处理'
+    ],
+
+    // 快速编辑弹窗
+    showQuickRoastModal: false,
+    showQuickProcessingModal: false,
+    showQuickStatusModal: false,
+    quickEditingProductId: null,
+    quickEditingRoast: '',
+    quickEditingProcessing: '',
+    quickEditingStatus: '',
 
     // ===== 订单管理 =====
     activeOrderFilter: 'all',
@@ -172,7 +203,14 @@ Page({
         scoopOptions: [],
         scoopChecked: { 单球: false, 双球: false, 三球: false, 四球: false },
         imagePreview: '',
-        imageFileID: ''
+        imageFileID: '',
+        // 咖啡类商品：初始化烘焙度和处理法
+        roastLevel: '',
+        roastLevelIndex: 0,
+        customRoast: '',
+        processingMethod: '',
+        processingMethodIndex: 0,
+        customProcessing: ''
       }
     });
   },
@@ -185,6 +223,20 @@ Page({
     const categoryIndex = categoryOptions.findIndex(c => c.value === product.category);
     // 兼容旧数据：supportIceHot:true 映射为 supportIce+supportHot
     const legacyIceHot = product.supportIceHot || false;
+
+    // 咖啡类商品：加载烘焙度和处理法
+    const roastLevel = product.roastLevel || '';
+    const roastLevelIndex = this.data.roastLevelOptions.indexOf(roastLevel) >= 0
+      ? this.data.roastLevelOptions.indexOf(roastLevel)
+      : -1;
+    const customRoast = this.data.roastLevelOptions.includes(roastLevel) ? '' : roastLevel;
+
+    const processingMethod = product.processingMethod || '';
+    const processingMethodIndex = this.data.processingMethodOptions.indexOf(processingMethod) >= 0
+      ? this.data.processingMethodOptions.indexOf(processingMethod)
+      : -1;
+    const customProcessing = this.data.processingMethodOptions.includes(processingMethod) ? '' : processingMethod;
+
     this.setData({
       showProductModal: true,
       editingProduct: {
@@ -207,13 +259,282 @@ Page({
           四球: (product.scoopOptions || []).indexOf('四球') >= 0
         },
         imagePreview: product.imageURL || product.image || '',
-        imageFileID: product.imageFileID || ''
+        imageFileID: product.imageFileID || '',
+        // 咖啡类商品：加载烘焙度和处理法
+        roastLevel: roastLevel,
+        roastLevelIndex: roastLevelIndex,
+        customRoast: customRoast,
+        processingMethod: processingMethod,
+        processingMethodIndex: processingMethodIndex,
+        customProcessing: customProcessing
       }
     });
   },
 
   onCloseProductModal() {
     this.setData({ showProductModal: false });
+  },
+
+  // ===== 快速编辑商品状态 =====
+
+  // 点击状态标签
+  onQuickEditStatus(e) {
+    const id = e.currentTarget.dataset.id;
+    const status = e.currentTarget.dataset.status;
+    this.setData({
+      showQuickStatusModal: true,
+      quickEditingProductId: id,
+      quickEditingStatus: status
+    });
+  },
+
+  // 关闭状态弹窗
+  onCloseQuickStatusModal() {
+    this.setData({
+      showQuickStatusModal: false,
+      quickEditingProductId: null,
+      quickEditingStatus: ''
+    });
+  },
+
+  // 选择状态选项
+  onSelectQuickStatus(e) {
+    const status = e.currentTarget.dataset.status;
+    this.setData({
+      quickEditingStatus: status
+    });
+  },
+
+  // 保存状态
+  onSaveQuickStatus() {
+    const { quickEditingProductId, quickEditingStatus } = this.data;
+    if (!quickEditingProductId || !quickEditingStatus) {
+      wx.showToast({ title: '请选择状态', icon: 'none' });
+      return;
+    }
+
+    wx.showLoading({ title: '更新中...', mask: true });
+    try {
+      wx.cloud.callFunction({
+        name: 'initDB',
+        data: { action: 'updateProduct', id: quickEditingProductId, product: { saleStatus: quickEditingStatus } }
+      }).then(() => {
+        wx.hideLoading();
+        // 更新本地数据
+        const products = this.data.products.map(p => {
+          if (p._id === quickEditingProductId) {
+            return { ...p, saleStatus: quickEditingStatus };
+          }
+          return p;
+        });
+        this.setData({ products });
+        this._applyProductFilter(this.data.activeCategoryFilter, products);
+        this.onCloseQuickStatusModal();
+        wx.showToast({ title: '状态已更新', icon: 'success' });
+      }).catch(err => {
+        wx.hideLoading();
+        wx.showToast({ title: '更新失败', icon: 'none' });
+        console.error('[Products] 状态更新失败', err);
+      });
+    } catch (e) {
+      wx.hideLoading();
+      wx.showToast({ title: '更新失败', icon: 'none' });
+      console.error('[Products] 状态更新失败', e);
+    }
+  },
+
+  // ===== 快速编辑烘焙度和处理法 =====
+
+  // 点击烘焙度标签
+  onQuickEditRoast(e) {
+    const id = e.currentTarget.dataset.id;
+    const roast = e.currentTarget.dataset.roast;
+    this.setData({
+      showQuickRoastModal: true,
+      quickEditingProductId: id,
+      quickEditingRoast: roast
+    });
+  },
+
+  // 关闭烘焙度弹窗
+  onCloseQuickRoastModal() {
+    this.setData({
+      showQuickRoastModal: false,
+      quickEditingProductId: null,
+      quickEditingRoast: ''
+    });
+  },
+
+  // 选择烘焙度选项
+  onSelectQuickRoast(e) {
+    const roast = e.currentTarget.dataset.roast;
+    this.setData({
+      quickEditingRoast: roast
+    });
+  },
+
+  // 保存烘焙度
+  onSaveQuickRoast() {
+    const { quickEditingProductId, quickEditingRoast } = this.data;
+    if (!quickEditingProductId || !quickEditingRoast) {
+      wx.showToast({ title: '请选择烘焙度', icon: 'none' });
+      return;
+    }
+
+    wx.showLoading({ title: '更新中...', mask: true });
+    try {
+      wx.cloud.callFunction({
+        name: 'initDB',
+        data: { action: 'updateProduct', id: quickEditingProductId, product: { roastLevel: quickEditingRoast } }
+      }).then(() => {
+        wx.hideLoading();
+        // 更新本地数据
+        const products = this.data.products.map(p => {
+          if (p._id === quickEditingProductId) {
+            return { ...p, roastLevel: quickEditingRoast };
+          }
+          return p;
+        });
+        this.setData({ products });
+        this._applyProductFilter(this.data.activeCategoryFilter, products);
+        this.onCloseQuickRoastModal();
+        wx.showToast({ title: '烘焙度已更新', icon: 'success' });
+      }).catch(err => {
+        wx.hideLoading();
+        wx.showToast({ title: '更新失败', icon: 'none' });
+        console.error('[Products] 烘焙度更新失败', err);
+      });
+    } catch (e) {
+      wx.hideLoading();
+      wx.showToast({ title: '更新失败', icon: 'none' });
+      console.error('[Products] 烘焙度更新失败', e);
+    }
+  },
+
+  // 点击处理法标签
+  onQuickEditProcessing(e) {
+    const id = e.currentTarget.dataset.id;
+    const processing = e.currentTarget.dataset.processing;
+    this.setData({
+      showQuickProcessingModal: true,
+      quickEditingProductId: id,
+      quickEditingProcessing: processing
+    });
+  },
+
+  // 关闭处理法弹窗
+  onCloseQuickProcessingModal() {
+    this.setData({
+      showQuickProcessingModal: false,
+      quickEditingProductId: null,
+      quickEditingProcessing: ''
+    });
+  },
+
+  // 选择处理法选项
+  onSelectQuickProcessing(e) {
+    const processing = e.currentTarget.dataset.processing;
+    this.setData({
+      quickEditingProcessing: processing
+    });
+  },
+
+  // 保存处理法
+  onSaveQuickProcessing() {
+    const { quickEditingProductId, quickEditingProcessing } = this.data;
+    if (!quickEditingProductId || !quickEditingProcessing) {
+      wx.showToast({ title: '请选择处理法', icon: 'none' });
+      return;
+    }
+
+    wx.showLoading({ title: '更新中...', mask: true });
+    try {
+      wx.cloud.callFunction({
+        name: 'initDB',
+        data: { action: 'updateProduct', id: quickEditingProductId, product: { processingMethod: quickEditingProcessing } }
+      }).then(() => {
+        wx.hideLoading();
+        // 更新本地数据
+        const products = this.data.products.map(p => {
+          if (p._id === quickEditingProductId) {
+            return { ...p, processingMethod: quickEditingProcessing };
+          }
+          return p;
+        });
+        this.setData({ products });
+        this._applyProductFilter(this.data.activeCategoryFilter, products);
+        this.onCloseQuickProcessingModal();
+        wx.showToast({ title: '处理法已更新', icon: 'success' });
+      }).catch(err => {
+        wx.hideLoading();
+        wx.showToast({ title: '更新失败', icon: 'none' });
+        console.error('[Products] 处理法更新失败', err);
+      });
+    } catch (e) {
+      wx.hideLoading();
+      wx.showToast({ title: '更新失败', icon: 'none' });
+      console.error('[Products] 处理法更新失败', e);
+    }
+  },
+
+  // ===== 咖啡类商品专属方法 =====
+
+  // 选择烘焙度
+  onPickerRoastLevel(e) {
+    const index = e.detail.value;
+    const roastLevel = this.data.roastLevelOptions[index];
+    this.setData({
+      'editingProduct.roastLevel': roastLevel,
+      'editingProduct.roastLevelIndex': index,
+      'editingProduct.customRoast': '' // 清空自定义值
+    });
+  },
+
+  // 输入自定义烘焙度
+  onInputCustomRoast(e) {
+    this.setData({
+      'editingProduct.customRoast': e.detail.value
+    });
+  },
+
+  // 自定义烘焙度失去焦点（优先使用自定义值）
+  onBlurCustomRoast(e) {
+    const customRoast = e.detail.value.trim();
+    if (customRoast) {
+      this.setData({
+        'editingProduct.roastLevel': customRoast,
+        'editingProduct.roastLevelIndex': -1 // -1 表示自定义
+      });
+    }
+  },
+
+  // 选择处理法
+  onPickerProcessingMethod(e) {
+    const index = e.detail.value;
+    const processingMethod = this.data.processingMethodOptions[index];
+    this.setData({
+      'editingProduct.processingMethod': processingMethod,
+      'editingProduct.processingMethodIndex': index,
+      'editingProduct.customProcessing': '' // 清空自定义值
+    });
+  },
+
+  // 输入自定义处理法
+  onInputCustomProcessing(e) {
+    this.setData({
+      'editingProduct.customProcessing': e.detail.value
+    });
+  },
+
+  // 自定义处理法失去焦点（优先使用自定义值）
+  onBlurCustomProcessing(e) {
+    const customProcessing = e.detail.value.trim();
+    if (customProcessing) {
+      this.setData({
+        'editingProduct.processingMethod': customProcessing,
+        'editingProduct.processingMethodIndex': -1 // -1 表示自定义
+      });
+    }
   },
 
   // 选择商品图片并立即上传到云存储
@@ -331,6 +652,16 @@ Page({
       imageFileID: ep.imageFileID || '',
       imageURL: ep.imagePreview || ''
     };
+
+    // 咖啡类商品：保存烘焙度和处理法
+    if (ep.category === 'coffee') {
+      if (ep.roastLevel) {
+        productData.roastLevel = ep.roastLevel;
+      }
+      if (ep.processingMethod) {
+        productData.processingMethod = ep.processingMethod;
+      }
+    }
 
     wx.showLoading({ title: '保存中...', mask: true });
     try {

@@ -65,7 +65,10 @@ Page({
             supportIce: p.supportIce !== undefined ? p.supportIce : legacy,
             supportHot: p.supportHot !== undefined ? p.supportHot : legacy,
             supportNormal: p.supportNormal || false,
-            scoopOptions: p.scoopOptions || []
+            scoopOptions: p.scoopOptions || [],
+            // 新增咖啡相关字段
+            roastLevel: p.roastLevel || '',          // 烘焙度
+            processingMethod: p.processingMethod || '' // 处理法
           };
         });
 
