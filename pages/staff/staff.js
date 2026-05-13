@@ -199,11 +199,19 @@ Page({
       return timeB - timeA;
     });
 
+    // 过滤只显示今天已完成的订单
+    const todayCompletedOrders = completedOrders.filter(order => {
+      const isToday = this._isTodayCompleted(order.completeTime);
+      console.log('[Staff] 订单', order.pickupNumber, '完成时间:', order.completeTime, '是否今天:', isToday);
+      return isToday;
+    });
+
     console.log('[Staff] 分类后 - 堂食订单:', dineInOrders.map(o => `${o.pickupNumber}(${o._id.slice(-6)})`));
     console.log('[Staff] 分类后 - 外带订单:', takeawayOrders.map(o => `${o.pickupNumber}(${o._id.slice(-6)})`));
-    console.log('[Staff] 分类后 - 已完成订单:', completedOrders.map(o => `${o.pickupNumber}(${o._id.slice(-6)})`));
+    console.log('[Staff] 分类后 - 已完成订单（全部）:', completedOrders.map(o => `${o.pickupNumber}(${o._id.slice(-6)})`));
+    console.log('[Staff] 分类后 - 已完成订单（今天）:', todayCompletedOrders.map(o => `${o.pickupNumber}(${o._id.slice(-6)})`));
 
-    this.setData({ dineInOrders, takeawayOrders, completedOrders });
+    this.setData({ dineInOrders, takeawayOrders, completedOrders: todayCompletedOrders });
     console.log('[Staff] ========== _classifyOrders 完成 ==========');
   },
 
@@ -233,12 +241,19 @@ Page({
 
     // 如果订单状态是已完成，添加到已完成列表
     if (order.status === 'done') {
-      console.log('[Staff] 订单状态为 done，添加到已完成列表');
+      console.log('[Staff] 订单状态为 done，检查是否今天完成');
       const formatted = this._formatOrder(order);
-      this.setData({
-        completedOrders: [formatted, ...this.data.completedOrders]  // 新订单在最前面
-      });
-      console.log('[Staff] 添加后 completedOrders 数量:', this.data.completedOrders.length);
+      const isToday = this._isTodayCompleted(formatted.completeTime);
+      console.log('[Staff] 订单', formatted.pickupNumber, '完成时间:', formatted.completeTime, '是否今天:', isToday);
+
+      if (isToday) {
+        this.setData({
+          completedOrders: [formatted, ...this.data.completedOrders]  // 新订单在最前面
+        });
+        console.log('[Staff] 添加到已完成列表，当前数量:', this.data.completedOrders.length);
+      } else {
+        console.log('[Staff] 订单不是今天完成的，不添加到已完成列表');
+      }
       return;
     }
 
@@ -306,7 +321,15 @@ Page({
         hour: '2-digit',
         minute: '2-digit'
       });
-      const completedOrders = [order, ...this.data.completedOrders];  // 新完成的订单在最前面
+
+      // 检查是否今天完成
+      const isToday = this._isTodayCompleted(order.completeTime);
+      console.log('[Staff] 订单', order.pickupNumber, '完成时间:', order.completeTime, '是否今天:', isToday);
+
+      let completedOrders = [...this.data.completedOrders];
+      if (isToday) {
+        completedOrders = [order, ...completedOrders];  // 新完成的订单在最前面
+      }
 
       console.log('[Staff] 更新后 dineInOrders 数量:', dineInOrders.length);
       console.log('[Staff] 更新后 takeawayOrders 数量:', takeawayOrders.length);
@@ -535,6 +558,21 @@ Page({
     if (this.refreshTimer) {
       clearInterval(this.refreshTimer);
     }
+  },
+
+  // 获取今天0点的时间戳
+  _getTodayStart() {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return today.getTime();
+  },
+
+  // 检查订单是否是今天完成的
+  _isTodayCompleted(completeTime) {
+    if (!completeTime) return false;
+    const todayStart = this._getTodayStart();
+    const orderCompleteTime = new Date(completeTime).getTime();
+    return orderCompleteTime >= todayStart;
   },
 
   // 处理屏幕尺寸变化（iPad 横屏/竖屏切换）
