@@ -75,8 +75,14 @@ Page({
       const catIds = [...new Set(products.map(p => p.categoryId))];
       const categories = this.data.categories.filter(c => catIds.includes(c.id));
 
+      // 按照分类顺序排序商品
+      const categoryOrder = ['coco', 'coffee', 'icecream', 'other'];
+      const sortedProducts = products.slice().sort((a, b) => {
+        return categoryOrder.indexOf(a.categoryId) - categoryOrder.indexOf(b.categoryId);
+      });
+
       this.setData({
-        allProducts: products,
+        allProducts: sortedProducts,
         categories,
         currentCategory: categories.length > 0 ? categories[0].id : '',
         loading: false
