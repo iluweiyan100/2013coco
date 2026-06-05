@@ -1,7 +1,7 @@
 // pages/orders/orders.js
 Page({
   data: {
-    currentTab: 'all',
+    currentTab: 'making',
     filteredOrders: [],
     orders: [],
     currentOrder: null,
@@ -66,7 +66,7 @@ Page({
       .where({
         openid: openid
       })
-      .orderBy('createTime', 'asc')  // 改为升序，最早的在前，新订单在末尾
+      .orderBy('createTime', 'desc')  // 降序，最新的订单在最顶端
       .get({
         success: (res) => {
           console.log('[LoadOrders] 查询结果数量:', res.data.length);

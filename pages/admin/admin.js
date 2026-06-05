@@ -1343,25 +1343,65 @@ Page({
 
   /**
    * 选择分享图片
+   * 选图后自动弹出裁剪界面，按类型指定裁剪比例：
+   *   - share（分享给朋友）：5:4
+   *   - timeline（分享到朋友圈）：1:1
+   * 用户取消裁剪则中止上传；裁剪出错时回退到居中自动裁剪。
    */
   onChooseShareImage(e) {
     const type = e.currentTarget.dataset.type; // 'share' 或 'timeline'
+    const cropScale = type === 'share' ? '5:4' : '1:1';
+
     wx.chooseMedia({
       count: 1,
       mediaType: ['image'],
       sourceType: ['album', 'camera'],
       success: async (res) => {
-        const path = res.tempFiles[0].tempFilePath;
+        const originalPath = res.tempFiles[0].tempFilePath;
+
+        // 步骤1：调用 wx.cropImage 按比例裁剪
+        let croppedPath = originalPath;
+        try {
+          croppedPath = await new Promise((resolve, reject) => {
+            wx.cropImage({
+              src: originalPath,
+              cropScale: cropScale,
+              success: (cropRes) => {
+                console.log('[Share] 裁剪成功, cropScale:', cropScale);
+                resolve(cropRes.tempFilePath);
+              },
+              fail: (cropErr) => {
+                console.warn('[Share] wx.cropImage 失败，回退到居中自动裁剪', cropErr);
+                reject(cropErr);
+              }
+            });
+          });
+        } catch (cropErr) {
+          // 用户取消裁剪（crop cancel）→ 中止上传
+          if (cropErr.errMsg && cropErr.errMsg.indexOf('cancel') !== -1) {
+            console.log('[Share] 用户取消裁剪');
+            return;
+          }
+          // 裁剪失败 → 回退到居中自动裁剪
+          try {
+            croppedPath = await this._cropImageToRatio(originalPath, cropScale);
+            console.log('[Share] 居中自动裁剪完成');
+          } catch (fallbackErr) {
+            console.error('[Share] 居中自动裁剪也失败，使用原图上传', fallbackErr);
+            croppedPath = originalPath;
+          }
+        }
+
+        // 步骤2：上传裁剪后的图片到云存储
         wx.showLoading({ title: '上传中...', mask: true });
         try {
-          // 上传到云存储
-          const rawExt = path.split('?')[0].split('.').pop() || '';
+          const rawExt = croppedPath.split('?')[0].split('.').pop() || '';
           const ext = rawExt.replace(/[^a-zA-Z]/g, '').toLowerCase() || 'jpg';
           const cloudPath = `share-images/${type}_${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
           const uploadRes = await new Promise((resolve, reject) => {
             wx.cloud.uploadFile({
               cloudPath,
-              filePath: path,
+              filePath: croppedPath,
               success: resolve,
               fail: reject
             });
@@ -1383,6 +1423,99 @@ Page({
           wx.showToast({ title: '上传失败，请重试', icon: 'none' });
         }
       }
+    });
+  },
+
+  /**
+   * 兜底方案：使用离屏 Canvas 居中裁剪图片到指定比例（兼容 Skyline 渲染引擎）
+   * @param {string} src - 原图临时路径
+   * @param {string} cropScale - 裁剪比例，如 '5:4' 或 '1:1'
+   * @returns {Promise<string>} 裁剪后的 tempFilePath
+   */
+  _cropImageToRatio(src, cropScale) {
+    return new Promise((resolve, reject) => {
+      // 解析目标比例
+      const [wRatio, hRatio] = cropScale.split(':').map(Number);
+      const targetRatio = wRatio / hRatio;
+
+      // 获取原图尺寸
+      wx.getImageInfo({
+        src,
+        success: (imgInfo) => {
+          const imgW = imgInfo.width;
+          const imgH = imgInfo.height;
+          const imgRatio = imgW / imgH;
+
+          // 计算居中裁剪区域
+          let cropW, cropH, cropX, cropY;
+          if (imgRatio > targetRatio) {
+            // 原图更宽，以高度为基准
+            cropH = imgH;
+            cropW = Math.round(cropH * targetRatio);
+            cropX = Math.round((imgW - cropW) / 2);
+            cropY = 0;
+          } else {
+            // 原图更高，以宽度为基准
+            cropW = imgW;
+            cropH = Math.round(cropW / targetRatio);
+            cropX = 0;
+            cropY = Math.round((imgH - cropH) / 2);
+          }
+
+          // 限制输出尺寸，防止内存过大
+          const maxEdge = 1024;
+          let outW = cropW;
+          let outH = cropH;
+          if (Math.max(outW, outH) > maxEdge) {
+            const scale = maxEdge / Math.max(outW, outH);
+            outW = Math.round(outW * scale);
+            outH = Math.round(outH * scale);
+          }
+
+          try {
+            // 使用离屏 Canvas（兼容 Skyline 渲染引擎）
+            const canvas = wx.createOffscreenCanvas({
+              type: '2d',
+              width: outW,
+              height: outH
+            });
+            const ctx = canvas.getContext('2d');
+
+            // 加载图片并绘制裁剪区域
+            const img = canvas.createImage();
+            img.onload = () => {
+              ctx.drawImage(img, cropX, cropY, cropW, cropH, 0, 0, outW, outH);
+              // 导出裁剪后的图片
+              wx.canvasToTempFilePath({
+                canvas: canvas,
+                x: 0,
+                y: 0,
+                width: outW,
+                height: outH,
+                destWidth: outW,
+                destHeight: outH,
+                success: (exportRes) => {
+                  resolve(exportRes.tempFilePath);
+                },
+                fail: (exportErr) => {
+                  reject(exportErr);
+                }
+              });
+            };
+            img.onerror = (imgErr) => {
+              reject(imgErr);
+            };
+            img.src = src;
+          } catch (offscreenErr) {
+            // 如果离屏 Canvas 不可用，直接返回原图
+            console.warn('[Share] 离屏 Canvas 不可用，使用原图', offscreenErr);
+            resolve(src);
+          }
+        },
+        fail: (imgErr) => {
+          reject(imgErr);
+        }
+      });
     });
   },
 

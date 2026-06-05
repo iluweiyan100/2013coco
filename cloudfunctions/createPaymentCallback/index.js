@@ -61,6 +61,45 @@ exports.main = async (event, context) => {
       }
 
       console.log('[createPaymentCallback] 订单更新完成, out_trade_no:', out_trade_no)
+
+      // ===== 发送付款成功订阅消息（通知所有店主） =====
+      const NOTIFY_RECIPIENTS = [
+        'o1a6H17g460D4dj_vhke8thwn_dE',
+        'o1a6H10mPRoO3hGjajSIXY8vbxJc',
+      ]
+      try {
+        // 查询更新后的订单，获取商品明细
+        const orderQuery = await db.collection('orders')
+          .where({ outTradeNo: out_trade_no })
+          .get()
+        const paidOrders = orderQuery.data.length > 0 ? orderQuery.data : (
+          await db.collection('orders').where({ orderId: out_trade_no }).get()
+        ).data
+
+        if (paidOrders.length > 0) {
+          // 逐一向每位店主发送通知
+          for (const recipient of NOTIFY_RECIPIENTS) {
+            console.log('[createPaymentCallback] 发送订阅消息通知:', recipient)
+            try {
+              const notifyRes = await cloud.callFunction({
+                name: 'sendSubscribeMessage',
+                data: {
+                  scene: 'payment_success',
+                  openid: recipient,
+                  orders: paidOrders,
+                },
+              })
+              console.log('[createPaymentCallback] 发送结果:', recipient, JSON.stringify(notifyRes.result))
+            } catch (singleErr) {
+              // 单个发送失败不影响其他接收者
+              console.error('[createPaymentCallback] 发送失败:', recipient, singleErr.message)
+            }
+          }
+        }
+      } catch (notifyErr) {
+        // 通知失败不影响主流程
+        console.error('[createPaymentCallback] 发送订阅消息失败（不影响支付）:', notifyErr.message)
+      }
     }
 
     return { code: 'SUCCESS', message: '成功' }

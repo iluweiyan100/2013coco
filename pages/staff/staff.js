@@ -479,6 +479,29 @@ Page({
       if (docRes.data.status === 'done') {
         console.log('[Staff] 订单状态已确认更新为 done');
 
+        // ===== 发送取餐通知给顾客 =====
+        const orderData = docRes.data;
+        if (orderData.openid && orderData.pickupNumber) {
+          console.log('[Staff] 发送取餐通知, openid:', orderData.openid, '取餐码:', orderData.pickupNumber);
+          wx.cloud.callFunction({
+            name: 'sendSubscribeMessage',
+            data: {
+              scene: 'pickup_notify',
+              openid: orderData.openid,
+              pickupNumber: orderData.pickupNumber,
+              createTime: orderData.createTime,
+            },
+            success: (notifyRes) => {
+              console.log('[Staff] 取餐通知发送结果:', JSON.stringify(notifyRes.result));
+            },
+            fail: (notifyErr) => {
+              console.error('[Staff] 取餐通知发送失败（不影响完成操作）:', notifyErr);
+            },
+          });
+        } else {
+          console.warn('[Staff] 订单缺少 openid 或 pickupNumber，跳过通知');
+        }
+
         // 使用 setTimeout 确保 watch 事件有时间触发
         setTimeout(() => {
           console.log('[Staff] 开始检查订单是否已移动');

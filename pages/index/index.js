@@ -1,4 +1,6 @@
 // index.js
+const SUBSCRIBE = require('../../config/subscribe.js');
+
 Page({
   data: {
     statusBarHeight: 0,
@@ -22,14 +24,68 @@ Page({
     if (this.data.heroImages.length === 0) {
       this._loadHeroImages();
     }
+    // 每次显示首页都刷新分享配置（管理员可能在后台修改了）
+    this._loadShareConfig();
   },
 
-  // 加载分享配置
+  // 订阅消息授权（必须在 tap 事件同步栈中调用，不可放生命周期或 await 之后）
+  _renewSubscribe() {
+    wx.requestSubscribeMessage({
+      tmplIds: [SUBSCRIBE.PAYMENT_SUCCESS, SUBSCRIBE.PICKUP_NOTIFY],
+      success: (res) => {
+        if (res[SUBSCRIBE.PAYMENT_SUCCESS] === 'accept') {
+          console.log('[Subscribe] 付款成功通知: 已授权');
+        }
+        if (res[SUBSCRIBE.PICKUP_NOTIFY] === 'accept') {
+          console.log('[Subscribe] 取餐通知: 已授权');
+        }
+      },
+      fail: (err) => {
+        console.log('[Subscribe] 授权失败（可忽略）:', err.errMsg);
+      },
+    });
+  },
+
+  // 加载分享配置，并将 cloud:// fileID 转为 HTTP 临时链接（否则分享卡片图片不显示）
   async _loadShareConfig() {
     try {
       const db = wx.cloud.database();
       const res = await db.collection('share_config').doc('index_share').get();
       if (res.data) {
+        const raw = res.data;
+        // 收集需要转换的 cloud:// fileID
+        const fileIDs = [];
+        if (raw.shareImage && raw.shareImage.startsWith('cloud://')) {
+          fileIDs.push(raw.shareImage);
+        }
+        if (raw.timelineImage && raw.timelineImage.startsWith('cloud://')) {
+          fileIDs.push(raw.timelineImage);
+        }
+        // 将 cloud:// 转为临时 HTTP URL
+        if (fileIDs.length > 0) {
+          try {
+            const urlRes = await wx.cloud.getTempFileURL({ fileList: fileIDs });
+            const urlMap = {};
+            urlRes.fileList.forEach((item, i) => {
+              urlMap[fileIDs[i]] = item.tempFileURL;
+            });
+            // 替换为临时链接
+            this.setData({
+              shareConfig: {
+                shareTitle: raw.shareTitle || '',
+                timelineTitle: raw.timelineTitle || '',
+                shareImage: urlMap[raw.shareImage] || raw.shareImage,
+                timelineImage: urlMap[raw.timelineImage] || raw.timelineImage,
+                path: raw.path || ''
+              }
+            });
+            console.log('[Index] 加载分享配置成功（已转换 cloud:// → HTTP）');
+            return;
+          } catch (urlErr) {
+            console.warn('[Index] 转换图片链接失败，使用原始值', urlErr);
+          }
+        }
+        // 无 cloud:// 或转换失败，直接使用原始值（兼容旧数据）
         this.setData({ shareConfig: res.data });
         console.log('[Index] 加载分享配置成功', res.data);
       }
@@ -63,6 +119,7 @@ Page({
   // 堂食点击
   onDineInTap() {
     console.log('选择堂食');
+    this._renewSubscribe();  // 续期订阅授权（必须tap同步栈）
     wx.reLaunch({
       url: '/pages/order/order?type=dine-in'
     });
@@ -108,6 +165,7 @@ Page({
   // 外带点击
   onTakeawayTap() {
     console.log('选择外带');
+    this._renewSubscribe();  // 续期订阅授权（必须tap同步栈）
 
     // 点击计数
     this.data.takeawayClickCount++;

@@ -1,5 +1,6 @@
 // cart.js
 const app = getApp();
+const SUBSCRIBE = require('../../config/subscribe.js');
 
 Page({
   data: {
@@ -76,11 +77,46 @@ Page({
     wx.navigateBack({ delta: 1 });
   },
 
-  // 立即支付：调用云函数创建支付订单
-  async onPayNow() {
+  // 立即支付：先请求订阅授权，再调用云函数创建支付订单
+  onPayNow() {
     const { dineInList, takeawayList, remark } = this.data;
     const totalItems = [...dineInList, ...takeawayList];
     if (totalItems.length === 0) return;
+
+    // 步骤1：请求订阅消息授权（必须在同步调用栈中，不可放在 await 之后）
+    this._requestSubscribe(() => {
+      this._doPay(dineInList, takeawayList, remark);
+    });
+  },
+
+  /**
+   * 请求订阅消息授权（同步调用栈中触发，不可 await）
+   * 勾选"总是保持以上选择"后后续不会再弹窗，静默续期
+   */
+  _requestSubscribe(callback) {
+    wx.requestSubscribeMessage({
+      tmplIds: [SUBSCRIBE.PAYMENT_SUCCESS, SUBSCRIBE.PICKUP_NOTIFY],
+      success: (res) => {
+        const payAccepted = res[SUBSCRIBE.PAYMENT_SUCCESS] === 'accept';
+        const pickupAccepted = res[SUBSCRIBE.PICKUP_NOTIFY] === 'accept';
+        console.log('[Subscribe] 付款成功通知:', payAccepted ? '已授权' : '已拒绝',
+                     '取餐通知:', pickupAccepted ? '已授权' : '已拒绝');
+      },
+      fail: (err) => {
+        console.warn('[Subscribe] 订阅消息授权失败:', err);
+      },
+      complete: () => {
+        // 无论授权结果如何，继续支付流程
+        callback();
+      },
+    });
+  },
+
+  /**
+   * 执行实际支付流程
+   */
+  async _doPay(dineInList, takeawayList, remark) {
+    const totalItems = [...dineInList, ...takeawayList];
 
     wx.showLoading({ title: '正在下单...', mask: true });
 

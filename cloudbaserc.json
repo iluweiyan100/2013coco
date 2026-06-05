@@ -5,5 +5,24 @@
   "projectName": "微信点单小程序",
   "framework": {
     "name": "wechat-miniprogram"
-  }
+  },
+  "functions": [
+    {
+      "name": "sendSubscribeMessage",
+      "timeout": 10,
+      "runtime": "Nodejs18.15",
+      "envVariables": {
+        "WX_APP_SECRET": "e3a211197d4384af49b4146a5a1a59ed",
+        "MINIPROGRAM_STATE": "developer"
+      }
+    },
+    {
+      "name": "createPaymentCallback",
+      "timeout": 15,
+      "runtime": "Nodejs16.13",
+      "envVariables": {
+        "WX_MCH_API_KEY": "lxygwqfqsgctys15994412130wblmxxx"
+      }
+    }
+  ]
 }
