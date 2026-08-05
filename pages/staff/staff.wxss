@@ -50,6 +50,27 @@
   line-height: 44px;
 }
 
+.navbar-refresh-btn {
+  position: absolute;
+  left: 122rpx;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 56rpx;
+  height: 56rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #F9F5F0;
+  border: 2rpx solid #C08A4D;
+}
+
+.navbar-refresh-icon {
+  font-size: 32rpx;
+  color: #C08A4D;
+  font-weight: bold;
+}
+
 .navbar-placeholder {
   width: 100%;
 }
@@ -119,13 +140,13 @@
 .type-header {
   display: flex;
   align-items: center;
-  padding: 20rpx 40rpx;
+  padding: 30rpx 40rpx;
   background: #fafafa;
   border-bottom: 2rpx solid #e0e0e0;
 }
 
 .type-title {
-  font-size: 32rpx;
+  font-size: 36rpx;
   font-weight: bold;
   color: #3B1F0F;
   margin-right: 10rpx;
@@ -197,6 +218,17 @@
 .order-time {
   font-size: 28rpx;
   color: #999999;
+}
+
+.table-name-tag {
+  font-size: 24rpx;
+  color: #C08A4D;
+  background: #FDF6EE;
+  border: 1rpx solid #E8CC9A;
+  border-radius: 8rpx;
+  padding: 4rpx 12rpx;
+  margin-left: 12rpx;
+  flex-shrink: 0;
 }
 
 /* 商品明细 */
@@ -476,6 +508,17 @@
     font-size: 16px;
   }
 
+  .navbar-refresh-btn {
+    width: 28px;
+    height: 28px;
+    left: 61px;
+    border-width: 1px;
+  }
+
+  .navbar-refresh-icon {
+    font-size: 16px;
+  }
+
   /* 堂食/外带改为左右并排 */
   .orders-body {
     flex-direction: row;
@@ -491,11 +534,11 @@
 
   /* 类型标题栏 */
   .type-header {
-    padding: 8px 14px;
+    padding: 10px 16px;
   }
 
   .type-title {
-    font-size: 12px;
+    font-size: 14px;
     margin-right: 4px;
     font-family: 'CangerShuYuanTi', '仓耳舒圆体', Noto Serif SC, serif;
   }
@@ -536,6 +579,12 @@
   .pickup-no {
     font-size: 28px;
     letter-spacing: 1px;
+  }
+
+  .table-name-tag {
+    font-size: 28px;
+    padding: 2px 8px;
+    border-radius: 4px;
   }
 
   .order-time {
@@ -642,6 +691,11 @@
     padding: 2px 6px;
   }
 
+  .completed-header .table-name-tag {
+    font-size: 11px;
+    padding: 2px 6px;
+  }
+
   .completed-items-divider {
     margin: 6px 0;
   }
@@ -693,3 +747,13 @@
     font-size: 12px;
   }
 }
+
+.staff-close-btn {
+  padding: 4px 14px;
+  border-radius: 14px;
+  background: rgba(46,125,50,0.15);
+}
+.staff-close-btn.close-active { background: rgba(198,40,40,0.15); }
+.staff-close-text { font-size: 13px; color: #2E7D32; font-weight: 500; }
+.close-active .staff-close-text { color: #C62828; }
+

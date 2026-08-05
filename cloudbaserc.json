@@ -8,12 +8,26 @@
   },
   "functions": [
     {
+      "name": "initDB",
+      "timeout": 10,
+      "runtime": "Nodejs18.15"
+    },
+    {
       "name": "sendSubscribeMessage",
       "timeout": 10,
       "runtime": "Nodejs18.15",
       "envVariables": {
         "WX_APP_SECRET": "e3a211197d4384af49b4146a5a1a59ed",
         "MINIPROGRAM_STATE": "developer"
+      }
+    },
+    {
+      "name": "generateTableQRCode",
+      "timeout": 15,
+      "runtime": "Nodejs18.15",
+      "envVariables": {
+        "WX_APP_SECRET": "e3a211197d4384af49b4146a5a1a59ed",
+        "MINIPROGRAM_STATE": "formal"
       }
     },
     {

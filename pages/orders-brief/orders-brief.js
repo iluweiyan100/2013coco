@@ -6,9 +6,8 @@ Page({
   },
 
   onLoad(options) {
-    const systemInfo = wx.getSystemInfoSync();
     this.setData({
-      statusBarHeight: systemInfo.statusBarHeight
+      statusBarHeight: wx.getWindowInfo().statusBarHeight
     });
     this.loadOrders();
   },

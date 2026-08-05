@@ -50,6 +50,36 @@ page {
   padding-bottom: 128rpx;
 }
 
+/* ========== 桌位提示条 ========== */
+.table-context-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20rpx 32rpx;
+  margin: 0 28rpx 16rpx 28rpx;
+  background: linear-gradient(135deg, #FDF6EE 0%, #F9ECD9 100%);
+  border: 1rpx solid #E8CC9A;
+  border-radius: 16rpx;
+}
+
+.table-context-text {
+  font-size: 28rpx;
+  color: #5B3A29;
+  font-weight: 500;
+}
+
+.table-context-exit {
+  padding: 8rpx 24rpx;
+  background: #fff;
+  border: 1rpx solid #C08A4D;
+  border-radius: 24rpx;
+}
+
+.table-context-exit-text {
+  font-size: 24rpx;
+  color: #C08A4D;
+}
+
 /* ========== Banner 轮播图 ========== */
 .banner-container {
   position: relative;
@@ -300,5 +330,58 @@ page {
 
 .tab-item.active .tab-label {
   color: #A3212D;
+  font-weight: 500;
+}
+
+/* ===== 首页商品展示 ===== */
+/* ===== 打烊浮窗 ===== */
+.closed-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.closed-overlay-box {
+  width: 560rpx;
+  background: #FFFFFF;
+  border-radius: 24rpx;
+  padding: 56rpx 40rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.closed-title { font-size: 34rpx; font-weight: 600; color: #E65100; }
+.closed-msg { font-size: 28rpx; color: #8B6F5E; margin-top: 16rpx; text-align: center; }
+.closed-hint { font-size: 22rpx; color: #B8A99E; margin-top: 24rpx; text-align: center; }
+
+.featured-section {
+  padding: 0 32rpx 24rpx;
+}
+
+.featured-card {
+  margin-top: 16rpx;
+  border-radius: 24rpx;
+  overflow: hidden;
+  position: relative;
+  background: #FFFFFF;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.06);
+}
+
+.featured-img {
+  width: 100%;
+  height: 320rpx;
+  display: block;
+}
+
+.featured-info {
+  padding: 16rpx 24rpx;
+}
+
+.featured-name {
+  font-size: 28rpx;
+  color: #5B3A29;
   font-weight: 500;
 }

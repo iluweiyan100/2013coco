@@ -15,18 +15,24 @@
   <!-- 主内容区：双栏布局 -->
   <view class="main-content">
     
-    <!-- 左侧分类导航 -->
-    <scroll-view class="category-sidebar" scroll-y>
-      <view 
-        wx:for="{{categories}}" 
-        wx:key="id"
-        class="sidebar-item {{currentCategory === item.id ? 'active' : ''}}"
-        bindtap="onCategoryChange"
-        data-id="{{item.id}}"
-      >
-        <text>{{item.name}}</text>
+    <!-- 左侧：分类导航 + 桌位 -->
+    <view class="category-column">
+      <scroll-view class="category-sidebar" scroll-y>
+        <view
+          wx:for="{{categories}}"
+          wx:key="id"
+          class="sidebar-item {{currentCategory === item.id ? 'active' : ''}}"
+          bindtap="onCategoryChange"
+          data-id="{{item.id}}"
+        >
+          <text>{{item.name}}</text>
+        </view>
+      </scroll-view>
+      <!-- 桌位信息（固定于侧边栏底部，不随分类滚动） -->
+      <view wx:if="{{tableName}}" class="sidebar-table-badge">
+        <text class="sidebar-table-text">🪑 {{tableName}}</text>
       </view>
-    </scroll-view>
+    </view>
 
     <!-- 右侧商品列表 - 显示所有商品 -->
     <scroll-view 

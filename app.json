@@ -41,12 +41,6 @@
         "text": "订单",
         "iconPath": "images/icons/myorder.png",
         "selectedIconPath": "images/icons/myorder-active.png"
-      },
-      {
-        "pagePath": "pages/profile/profile",
-        "text": "我的",
-        "iconPath": "images/icons/profile.png",
-        "selectedIconPath": "images/icons/profile-active.png"
       }
     ]
   },

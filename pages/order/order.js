@@ -11,6 +11,7 @@ Page({
       { id: 'coco',     name: '可可' },
       { id: 'coffee',   name: '咖啡' },
       { id: 'icecream', name: '冰淇淋' },
+      { id: 'dessert',  name: '甜点' },
       { id: 'other',    name: '无咖啡因饮品' }
     ],
     allProducts: [],
@@ -26,23 +27,90 @@ Page({
     specModalType: '',        // 'temp' | 'scoop'
     specOptions: [],          // 当前弹窗的选项列表
     selectedSpec: '',         // 已选择的规格值
-    selectedOrderType: ''     // 弹窗内选择的就餐方式（初始由 orderType 带入）
+    selectedOrderType: '',     // 弹窗内选择的就餐方式（初始由 orderType 带入）
+
+    // 桌面二维码桌位名
+    tableName: ''
   },
 
   onLoad(options) {
-    const systemInfo = wx.getSystemInfoSync();
+    // 兜底检查打烊状态
+    try {
+      const hs = wx.getStorageSync('_cache_shopStatus');
+      if (hs && hs.closed) { wx.showToast({ title: hs.title || '已打烊', icon: 'none' }); wx.reLaunch({ url: '/pages/index/index' }); return; }
+    } catch (e) {}
     this.setData({
-      statusBarHeight: systemInfo.statusBarHeight
+      statusBarHeight: wx.getWindowInfo().statusBarHeight
     });
     const type = options.type || '';  // 首页未传则为空
     console.log('[Order] onLoad 接收到的 type 参数:', type);
     this.setData({ orderType: type });
     console.log('[Order] 设置后的 orderType:', this.data.orderType);
+    // 保存 scrollTo，_loadProducts 完成后自动定位
+    this._pendingScrollTo = options.scrollTo || '';
+    // 先从缓存瞬时加载，再异步拉取最新
+    const cached = this._cacheGet('_cache_products');
+    if (cached) {
+      this.setData({
+        allProducts: cached.sortedProducts,
+        categories: cached.categories,
+        currentCategory: cached.categories.length > 0 ? cached.categories[0].id : '',
+        loading: false
+      });
+      this._refreshCartMap();
+    }
     this._loadProducts();
+    this._loadTableContext();
   },
 
   onShow() {
     this._refreshCartMap();
+    // 静默检查商品缓存是否过期（15分钟），过期才刷新
+    if (!this._cacheGet('_cache_products')) {
+      this._loadProducts();
+    }
+    this._loadTableContext();
+  },
+
+  _loadTableContext() {
+    const ctx = getApp().globalData.tableContext
+      || wx.getStorageSync('tableContext') || null;
+    if (ctx && ctx.code && !ctx.tableName) {
+      // 有 code 但 name 未解析（竞态），通过云函数查询（服务端权限）
+      this.setData({ tableName: '' });
+      wx.cloud.callFunction({
+        name: 'initDB',
+        data: { action: 'getTableByCode', code: ctx.code }
+      }).then(res => {
+        if (res.result && res.result.success && res.result.data) {
+          const t = res.result.data;
+          this.setData({ tableName: t.name });
+          ctx.tableName = t.name;
+          ctx.tableId = t._id;
+          getApp().globalData.tableContext = ctx;
+          wx.setStorageSync('tableContext', ctx);
+        }
+      }).catch(() => {});
+    } else {
+      this.setData({
+        tableName: (ctx && ctx.tableName) ? ctx.tableName : ''
+      });
+    }
+  },
+
+  _cacheGet(key) {
+    try {
+      const raw = wx.getStorageSync(key);
+      if (raw && raw.time && (Date.now() - raw.time < 15 * 60 * 1000)) {
+        return raw.data;
+      }
+    } catch (e) { /* 忽略 */ }
+    return null;
+  },
+  _cacheSet(key, data) {
+    try {
+      wx.setStorageSync(key, { time: Date.now(), data });
+    } catch (e) { /* 忽略 */ }
   },
 
   async _loadProducts() {
@@ -76,7 +144,7 @@ Page({
       const categories = this.data.categories.filter(c => catIds.includes(c.id));
 
       // 按照分类顺序排序商品
-      const categoryOrder = ['coco', 'coffee', 'icecream', 'other'];
+      const categoryOrder = ['coco', 'coffee', 'icecream', 'dessert', 'other'];
       const sortedProducts = products.slice().sort((a, b) => {
         return categoryOrder.indexOf(a.categoryId) - categoryOrder.indexOf(b.categoryId);
       });
@@ -88,6 +156,23 @@ Page({
         loading: false
       });
       this._refreshCartMap();
+
+      // 缓存商品数据（15分钟有效，减少云端请求）
+      this._cacheSet('_cache_products', { categories, sortedProducts });
+
+      // 处理 scrollTo 参数：自动定位到指定商品
+      if (this._pendingScrollTo) {
+        const targetIndex = sortedProducts.findIndex(p => p.id === this._pendingScrollTo);
+        if (targetIndex !== -1) {
+          // 先切换到目标商品所属分类
+          const targetCat = sortedProducts[targetIndex].categoryId;
+          this.setData({
+            currentCategory: targetCat,
+            scrollToView: `product-${targetIndex}`
+          });
+        }
+        this._pendingScrollTo = '';
+      }
     } catch (e) {
       console.warn('[Order] 加载商品失败', e);
       this.setData({ loading: false });

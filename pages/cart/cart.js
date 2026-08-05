@@ -13,9 +13,8 @@ Page({
   },
 
   onLoad() {
-    const systemInfo = wx.getSystemInfoSync();
     this.setData({
-      statusBarHeight: systemInfo.statusBarHeight
+      statusBarHeight: wx.getWindowInfo().statusBarHeight
     });
     this._syncFromGlobal();
   },
@@ -263,7 +262,14 @@ Page({
     const sharedPickupNumber = letters[Math.floor(Math.random() * letters.length)] +
       String(Math.floor(Math.random() * 99) + 1).padStart(2, '0');
 
+    // 获取桌位上下文
+    const ctx = getApp().globalData.tableContext
+      || wx.getStorageSync('tableContext') || null;
+    console.log('[Cart] 桌位上下文:', JSON.stringify(ctx));
+    console.log('[Cart] globalData.tableContext:', JSON.stringify(getApp().globalData.tableContext));
+
     for (const order of orders) {
+      console.log('[Cart] 订单 orderType:', order.orderType, 'tableName:', ctx ? ctx.tableName : 'N/A');
       const res = await db.collection('orders').add({
         data: {
           openid: openid,
@@ -273,7 +279,10 @@ Page({
           remark: order.remark || '',
           products: order.products,
           totalAmount: order.totalAmount,
-          createTime: db.serverDate()
+          createTime: db.serverDate(),
+          // 关联桌位（所有订单类型）
+          tableId: ctx ? (ctx.tableId || '') : '',
+          tableName: ctx ? (ctx.tableName || '') : ''
         }
       });
       // 写入 orderId 和 outTradeNo 字段，供支付回调查询使用

@@ -56,13 +56,38 @@ page {
   height: 100%;
 }
 
+/* 左侧：分类导航 + 桌位 竖排容器 */
+.category-column {
+  width: 192rpx;
+  display: flex;
+  flex-direction: column;
+  background: #E7DCD1;
+  flex-shrink: 0;
+}
+
 /* 左侧分类导航 - 宽度 96px = 192rpx */
 .category-sidebar {
   width: 192rpx;
   background: #E7DCD1; /* RGB(231, 221, 209) */
-  height: 100%; /* 自动适应父容器高度，与右侧商品列表等高 */
+  flex: 1;
   padding-top: 20rpx;
   overflow-y: auto; /* 如果分类过多，允许滚动 */
+}
+
+.sidebar-table-badge {
+  padding: 16rpx 8rpx;
+  margin: 0 12rpx 8rpx 12rpx;
+  background: rgba(163, 33, 45, 0.08);
+  border: 1rpx solid rgba(163, 33, 45, 0.2);
+  border-radius: 12rpx;
+  text-align: center;
+}
+
+.sidebar-table-text {
+  font-size: 22rpx;
+  color: #A3212D;
+  font-weight: 500;
+  font-family: 'CangerShuYuanTi', Noto Serif SC;
 }
 
 .sidebar-item {

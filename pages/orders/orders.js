@@ -10,9 +10,8 @@ Page({
   },
 
   onLoad(options) {
-    const systemInfo = wx.getSystemInfoSync();
     this.setData({
-      statusBarHeight: systemInfo.statusBarHeight
+      statusBarHeight: wx.getWindowInfo().statusBarHeight
     });
     this.loadOrders();
     this._startWatchingOrders();
@@ -62,9 +61,12 @@ Page({
     });
 
     const db = wx.cloud.database();
+    const twoWeeksAgo = new Date();
+    twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
     db.collection('orders')
       .where({
-        openid: openid
+        openid: openid,
+        createTime: db.command.gte(twoWeeksAgo)
       })
       .orderBy('createTime', 'desc')  // 降序，最新的订单在最顶端
       .get({
@@ -126,6 +128,7 @@ Page({
       date: `${month}-${day}`,
       time: `${hour}:${minute}`,
       orderType: order.orderType === 'dine-in' ? '堂食' : '外带',
+      tableName: order.tableName || '',
       status: status,
       statusText: statusText,
       statusIcon: statusIcon,

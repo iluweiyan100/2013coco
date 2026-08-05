@@ -37,7 +37,10 @@
             <view class="order-info">
               <text class="order-date">{{item.date}}</text>
               <text class="order-time">{{item.time}}</text>
-              <text class="order-type" style="position: relative; left: 57rpx; top: -62rpx">{{item.orderType}}</text>
+              <view class="order-tags">
+                <text class="order-type">{{item.orderType}}</text>
+                <text wx:if="{{item.tableName}}" class="table-tag">🪑 {{item.tableName}}</text>
+              </view>
             </view>
           </view>
           <view class="status-section">

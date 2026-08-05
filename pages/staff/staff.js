@@ -5,17 +5,17 @@ Page({
     takeawayOrders: [],    // 外带订单
     completedOrders: [],   // 已完成订单
     statusBarHeight: 0,    // 状态栏高度
+    shopClosed: false,     // 打烊状态
   },
 
   onLoad() {
-    const systemInfo = wx.getSystemInfoSync();
     this.setData({
-      statusBarHeight: systemInfo.statusBarHeight
+      statusBarHeight: wx.getWindowInfo().statusBarHeight
     });
 
     // 打印当前环境信息
     console.log('[Staff] ========== 初始化信息 ==========');
-    console.log('[Staff] 系统信息:', systemInfo);
+    console.log('[Staff] 系统信息:', wx.getWindowInfo());
     console.log('[Staff] 云环境 ID:', wx.cloud.DYNAMIC_CURRENT_ENV);
 
     // 获取当前用户信息
@@ -25,11 +25,14 @@ Page({
 
     this._loadInitialOrders();
     this._startWatching();
+    this._heartbeat();
+    this._loadShopStatus();
 
-    // 启动定时轮询作为备用方案（每 30 秒）
+    // 启动定时轮询作为备用方案（每 30 秒），同时续期心跳
     this.refreshTimer = setInterval(() => {
       console.log('[Staff] 定时刷新执行');
       this._loadInitialOrders();
+      this._heartbeat();
     }, 30000);
   },
 
@@ -39,15 +42,11 @@ Page({
     const _ = db.command;
 
     try {
-      const res = await db.collection('orders')
-        .where({
-          status: _.in(['making', 'ready', 'done'])
-        })
-        .orderBy('createTime', 'asc')  // 制作中、待取餐：最早的在最前面（下方）
-        .limit(100)
-        .get();
-
-      this._classifyOrders(res.data);
+      const res = await wx.cloud.callFunction({
+          name: 'initDB',
+          data: { action: 'getActiveOrders' },
+        });
+        this._classifyOrders(res.result.data || []);
     } catch (e) {
       console.error('[Staff] 加载初始订单失败', e);
       wx.showToast({ title: '加载失败', icon: 'none' });
@@ -63,9 +62,8 @@ Page({
     console.log('[Staff] 监听条件: status in [making, ready, done, pending]');
 
     this.orderWatcher = db.collection('orders')
-      .where({
-        status: _.in(['making', 'ready', 'done', 'pending'])
-      })
+      .orderBy('createTime', 'asc')
+      .limit(200)
       .watch({
         onChange: (snapshot) => {
           console.log('[Staff] ========== 订单变化触发 ==========');
@@ -317,10 +315,7 @@ Page({
 
     if (order) {
       order.status = 'done';
-      order.completeTime = new Date().toLocaleTimeString('zh-CN', {
-        hour: '2-digit',
-        minute: '2-digit'
-      });
+      order.completeTime = new Date().toISOString();
 
       // 检查是否今天完成
       const isToday = this._isTodayCompleted(order.completeTime);
@@ -391,8 +386,10 @@ Page({
         }).replace(/\//g, '-')
       : '';
 
-    const completeTime = order.completeTime
-      ? new Date(order.completeTime).toLocaleString('zh-CN', {
+    // 兼容 db.serverDate() 返回的 { $date: "..." } 格式
+    const rawComplete = order.completeTime && order.completeTime.$date ? order.completeTime.$date : order.completeTime;
+    const completeTimeStr = rawComplete
+      ? new Date(rawComplete).toLocaleString('zh-CN', {
           hour: '2-digit',
           minute: '2-digit'
         })
@@ -404,7 +401,8 @@ Page({
       pickupNumber: order.pickupNumber || '',
       orderType: order.orderType || 'takeaway',
       time: timeStr,
-      completeTime: completeTime,
+      completeTime: rawComplete || '',   // _isTodayCompleted 使用
+      completeTimeStr: completeTimeStr,
       items: (order.products || []).map(p => ({
         name: p.name || '',
         temperature: p.temperature || '',
@@ -412,7 +410,8 @@ Page({
         price: p.price || 0
       })),
       totalAmount: order.totalAmount || 0,
-      remark: order.remark || ''
+      remark: order.remark || '',
+      tableName: order.tableName || ''   // 桌面二维码桌位名
     };
   },
 
@@ -429,7 +428,7 @@ Page({
     console.log('[Staff] 完成订单，订单ID:', orderId);
     console.log('[Staff] 当前云环境:', wx.cloud.DYNAMIC_CURRENT_ENV || 'cloud3-d2gbcvyqkbc0fbf94');
 
-    // 检查订单是否存在
+    // 检查订单是否存在，并记录更新前状态（防重复通知）
     const allOrders = [...this.data.dineInOrders, ...this.data.takeawayOrders];
     const orderExists = allOrders.find(o => o._id === orderId);
     console.log('[Staff] 订单是否存在:', !!orderExists);
@@ -438,6 +437,7 @@ Page({
       wx.showToast({ title: '订单已完成', icon: 'success', duration: 1000 });
       return;
     }
+    const wasAlreadyDone = orderExists.status === 'done';
 
     wx.showLoading({ title: '处理中...', mask: true });
 
@@ -479,9 +479,15 @@ Page({
       if (docRes.data.status === 'done') {
         console.log('[Staff] 订单状态已确认更新为 done');
 
-        // ===== 发送取餐通知给顾客 =====
+        // ===== 发送取餐通知给顾客（仅首次完成时发送，防重复） =====
+        if (wasAlreadyDone) {
+          console.log('[Staff] 订单之前已完成，跳过通知');
+          wx.hideLoading();
+          return;
+        }
         const orderData = docRes.data;
         if (orderData.openid && orderData.pickupNumber) {
+          // character_string1 仅支持字母数字，中文会被微信 API 拒绝
           console.log('[Staff] 发送取餐通知, openid:', orderData.openid, '取餐码:', orderData.pickupNumber);
           wx.cloud.callFunction({
             name: 'sendSubscribeMessage',
@@ -489,7 +495,7 @@ Page({
               scene: 'pickup_notify',
               openid: orderData.openid,
               pickupNumber: orderData.pickupNumber,
-              createTime: orderData.createTime,
+              createTime: orderData.completeTime || orderData.createTime,  // 优先完成时间
             },
             success: (notifyRes) => {
               console.log('[Staff] 取餐通知发送结果:', JSON.stringify(notifyRes.result));
@@ -561,6 +567,50 @@ Page({
     audio.play();
   },
 
+  // 加载打烊状态
+  async _loadShopStatus() {
+    try {
+      const db = wx.cloud.database();
+      const res = await db.collection('homeSettings').doc('config').get();
+      const data = res.data || {};
+      const { openingTime, closingTime, manualClosed, manualClosedDate, manualClosedUntil } = data;
+      let effective = manualClosed;
+      const today = new Date().toISOString().slice(0, 10);
+      if (manualClosed !== undefined && manualClosed !== null) {
+        let expired = false;
+        if (manualClosedUntil) expired = new Date() >= new Date(manualClosedUntil);
+        else if (manualClosedDate && manualClosedDate < today && openingTime) {
+          const h = new Date().getHours()*60+new Date().getMinutes();
+          const o = parseInt(openingTime.split(':')[0])*60+parseInt(openingTime.split(':')[1]||0);
+          expired = h >= o;
+        }
+        if (expired) effective = undefined;
+      }
+      if (effective === true) { this.setData({ shopClosed: true, manualClosed }); return; }
+      if (effective === false) { this.setData({ shopClosed: false, manualClosed }); return; }
+      if (!openingTime || !closingTime) { this.setData({ shopClosed: false }); return; }
+      const now = new Date();
+      const hm = now.getHours() * 60 + now.getMinutes();
+      const open = parseInt(openingTime.split(':')[0]) * 60 + parseInt(openingTime.split(':')[1] || 0);
+      const close = parseInt(closingTime.split(':')[0]) * 60 + parseInt(closingTime.split(':')[1] || 0);
+      this.setData({ shopClosed: hm < open || hm >= close, manualClosed: !!manualClosed });
+    } catch (e) { console.warn('[Staff] 加载打烊状态失败', e); }
+  },
+
+  // 切换打烊
+  async onToggleClosed() {
+    const newState = !this.data.shopClosed;
+    this.setData({ shopClosed: newState, manualClosed: newState });
+    try {
+      await wx.cloud.callFunction({ name: 'initDB', data: { action: 'toggleClosed', manualClosed: newState } });
+      // 成功后重新从数据库加载打烊状态，确保本地状态与数据库一致，
+      // 同时消除 _loadShopStatus（onLoad 中异步调用）可能用旧值覆盖本次修改的竞态问题
+      await this._loadShopStatus();
+    } catch (e) {
+      this.setData({ shopClosed: !newState, manualClosed: !newState });
+    }
+  },
+
   // 刷新页面
   onRefresh() {
     this._loadInitialOrders();
@@ -581,6 +631,7 @@ Page({
     if (this.refreshTimer) {
       clearInterval(this.refreshTimer);
     }
+    this._removeHeartbeat();
   },
 
   // 获取今天0点的时间戳
@@ -593,9 +644,44 @@ Page({
   // 检查订单是否是今天完成的
   _isTodayCompleted(completeTime) {
     if (!completeTime) return false;
+    // 兼容 db.serverDate() 返回的 { $date: "..." } 格式
+    const raw = completeTime.$date ? completeTime.$date : completeTime;
     const todayStart = this._getTodayStart();
-    const orderCompleteTime = new Date(completeTime).getTime();
+    const orderCompleteTime = new Date(raw).getTime();
     return orderCompleteTime >= todayStart;
+  },
+
+  // 心跳：标记店员端在线
+  async _heartbeat() {
+    const openid = wx.getStorageSync('openid');
+    if (!openid) return;
+    try {
+      const db = wx.cloud.database();
+      const _ = db.command;
+      await db.collection('staff_heartbeat').doc(openid).set({
+        data: { openid, lastSeen: new Date() }
+      }).catch(async () => {
+        await db.collection('staff_heartbeat').add({
+          data: { _id: openid, openid, lastSeen: new Date() }
+        });
+      });
+      console.log('[Staff] 心跳已上报');
+    } catch (e) {
+      console.warn('[Staff] 心跳上报失败', e);
+    }
+  },
+
+  // 清除心跳：店员端关闭时移除标记
+  async _removeHeartbeat() {
+    const openid = wx.getStorageSync('openid');
+    if (!openid) return;
+    try {
+      const db = wx.cloud.database();
+      await db.collection('staff_heartbeat').doc(openid).remove();
+      console.log('[Staff] 心跳已清除');
+    } catch (e) {
+      console.warn('[Staff] 心跳清除失败', e);
+    }
   },
 
   // 处理屏幕尺寸变化（iPad 横屏/竖屏切换）

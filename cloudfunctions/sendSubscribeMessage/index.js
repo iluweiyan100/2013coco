@@ -33,10 +33,15 @@ async function getAccessToken() {
     throw new Error('缺少环境变量 WX_APP_SECRET，请在云函数环境变量中配置')
   }
 
-  const url = `https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=${APPID}&secret=${secret}`
+  // 使用 stable_token API，避免多云函数互相踢掉 token
+  const postData = JSON.stringify({ grant_type: 'client_credential', appid: APPID, secret: secret })
+  const url = `https://api.weixin.qq.com/cgi-bin/stable_token`
 
   return new Promise((resolve, reject) => {
-    https.get(url, (res) => {
+    const req = https.request(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(postData) }
+    }, (res) => {
       let body = ''
       res.on('data', chunk => body += chunk)
       res.on('end', () => {
@@ -59,6 +64,8 @@ async function getAccessToken() {
       console.error('[sendSubscribeMessage] 请求 access_token 网络错误:', err.message)
       reject(err)
     })
+    req.write(postData)
+    req.end()
   })
 }
 
@@ -148,12 +155,14 @@ async function sendMessage(touser, templateId, data) {
  * 格式化付款时间
  */
 function formatPayTime(date) {
-  const y = date.getFullYear()
-  const m = String(date.getMonth() + 1).padStart(2, '0')
-  const d = String(date.getDate()).padStart(2, '0')
-  const h = String(date.getHours()).padStart(2, '0')
-  const min = String(date.getMinutes()).padStart(2, '0')
-  return `${y}年${m}月${d}日 ${h}:${min}`
+  // 云函数环境为 UTC，转为北京时间 (UTC+8)
+  const bj = new Date(date.getTime() + 8 * 3600000)
+  const y = bj.getUTCFullYear()
+  const m = String(bj.getUTCMonth() + 1).padStart(2, '0')
+  const d = String(bj.getUTCDate()).padStart(2, '0')
+  const h = String(bj.getUTCHours()).padStart(2, '0')
+  const min = String(bj.getUTCMinutes()).padStart(2, '0')
+  return `${y}-${m}-${d} ${h}:${min}`
 }
 
 /**
@@ -298,6 +307,7 @@ exports.main = async (event, context) => {
 
   switch (scene) {
     case 'payment_success':
+    case 'staff_offline_order':  // 店员离线时的新订单通知，复用同一模板
       return await sendPaymentSuccess(orders, openid)
 
     case 'pickup_notify':

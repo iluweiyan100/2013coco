@@ -1,0 +1,9 @@
+{
+  "name": "generateTableQRCode",
+  "version": "1.0.0",
+  "description": "生成桌面点单小程序码",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "latest"
+  }
+}

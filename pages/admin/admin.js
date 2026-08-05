@@ -1,10 +1,22 @@
 // pages/admin/admin.js
+const SUBSCRIBE = require('../../config/subscribe.js');
+
+// 本地缓存工具
+function cacheGet(key) {
+  try { const r = wx.getStorageSync('_admin_' + key); if (r && r.t && Date.now() - r.t < r.ttl) return r.d; } catch (e) {}
+  return null;
+}
+function cacheSet(key, data, ttl) {
+  try { wx.setStorageSync('_admin_' + key, { t: Date.now(), ttl, d: data }); } catch (e) {}
+}
+
 Page({
 
   data: {
     activeTab: 'stats',
 
     // ===== 数据统计 =====
+    statsPeriod: 'day',   // day / week / month
     todaySales: 0,
     orderCount: 0,
     avgOrderValue: 0,
@@ -17,7 +29,15 @@ Page({
       { value: 'coco',   label: '可可',        count: 0 },
       { value: 'coffee', label: '咖啡',        count: 0 },
       { value: 'icecream', label: '冰淇淋',    count: 0 },
+      { value: 'dessert',  label: '甜点',      count: 0 },
       { value: 'other',  label: '无咖啡因饮品', count: 0 }
+    ],
+    activeStatusFilter: 'all',
+    statusFilters: [
+      { value: 'all', label: '全部' },
+      { value: 'on',  label: '上架' },
+      { value: 'off', label: '下架' },
+      { value: 'sold', label: '售罄' }
     ],
     products: [],
     filteredProducts: [],
@@ -52,6 +72,7 @@ Page({
       { value: 'coco',     label: '可可' },
       { value: 'coffee',   label: '咖啡' },
       { value: 'icecream', label: '冰淇淋' },
+      { value: 'dessert',  label: '甜点' },
       { value: 'other',    label: '无咖啡因饮品' }
     ],
     // 烘焙度选项
@@ -67,7 +88,8 @@ Page({
     processingMethodOptions: [
       '日晒',
       '水洗',
-      '蜜处理'
+      '蜜处理',
+      '湿刨'
     ],
 
     // 快速编辑弹窗
@@ -95,11 +117,52 @@ Page({
     wifiPassword: '',
     _wifiNameSaved: '',
     _wifiPasswordSaved: '',
+    // 打烊
+    shopClosed: false,
+    openingTime: '',
+    closingTime: '',
+    closedTitle: '',
+    closedMessage: '',
+    // 长期打烊日期选择
+    showCloseDatePicker: false,
+    closeUntilDate: '',
+    _bizHoursSaved: {},
 
     // 英雄区轮播图（heroImages 为显示用临时 URL，_heroFileIDs 为云存储 fileID）
     heroImages: [],
     _heroFileIDs: [],
     _heroModified: false,  // 是否有未保存的修改，true 时 onShow 不刷新
+
+    // 首页商品展示
+    featuredItems: [],
+    _featuredFileIDs: [],
+    _featuredModified: false,
+    // 拖拽排序状态
+    _dragTimer: null,        // 长按计时器
+    _dragTargetIndex: -1,    // 被拖拽项的索引
+    _dragActive: false,      // 拖拽是否已激活
+    _dragStartX: 0,          // 起始触摸X
+    _dragStartY: 0,          // 起始触摸Y
+    _draggingIndex: -1,      // 当前拖拽中项的索引（用于UI高亮）
+    _dragOffsetX: 0,         // X偏移
+    _dragOffsetY: 0,         // Y偏移
+    _dragItemW: 0,           // 单项宽度（px）
+    _dragItemH: 0,           // 单项高度（px）
+    _dragItemsPerRow: 3,     // 每行列数
+    // 滚动位置追踪
+    _lockedScrollTop: 0,
+    _realScrollTop: 0,
+    // 商品卡片拖拽排序
+    _prodDragTimer: null,
+    _prodDragTarget: -1,
+    _prodDragActive: false,
+    _prodDragStartY: 0,
+    _prodDragIdx: -1,
+    _prodDragOffY: 0,
+    _prodDragItemH: 120,  // 估算单项高度(px)
+    // 商品选择弹窗
+    showFeaturedPicker: false,
+    featuredPickerProducts: [],
 
     // 分享配置
     shareConfig: {
@@ -111,6 +174,13 @@ Page({
     },
     _shareConfig: {},  // 保存 fileID，用于云端存储
     _shareConfigSaved: {},  // 保存的配置，用于取消时恢复
+
+    // ===== 桌面点单二维码 =====
+    tables: [],
+    _tablesLoaded: false,
+    showTableModal: false,
+    editingTable: { id: null, name: '', enabled: true },
+    tableQRLoading: '',  // 正在生成 QR 的 table _id
   },
 
   onLoad() {
@@ -124,6 +194,8 @@ Page({
     this._loadOrdersFromCloud();
     this._applyOrderFilter('all');
     this._loadStatisticsFromCloud();
+    this._loadFeaturedProducts();
+    this._loadTablesFromCloud();
   },
 
   // 调用云函数自动创建所需数据库集合
@@ -142,21 +214,34 @@ Page({
   onTabChange(e) {
     const newTab = e.currentTarget.dataset.tab;
     this.setData({ activeTab: newTab });
-    // 切换到数据统计 Tab 时刷新统计数据
     if (newTab === 'stats') {
-      this._loadStatisticsFromCloud();
+      this._loadStatisticsFromCloud(this.data.statsPeriod);
     }
+  },
+
+  onStatsPeriod(e) {
+    const period = e.currentTarget.dataset.period;
+    this.setData({ statsPeriod: period });
+    this._loadStatisticsFromCloud(period);
   },
 
   // ===== 商品管理 =====
 
   // 从云数据库加载商品列表
   async _loadProductsFromCloud() {
+    const cached = cacheGet('products');
+    if (cached) {
+      this.setData({ products: cached, productsLoading: false });
+      this._refreshCategoryFilters(cached);
+      this._applyProductFilter(this.data.activeCategoryFilter, cached);
+      return;
+    }
     this.setData({ productsLoading: true });
     try {
       const res = await wx.cloud.callFunction({ name: 'initDB', data: { action: 'getProducts' } });
       const products = (res.result && res.result.data) || [];
       this.setData({ products, productsLoading: false });
+      cacheSet('products', products, 15 * 60 * 1000);
       this._refreshCategoryFilters(products);
       this._applyProductFilter(this.data.activeCategoryFilter, products);
     } catch (e) {
@@ -176,12 +261,43 @@ Page({
 
   _applyProductFilter(category, products) {
     const list = products || this.data.products;
-    const filtered = category === 'all' ? list : list.filter(p => p.category === category);
+    let filtered = category === 'all' ? list : list.filter(p => p.category === category);
+    // 叠加状态筛选
+    const status = this.data.activeStatusFilter;
+    if (status !== 'all') {
+      filtered = filtered.filter(p => p.saleStatus === status);
+    }
     this.setData({ filteredProducts: filtered, activeCategoryFilter: category });
+    this._refreshStatusFilters(category);
   },
 
   onCategoryFilter(e) {
     this._applyProductFilter(e.currentTarget.dataset.value);
+  },
+
+  onStatusFilter(e) {
+    const status = e.currentTarget.dataset.value;
+    this.setData({ activeStatusFilter: status });
+    this._applyProductFilter(this.data.activeCategoryFilter);
+  },
+
+  _refreshStatusFilters(category) {
+    const list = this.data.products;
+    const baseList = category === 'all' ? list : list.filter(p => p.category === category);
+    const filters = [
+      { value: 'all', label: '全部', count: baseList.length },
+      { value: 'on',  label: '上架', count: baseList.filter(p => p.saleStatus === 'on').length },
+      { value: 'off',  label: '下架', count: baseList.filter(p => p.saleStatus === 'off').length },
+      { value: 'sold', label: '售罄', count: baseList.filter(p => p.saleStatus === 'sold').length },
+    ];
+    this.setData({ statusFilters: filters });
+  },
+
+  onRefreshProducts() {
+    // 清除缓存，强制从云端加载
+    try { wx.removeStorageSync('_admin_products'); } catch (e) {}
+    this._loadProductsFromCloud();
+    wx.showToast({ title: '已刷新', icon: 'success', duration: 1000 });
   },
 
   onAddProduct() {
@@ -543,6 +659,10 @@ Page({
       count: 1,
       mediaType: ['image'],
       sourceType: ['album', 'camera'],
+      fail: (err) => {
+        console.error('[Products] chooseMedia 失败:', err);
+        wx.showToast({ title: err.errMsg || '选择图片失败', icon: 'none' });
+      },
       success: async (res) => {
         const path = res.tempFiles[0].tempFilePath;
         this.setData({ 'editingProduct.imagePreview': path });
@@ -673,6 +793,7 @@ Page({
       wx.hideLoading();
       this.setData({ showProductModal: false });
       wx.showToast({ title: '保存成功', icon: 'success' });
+      try { wx.removeStorageSync('_admin_products'); } catch (e) {}
       this._loadProductsFromCloud();
     } catch (e) {
       wx.hideLoading();
@@ -693,6 +814,7 @@ Page({
             await wx.cloud.callFunction({ name: 'initDB', data: { action: 'deleteProduct', id } });
             wx.hideLoading();
             wx.showToast({ title: '已删除', icon: 'success' });
+            try { wx.removeStorageSync('_admin_products'); } catch (e) {}
             this._loadProductsFromCloud();
           } catch (e) {
             wx.hideLoading();
@@ -709,47 +831,44 @@ Page({
    * 从云数据库加载统计数据
    * 包括：今日销售额、订单量、客单价、商品销售排行
    */
-  async _loadStatisticsFromCloud() {
+  async _loadStatisticsFromCloud(period) {
+    if (!period) period = this.data.statsPeriod || 'day';
+    const cacheKey = 'stats_' + period;
+    const cached = cacheGet(cacheKey);
+    if (cached) { this.setData(cached); return; }
     try {
       const db = wx.cloud.database();
-
-      // 获取今天的开始时间（北京时间，考虑时区）
       const now = new Date();
-      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      // 北京时间 UTC+8，需要减去 8 小时的偏移
-      todayStart.setHours(todayStart.getHours() - 8);
 
-      // 转换为云数据库需要的日期格式
-      const startDate = new Date(todayStart.getTime());
+      // 计算统计周期的起始时间（new Date 按本地时区，传至 DB 自动转 UTC）
+      let startDate;
+      if (period === 'week') {
+        const dayOfWeek = now.getDay();
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        startDate.setDate(startDate.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+      } else if (period === 'month') {
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      } else {
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      }
 
-      // 查询今天的订单（排除已退款的）
-      const todayRes = await db.collection('orders')
+      // 查询周期内订单（排除已退款的）
+      const periodRes = await db.collection('orders')
         .where({
           createTime: db.command.gte(startDate),
           status: db.command.neq('refunded')
         })
         .get();
 
-      const todayOrders = todayRes.data || [];
+      const periodOrders = periodRes.data || [];
 
-      // 计算今日销售额和订单量
-      let todayTotalAmount = 0;
-      todayOrders.forEach(order => {
-        todayTotalAmount += order.totalAmount || 0;
-      });
+      // 销售额
+      let totalSales = 0;
+      periodOrders.forEach(order => { totalSales += order.totalAmount || 0; });
 
-      // 查询所有订单（用于计算商品销售排行，排除已退款的）
-      const allRes = await db.collection('orders')
-        .where({
-          status: db.command.neq('refunded')
-        })
-        .get();
-
-      const allOrders = allRes.data || [];
-
-      // 统计商品销售数据
-      const productStats = {}; // { name: { sales: 0, revenue: 0 } }
-      allOrders.forEach(order => {
+      // 商品销售排行（基于周期内订单）
+      const productStats = {};
+      periodOrders.forEach(order => {
         const products = order.products || [];
         products.forEach(product => {
           const name = product.name || '未知商品';
@@ -781,22 +900,19 @@ Page({
         item.rank = index + 1;
       });
 
-      // 计算客单价（总销售额 / 订单数）
-      let totalAmount = 0;
-      allOrders.forEach(order => {
-        totalAmount += order.totalAmount || 0;
-      });
-      const avgOrderValue = allOrders.length > 0
-        ? Math.round((totalAmount / allOrders.length) * 100) / 100
-        : 0;
+      // 客单价
+      const avgOrderValue = periodOrders.length > 0
+        ? Math.round((totalSales / periodOrders.length) * 100) / 100 : 0;
 
       // 更新数据
-      this.setData({
-        todaySales: Math.round(todayTotalAmount * 100) / 100,
-        orderCount: allOrders.length,
+      const statsData = {
+        todaySales: Math.round(totalSales * 100) / 100,
+        orderCount: periodOrders.length,
         avgOrderValue,
         productRanking: rankingList
-      });
+      };
+      this.setData(statsData);
+      cacheSet(cacheKey, statsData, 2 * 60 * 1000);
 
       console.log('[Statistics] 加载成功', {
         todaySales: this.data.todaySales,
@@ -816,7 +932,11 @@ Page({
   async _loadOrdersFromCloud() {
     try {
       const db = wx.cloud.database();
+      // 仅显示14天内的订单
+      const twoWeeksAgo = new Date();
+      twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
       const res = await db.collection('orders')
+        .where({ createTime: db.command.gte(twoWeeksAgo) })
         .orderBy('createTime', 'desc')
         .limit(100)
         .get();
@@ -997,18 +1117,31 @@ Page({
    * 从云数据库加载 Wi-Fi 设置
    */
   async _loadWifiSettingsFromCloud() {
+    const cached = cacheGet('wifi');
+    if (cached) { this.setData(cached); return; }
     console.log('[WiFi] 开始从云端加载 Wi-Fi 设置');
     try {
       const db = wx.cloud.database();
       const res = await db.collection('homeSettings').doc('config').get();
       const data = res.data || {};
       console.log('[WiFi] 云端数据:', data);
-      this.setData({
+      const wifiData = {
         wifiName: data.wifiName || '',
         wifiPassword: data.wifiPassword || '',
         _wifiNameSaved: data.wifiName || '',
-        _wifiPasswordSaved: data.wifiPassword || ''
-      });
+        _wifiPasswordSaved: data.wifiPassword || '',
+        openingTime: data.openingTime || '',
+        closingTime: data.closingTime || '',
+        closedTitle: data.closedTitle || '',
+        closedMessage: data.closedMessage || '',
+        manualClosed: data.manualClosed,
+        manualClosedDate: data.manualClosedDate || '',
+        manualClosedUntil: data.manualClosedUntil || '',
+        _bizHoursSaved: { openingTime: data.openingTime || '', closingTime: data.closingTime || '', closedTitle: data.closedTitle || '', closedMessage: data.closedMessage || '' }
+      };
+      this.setData(wifiData);
+      this._checkShopClosed();
+      cacheSet('wifi', wifiData, 5 * 60 * 1000);
       console.log('[WiFi] 加载完成，wifiName:', data.wifiName, 'wifiPassword:', data.wifiPassword);
     } catch (e) {
       console.error('[WiFi] 从云端加载失败', e);
@@ -1041,6 +1174,12 @@ Page({
    * _heroFileIDs 保存原始 fileID，heroImages 保存显示用临时链接
    */
   async _loadHeroImagesFromCloud() {
+    // 缓存命中直接返回
+    const cached = cacheGet('hero');
+    if (cached) {
+      this.setData({ heroImages: cached.urls, _heroFileIDs: cached.ids.slice() });
+      return;
+    }
     try {
       const db = wx.cloud.database();
       const res = await db.collection('heroImages').doc('config').get();
@@ -1052,6 +1191,7 @@ Page({
       const urlRes = await wx.cloud.getTempFileURL({ fileList: fileIDs });
       const urls = urlRes.fileList.map(f => f.tempFileURL);
       this.setData({ heroImages: urls, _heroFileIDs: fileIDs.slice() });
+      cacheSet('hero', { urls, ids: fileIDs.slice() }, 10 * 60 * 1000);
     } catch (e) {
       // 加载失败时不清空已有预览，避免因网络抖动导致图片消失
       console.warn('[Hero] 加载云端图片失败', e);
@@ -1084,6 +1224,7 @@ Page({
         _wifiNameSaved: wifiName,
         _wifiPasswordSaved: wifiPassword
       });
+      wx.removeStorageSync('_admin_wifi');  // 失效缓存
       wx.showToast({ title: '保存成功', icon: 'success' });
     }).catch(e => {
       console.error('[Admin] 保存 Wi-Fi 设置失败', e);
@@ -1095,6 +1236,116 @@ Page({
     this.setData({
       wifiName: this.data._wifiNameSaved,
       wifiPassword: this.data._wifiPasswordSaved
+    });
+  },
+
+  // ===== 打烊开关 =====
+  async onToggleClosed() {
+    const newState = !this.data.shopClosed;
+    if (newState) {
+      wx.showActionSheet({
+        itemList: ['仅今日', '选日期'],
+        success: async (r) => {
+          console.log('[Admin] actionSheet tapIndex:', r.tapIndex);
+          if (r.tapIndex === 0) await this._doClose(true);
+          else if (r.tapIndex === 1) this._pickCloseDate();
+        },
+        fail: (e) => { console.error('[Admin] actionSheet fail:', e); }
+      });
+    } else {
+      // 恢复营业
+      await this._doClose(false);
+    }
+  },
+
+  _pickCloseDate() {
+    console.log('[Admin] _pickCloseDate 被调用');
+    const d = new Date();
+    // actionSheet 关闭动画会阻塞 setData 渲染，延迟300ms打开
+    setTimeout(() => {
+      this.setData({
+        showCloseDatePicker: true,
+        closeUntilDate: `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`,
+        closeUntilDate: `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+      });
+    }, 300);
+  },
+
+  onCloseDateChange(e) { this.setData({ closeUntilDate: e.detail.value }); },
+  onCancelCloseDate() { this.setData({ showCloseDatePicker: false }); },
+
+  async onConfirmCloseDate() {
+    const { closeUntilDate, openingTime } = this.data;
+    this.setData({ showCloseDatePicker: false });
+    await this._doClose(true, `${closeUntilDate}T${openingTime || '09:30'}`);
+  },
+
+  async _doClose(closed, untilDate) {
+    this.setData({ shopClosed: closed, manualClosed: closed ? true : false });
+    wx.removeStorageSync('_admin_wifi');
+    try {
+      const data = { action: 'toggleClosed', manualClosed: closed ? true : false };
+      if (untilDate) data.manualClosedUntil = untilDate;
+      await wx.cloud.callFunction({ name: 'initDB', data });
+      wx.showToast({ title: closed ? '已打烊' : '已营业', icon: 'success' });
+    } catch (e) {
+      this.setData({ shopClosed: !closed, manualClosed: closed ? false : true });
+    }
+  },
+
+  _checkShopClosed() {
+    const { openingTime, closingTime, manualClosed, manualClosedDate, manualClosedUntil } = this.data;
+    let effective = manualClosed;
+    const today = new Date().toISOString().slice(0, 10);
+    if (manualClosed !== undefined && manualClosed !== null) {
+      let expired = false;
+      if (manualClosedUntil) expired = new Date() >= new Date(manualClosedUntil);
+      else if (manualClosedDate && manualClosedDate < today && openingTime) {
+        const h = new Date().getHours()*60+new Date().getMinutes();
+        const o = parseInt(openingTime.split(':')[0])*60+parseInt(openingTime.split(':')[1]||0);
+        expired = h >= o;
+      }
+      if (expired) effective = undefined;
+    }
+    if (effective === true) { this.setData({ shopClosed: true }); return; }
+    if (effective === false) { this.setData({ shopClosed: false }); return; }
+    if (!openingTime || !closingTime) { this.setData({ shopClosed: false }); return; }
+    const now = new Date();
+    const hm = now.getHours() * 60 + now.getMinutes();
+    const open = parseInt(openingTime.split(':')[0]) * 60 + parseInt(openingTime.split(':')[1] || 0);
+    const close = parseInt(closingTime.split(':')[0]) * 60 + parseInt(closingTime.split(':')[1] || 0);
+    this.setData({ shopClosed: hm < open || hm >= close });
+  },
+
+  // ===== 营业时间设置 =====
+  onPickerOpeningTime(e) { this.setData({ openingTime: e.detail.value }); },
+  onPickerClosingTime(e) { this.setData({ closingTime: e.detail.value }); },
+  onInputClosedTitle(e) { this.setData({ closedTitle: e.detail.value }); },
+  onInputClosedMessage(e) { this.setData({ closedMessage: e.detail.value }); },
+
+  async onSaveBusinessHours() {
+    const { openingTime, closingTime, closedTitle, closedMessage } = this.data;
+    wx.showLoading({ title: '保存中...', mask: true });
+    try {
+      await wx.cloud.callFunction({
+        name: 'initDB',
+        data: { action: 'setHomeSettings', openingTime, closingTime, closedTitle, closedMessage },
+      });
+      this.setData({ _bizHoursSaved: { openingTime, closingTime, closedTitle, closedMessage } });
+      this._checkShopClosed();
+      wx.hideLoading();
+      wx.showToast({ title: '保存成功', icon: 'success' });
+    } catch (e) {
+      wx.hideLoading();
+      wx.showToast({ title: '保存失败', icon: 'none' });
+    }
+  },
+
+  onCancelBusinessHours() {
+    const s = this.data._bizHoursSaved;
+    this.setData({
+      openingTime: s.openingTime || '', closingTime: s.closingTime || '',
+      closedTitle: s.closedTitle || '', closedMessage: s.closedMessage || '',
     });
   },
 
@@ -1127,6 +1378,10 @@ Page({
       count: 1,
       mediaType: ['image'],
       sourceType: ['album', 'camera'],
+      fail: (err) => {
+        console.error('[Hero] chooseMedia 失败:', err);
+        wx.showToast({ title: err.errMsg || '选择失败', icon: 'none' });
+      },
       success: async (res) => {
         const path = res.tempFiles[0].tempFilePath;
         // 先用本地路径即时预览
@@ -1224,6 +1479,7 @@ Page({
       });
       this.setData({ _heroModified: false });
       wx.hideLoading();
+      wx.removeStorageSync('_admin_hero');
       wx.showToast({ title: '保存成功', icon: 'success' });
     } catch (e) {
       wx.hideLoading();
@@ -1235,6 +1491,364 @@ Page({
   onCancelHeroImages() {
     this.setData({ _heroModified: false });
     this._loadHeroImagesFromCloud();
+  },
+
+  // ===== 首页商品展示 =====
+
+  _loadFeaturedProducts() {
+    wx.cloud.callFunction({
+      name: 'initDB',
+      data: { action: 'getFeaturedProducts' },
+    }).then(async (res) => {
+      const items = (res.result && res.result.data) || [];
+      if (items.length === 0) {
+        this.setData({ featuredItems: [], _featuredFileIDs: [] });
+        return;
+      }
+      const fileIDs = items.map(i => i.imageFileID).filter(Boolean);
+      const urlRes = await wx.cloud.getTempFileURL({ fileList: fileIDs });
+      const urlMap = {};
+      urlRes.fileList.forEach((f, i) => { urlMap[fileIDs[i]] = f.tempFileURL; });
+      const featuredItems = items.map((item, i) => ({
+        productId: item.productId || '',
+        imageURL: urlMap[item.imageFileID] || item.imageFileID,
+        imageFileID: item.imageFileID,
+        name: item.name || '',
+        sortOrder: i,
+      }));
+      this.setData({ featuredItems, _featuredFileIDs: fileIDs.slice() });
+    }).catch(e => {
+      console.warn('[Featured] 加载失败', e);
+      this.setData({ featuredItems: [], _featuredFileIDs: [] });
+    });
+  },
+
+  // 查询商品名称
+  _fillFeaturedProductNames(items) {
+    const ids = items.map(i => i.productId).filter(Boolean);
+    if (ids.length === 0) return;
+    const db = wx.cloud.database();
+    db.collection('products').where({ _id: db.command.in(ids) }).get().then(res => {
+      const nameMap = {};
+      (res.data || []).forEach(p => { nameMap[p._id] = p.name; });
+      const updated = this.data.featuredItems.map(item => ({
+        ...item,
+        name: nameMap[item.productId] || '未知商品',
+      }));
+      this.setData({ featuredItems: updated });
+    }).catch(e => {
+      console.warn('[Featured] 查询商品名失败', e);
+    });
+  },
+
+  // 添加展示商品
+  onAddFeaturedProduct() {
+    const onSale = (this.data.products || []).filter(p => p.saleStatus === 'on');
+    if (onSale.length === 0) {
+      wx.showToast({ title: '无在售商品', icon: 'none' });
+      return;
+    }
+    // 使用自定义弹窗选择商品（避免 wx.showActionSheet 的 6 项限制和真机兼容问题）
+    this.setData({
+      showFeaturedPicker: true,
+      featuredPickerProducts: onSale,
+    });
+  },
+
+  onCloseFeaturedPicker() {
+    this.setData({ showFeaturedPicker: false });
+  },
+
+  onSelectFeaturedProduct(e) {
+    const index = e.currentTarget.dataset.index;
+    const product = this.data.featuredPickerProducts[index];
+    this.setData({ showFeaturedPicker: false });
+    if (product) {
+      this._uploadFeaturedImage(product);
+    }
+  },
+
+  // 上传宣传图后追加到列表
+  _uploadFeaturedImage(product) {
+    this.setData({ _featuredModified: true });
+    wx.chooseMedia({
+      count: 1,
+      mediaType: ['image'],
+      sourceType: ['album', 'camera'],
+      success: async (res) => {
+        const path = res.tempFiles[0].tempFilePath;
+        wx.showLoading({ title: '上传中...', mask: true });
+        try {
+          const { fileID, tempURL } = await this._uploadToCloud(path);
+          const item = { productId: product._id, name: product.name, imageURL: tempURL, imageFileID: fileID };
+          const featuredItems = this.data.featuredItems.concat([item]);
+          const _featuredFileIDs = this.data._featuredFileIDs.concat([fileID]);
+          this.setData({ featuredItems, _featuredFileIDs });
+          wx.hideLoading();
+        } catch (e) {
+          wx.hideLoading();
+          console.error('[Featured] 上传失败', e);
+          wx.showToast({ title: '上传失败', icon: 'none' });
+        }
+      },
+      fail: () => {
+        if (this.data.featuredItems.length === 0) {
+          this.setData({ _featuredModified: false });
+        }
+      },
+    });
+  },
+
+  // 替换展示图
+  onReplaceFeaturedImage(e) {
+    const index = parseInt(e.currentTarget.dataset.index);
+    this.setData({ _featuredModified: true });
+    wx.chooseMedia({
+      count: 1,
+      mediaType: ['image'],
+      sourceType: ['album', 'camera'],
+      success: async (res) => {
+        const path = res.tempFiles[0].tempFilePath;
+        wx.showLoading({ title: '上传中...', mask: true });
+        try {
+          const { fileID, tempURL } = await this._uploadToCloud(path);
+          const items = this.data.featuredItems.slice();
+          const ids = this.data._featuredFileIDs.slice();
+          items[index] = { ...items[index], imageURL: tempURL, imageFileID: fileID };
+          ids[index] = fileID;
+          this.setData({ featuredItems: items, _featuredFileIDs: ids });
+          wx.hideLoading();
+        } catch (e) {
+          wx.hideLoading();
+          console.error('[Featured] 替换失败', e);
+          wx.showToast({ title: '上传失败', icon: 'none' });
+        }
+      },
+    });
+  },
+
+  // 删除展示项
+  onDeleteFeaturedItem(e) {
+    const index = e.currentTarget.dataset.index;
+    const items = this.data.featuredItems.slice();
+    const ids = this.data._featuredFileIDs.slice();
+    items.splice(index, 1);
+    ids.splice(index, 1);
+    this.setData({ featuredItems: items, _featuredFileIDs: ids, _featuredModified: true });
+  },
+
+  // 保存展示商品
+  async onSaveFeaturedProducts() {
+    const items = this.data.featuredItems.map((item, i) => ({
+      productId: item.productId,
+      imageFileID: item.imageFileID,
+      sortOrder: i,
+    }));
+    wx.showLoading({ title: '保存中...', mask: true });
+    try {
+      await wx.cloud.callFunction({
+        name: 'initDB',
+        data: { action: 'setFeaturedProducts', items },
+      });
+      this.setData({ _featuredModified: false });
+      wx.hideLoading();
+      wx.removeStorageSync('_admin_featured');
+      wx.showToast({ title: '保存成功', icon: 'success' });
+    } catch (e) {
+      wx.hideLoading();
+      console.error('[Featured] 保存失败', e);
+      wx.showToast({ title: '保存失败', icon: 'none' });
+    }
+  },
+
+  onCancelFeaturedProducts() {
+    this.setData({ _featuredModified: false });
+    this._loadFeaturedProducts();
+  },
+
+  // ===== 拖拽排序（长按卡片2秒启动；短按则替换图片） =====
+
+  // 按下拖拽按钮 → 记录位置，启动2秒计时器
+  onFeaturedDragStart(e) {
+    const index = e.currentTarget.dataset.index;
+    const touch = e.touches[0];
+
+    if (this.data._dragTimer) clearTimeout(this.data._dragTimer);
+
+    this.setData({
+      _dragTargetIndex: index,
+      _dragStartX: touch.clientX,
+      _dragStartY: touch.clientY,
+    });
+
+    const timer = setTimeout(() => {
+      wx.vibrateShort({ type: 'medium' });
+      this._calcGridSize();
+      this.setData({
+        _dragActive: true,
+        _draggingIndex: index,
+        _dragOffsetX: 0,
+        _dragOffsetY: 0,
+        _featuredModified: true,
+      });
+    }, 1000);
+
+    this.data._dragTimer = timer;
+  },
+
+  // 移动 → 只更新 translateY 跟随手指，不交换数组
+  onFeaturedDragMove(e) {
+    if (!(this.data._dragTargetIndex >= 0)) return;
+    const touch = e.touches[0];
+
+    if (!this.data._dragActive) {
+      if (Math.abs(touch.clientX - this.data._dragStartX) > 10 ||
+          Math.abs(touch.clientY - this.data._dragStartY) > 10) {
+        this._cancelDrag();
+      }
+      return;
+    }
+
+    // 只更新偏移量，保持数组不变，视觉上卡片跟随手指
+    this.setData({ _dragOffsetY: touch.clientY - this.data._dragStartY });
+  },
+
+  // 松手 → 计算最终位置，交换数组，重置偏移
+  onFeaturedDragEnd() {
+    if (!this.data._dragActive) { this._cancelDrag(); return; }
+
+    const { _draggingIndex: fromIdx, _dragOffsetY, _dragItemH, featuredItems } = this.data;
+    const step = Math.round(_dragOffsetY / _dragItemH);
+    const toIdx = Math.max(0, Math.min(featuredItems.length - 1, fromIdx + step));
+
+    // 交换数组
+    if (toIdx !== fromIdx) {
+      const items = featuredItems.slice();
+      const ids = this.data._featuredFileIDs.slice();
+      [items[fromIdx], items[toIdx]] = [items[toIdx], items[fromIdx]];
+      [ids[fromIdx], ids[toIdx]] = [ids[toIdx], ids[fromIdx]];
+      this.setData({
+        featuredItems: items,
+        _featuredFileIDs: ids,
+      });
+    }
+
+    // 重置所有拖拽状态
+    this.setData({
+      _dragActive: false,
+      _draggingIndex: -1,
+      _dragOffsetX: 0,
+      _dragOffsetY: 0,
+    });
+    this._cancelDrag();
+  },
+
+  _cancelDrag() {
+    if (this.data._dragTimer) { clearTimeout(this.data._dragTimer); this.data._dragTimer = null; }
+    this.setData({
+      _dragTimer: null,
+      _dragTargetIndex: -1,
+      _dragStartX: 0,
+      _dragStartY: 0,
+    });
+  },
+
+  _calcGridSize() {
+    // 单列布局，只需要单项高度（图片320rpx + 信息行约50rpx + gap 24rpx）
+    const screenW = wx.getWindowInfo().windowWidth;
+    const itemH = (320 + 50 + 24) * (screenW / 375);
+    this.setData({ _dragItemH: itemH });
+  },
+
+  // ===== 商品卡片拖拽排序（长按卡片2秒，单列纵向） =====
+
+  // 记录滚动位置
+  onAdminScroll(e) {
+    if (!this.data._prodDragActive) {
+      this.data._realScrollTop = e.detail.scrollTop;
+    }
+  },
+
+  onProductDragStart(e) {
+    const index = e.currentTarget.dataset.index;
+    const touch = e.touches[0];
+    if (this.data._prodDragTimer) clearTimeout(this.data._prodDragTimer);
+    this.setData({ _prodDragTarget: index, _prodDragStartY: touch.clientY });
+    const timer = setTimeout(() => {
+      wx.vibrateShort({ type: 'medium' });
+      // 估算卡片高度
+      const screenW = wx.getWindowInfo().windowWidth;
+      this.setData({
+        _prodDragItemH: 140 * (screenW / 375),
+        _prodDragActive: true, _prodDragIdx: index, _prodDragOffY: 0,
+        _lockedScrollTop: this.data._realScrollTop,
+      });
+    }, 1000);
+    this.data._prodDragTimer = timer;
+  },
+
+  onProductDragMove(e) {
+    if (this.data._prodDragTarget < 0) return;
+    const touch = e.touches[0];
+    if (!this.data._prodDragActive) {
+      if (Math.abs(touch.clientY - this.data._prodDragStartY) > 10) this._prodCancelDrag();
+      return;
+    }
+    // 只更新偏移量（scroll-y=false 已阻止滚动）
+    this.setData({ _prodDragOffY: touch.clientY - this.data._prodDragStartY });
+  },
+
+  onProductDragEnd() {
+    if (!this.data._prodDragActive) { this._prodCancelDrag(); return; }
+
+    const fromIdx = this.data._prodDragIdx;
+    const offY = this.data._prodDragOffY;
+    const step = Math.round(offY / this.data._prodDragItemH);
+    const toIdx = Math.max(0, Math.min(this.data.filteredProducts.length - 1, fromIdx + step));
+
+    // 交换数组
+    if (toIdx !== fromIdx) {
+      const arr = this.data.filteredProducts.slice();
+      [arr[fromIdx], arr[toIdx]] = [arr[toIdx], arr[fromIdx]];
+      const prods = this.data.products.slice();
+      const fromId = this.data.filteredProducts[fromIdx]._id;
+      const toId = this.data.filteredProducts[toIdx]._id;
+      const fromPIdx = prods.findIndex(p => p._id === fromId);
+      const toPIdx = prods.findIndex(p => p._id === toId);
+      if (fromPIdx >= 0 && toPIdx >= 0) {
+        [prods[fromPIdx], prods[toPIdx]] = [prods[toPIdx], prods[fromPIdx]];
+      }
+      this.setData({ filteredProducts: arr, products: prods });
+    }
+
+    const savedTop = this.data._realScrollTop;
+    this.setData({
+      _prodDragActive: false, _prodDragIdx: -1, _prodDragOffY: 0,
+      _lockedScrollTop: savedTop,
+    });
+    // 延迟恢复滚动位置
+    setTimeout(() => { this.setData({ _lockedScrollTop: savedTop }); }, 150);
+    this._prodCancelDrag();
+    this._saveProductSortOrder();
+  },
+
+  _prodCancelDrag() {
+    if (this.data._prodDragTimer) { clearTimeout(this.data._prodDragTimer); this.data._prodDragTimer = null; }
+    this.setData({ _prodDragTimer: null, _prodDragTarget: -1, _prodDragStartY: 0 });
+  },
+
+  // 将当前 products 顺序的 sortOrder 写入数据库
+  async _saveProductSortOrder() {
+    const updates = this.data.products.map((p, i) => ({ _id: p._id, sortOrder: i }));
+    try {
+      await wx.cloud.callFunction({
+        name: 'initDB',
+        data: { action: 'updateSortOrder', updates },
+      });
+      console.log('[Products] 排序已保存');
+    } catch (e) {
+      console.warn('[Products] 排序保存失败', e);
+    }
   },
 
   // ===== 分享链接设置 =====
@@ -1260,6 +1874,8 @@ Page({
    * 参考英雄区轮播图的简洁实现，将 fileID 转换为临时链接用于显示
    */
   async _loadShareConfigFromCloud() {
+    const cached = cacheGet('share');
+    if (cached) { this.setData(cached); return; }
     console.log('[Share] 开始从云端加载分享配置');
     try {
       const db = wx.cloud.database();
@@ -1317,6 +1933,7 @@ Page({
       };
       console.log('[Share] 设置数据:', finalConfig);
       this.setData(finalConfig);
+      cacheSet('share', finalConfig, 5 * 60 * 1000);
       console.log('[Share] 加载完成');
     } catch (e) {
       console.error('[Share] 加载分享配置失败', e);
@@ -1550,6 +2167,7 @@ Page({
         }
       });
       wx.hideLoading();
+      wx.removeStorageSync('_admin_share');
       wx.showToast({ title: '保存成功', icon: 'success' });
     } catch (e) {
       wx.hideLoading();
@@ -1580,10 +2198,13 @@ Page({
     if (!this.data._heroModified) {
       this._loadHeroImagesFromCloud();
     }
+    if (!this.data._featuredModified) {
+      this._loadFeaturedProducts();
+    }
     this._loadOrdersFromCloud();
     // 刷新统计数据
     if (this.data.activeTab === 'stats') {
-      this._loadStatisticsFromCloud();
+      this._loadStatisticsFromCloud(this.data.statsPeriod);
     }
     // 每 10 秒自动刷新订单
     this._orderPollTimer = setInterval(() => {
@@ -1604,5 +2225,246 @@ Page({
   },
   onPullDownRefresh() {},
   onReachBottom() {},
-  onShareAppMessage() {}
+  onShareAppMessage() {},
+  onRequestSubscribe() {
+    if (this._subscribePending) { return; }
+    this._subscribePending = true;
+    const ids = [SUBSCRIBE.PAYMENT_SUCCESS, SUBSCRIBE.PICKUP_NOTIFY];
+    wx.requestSubscribeMessage({
+      tmplIds: ids,
+      success: (res) => {
+        const payOk = res[SUBSCRIBE.PAYMENT_SUCCESS] === 'accept';
+        const pickupOk = res[SUBSCRIBE.PICKUP_NOTIFY] === 'accept';
+        if (payOk && pickupOk) {
+          wx.showToast({ title: '通知已全部开启', icon: 'success' });
+        } else if (payOk) {
+          wx.showToast({ title: '新订单通知已开启', icon: 'success' });
+        } else if (pickupOk) {
+          wx.showToast({ title: '取餐通知已开启', icon: 'success' });
+        } else {
+          wx.showToast({ title: '请勾选至少一项通知', icon: 'none' });
+        }
+      },
+      fail: (err) => {
+        console.error('[Subscribe] 后台授权失败:', JSON.stringify(err));
+      },
+      complete: () => { this._subscribePending = false; },
+    });
+  },
+
+  noop() {},  // 空函数，用于 catchtouchmove 占位
+
+  // ========== 桌面点单二维码管理 ==========
+
+  // 加载桌位列表
+  async _loadTablesFromCloud() {
+    try {
+      const res = await wx.cloud.callFunction({ name: 'initDB', data: { action: 'getTables' } });
+      if (res.result && res.result.success) {
+        const tables = res.result.data || [];
+        // 获取 QR 预览图临时 URL
+        for (const t of tables) {
+          if (t.qrFileID) {
+            try {
+              const tmp = await wx.cloud.getTempFileURL({ fileList: [t.qrFileID] });
+              t.qrTempURL = (tmp.fileList && tmp.fileList[0]) ? tmp.fileList[0].tempFileURL : '';
+            } catch (e) { t.qrTempURL = ''; }
+          } else {
+            t.qrTempURL = '';
+          }
+        }
+        this.setData({ tables, _tablesLoaded: true });
+      }
+    } catch (e) {
+      console.error('[Tables] 加载桌位失败:', e.message);
+    }
+  },
+
+  // 打开新增桌位弹窗
+  onAddTable() {
+    this.setData({
+      showTableModal: true,
+      editingTable: { id: null, name: '', enabled: true }
+    });
+  },
+
+  // 打开编辑桌位弹窗
+  onEditTable(e) {
+    const id = e.currentTarget.dataset.id;
+    const table = this.data.tables.find(t => t._id === id);
+    if (table) {
+      this.setData({
+        showTableModal: true,
+        editingTable: { id: table._id, name: table.name, enabled: table.enabled }
+      });
+    }
+  },
+
+  // 输入桌位名称
+  onInputTableName(e) {
+    this.setData({ 'editingTable.name': e.detail.value });
+  },
+
+  // 切换启用状态
+  onToggleTableEnabled() {
+    this.setData({ 'editingTable.enabled': !this.data.editingTable.enabled });
+  },
+
+  // 关闭桌位弹窗
+  onCloseTableModal() {
+    this.setData({ showTableModal: false });
+  },
+
+  // 保存桌位（新增或编辑）
+  async onSaveTable() {
+    const { id, name, enabled } = this.data.editingTable;
+    if (!name || !name.trim()) {
+      wx.showToast({ title: '请输入桌位名称', icon: 'none' });
+      return;
+    }
+    wx.showLoading({ title: '保存中...' });
+    try {
+      if (id) {
+        await wx.cloud.callFunction({
+          name: 'initDB',
+          data: { action: 'updateTable', id, name: name.trim(), enabled }
+        });
+      } else {
+        await wx.cloud.callFunction({
+          name: 'initDB',
+          data: { action: 'addTable', name: name.trim() }
+        });
+      }
+      wx.hideLoading();
+      wx.showToast({ title: '保存成功', icon: 'success' });
+      this.setData({ showTableModal: false });
+      this._loadTablesFromCloud();
+    } catch (e) {
+      wx.hideLoading();
+      wx.showToast({ title: '保存失败: ' + e.message, icon: 'none' });
+    }
+  },
+
+  // 删除桌位
+  onDeleteTable(e) {
+    const id = e.currentTarget.dataset.id;
+    wx.showModal({
+      title: '确认删除',
+      content: '删除后将无法恢复，该桌位的二维码也将失效。',
+      success: async (res) => {
+        if (res.confirm) {
+          wx.showLoading({ title: '删除中...' });
+          try {
+            await wx.cloud.callFunction({
+              name: 'initDB',
+              data: { action: 'deleteTable', id }
+            });
+            wx.hideLoading();
+            wx.showToast({ title: '已删除', icon: 'success' });
+            this._loadTablesFromCloud();
+          } catch (e) {
+            wx.hideLoading();
+            wx.showToast({ title: '删除失败: ' + e.message, icon: 'none' });
+          }
+        }
+      }
+    });
+  },
+
+  // 生成/重新生成二维码
+  onGenerateQR(e) {
+    const id = e.currentTarget.dataset.id;
+    if (this.data.tableQRLoading) return;  // 防抖
+    this.setData({ tableQRLoading: id });
+    wx.showLoading({ title: '生成中...' });
+    wx.cloud.callFunction({
+      name: 'generateTableQRCode',
+      data: { tableId: id }
+    }).then(res => {
+      wx.hideLoading();
+      this.setData({ tableQRLoading: '' });
+      if (res.result && res.result.success) {
+        wx.showToast({ title: '二维码已生成', icon: 'success' });
+        // 更新行内预览
+        const tables = this.data.tables.map(t => {
+          if (t._id === id) {
+            t.qrFileID = res.result.qrFileID;
+            t.qrTempURL = res.result.tempURL;
+          }
+          return t;
+        });
+        this.setData({ tables });
+      } else {
+        wx.showToast({ title: (res.result && res.result.message) || '生成失败', icon: 'none' });
+      }
+    }).catch(err => {
+      wx.hideLoading();
+      this.setData({ tableQRLoading: '' });
+      wx.showToast({ title: '生成失败: ' + err.message, icon: 'none' });
+    });
+  },
+
+  // 下载二维码到相册
+  onDownloadQR(e) {
+    const id = e.currentTarget.dataset.id;
+    const table = this.data.tables.find(t => t._id === id);
+    if (!table || !table.qrFileID) {
+      wx.showToast({ title: '请先生成二维码', icon: 'none' });
+      return;
+    }
+    wx.showLoading({ title: '保存中...' });
+    // 先获取云存储临时链接，再通过 wx.downloadFile 下载（兼容 Skyline）
+    wx.cloud.getTempFileURL({
+      fileList: [table.qrFileID],
+      success: (tmpRes) => {
+        const tempURL = (tmpRes.fileList && tmpRes.fileList[0]) ? tmpRes.fileList[0].tempFileURL : '';
+        if (!tempURL) {
+          wx.hideLoading();
+          wx.showToast({ title: '获取图片失败', icon: 'none' });
+          return;
+        }
+        wx.downloadFile({
+          url: tempURL,
+          success: (dlRes) => {
+            wx.hideLoading();
+            if (dlRes.statusCode !== 200) {
+              wx.showToast({ title: '下载失败', icon: 'none' });
+              return;
+            }
+            wx.saveImageToPhotosAlbum({
+              filePath: dlRes.tempFilePath,
+              success: () => { wx.showToast({ title: '已保存到相册', icon: 'success' }); },
+              fail: (err) => {
+                const msg = err.errMsg || '';
+                if (msg.includes('auth deny') || msg.includes('auth denied')) {
+                  wx.showModal({
+                    title: '需要相册权限',
+                    content: '请在设置中允许小程序保存图片到相册',
+                    success: (modalRes) => { if (modalRes.confirm) wx.openSetting(); }
+                  });
+                } else if (msg.includes('not declared') || msg.includes('privacy')) {
+                  wx.showModal({
+                    title: '隐私协议未声明',
+                    content: '请到小程序管理后台「设置-隐私保护设置」中添加"保存图片到相册"的隐私声明',
+                    showCancel: false
+                  });
+                } else {
+                  wx.showToast({ title: '保存失败', icon: 'none' });
+                }
+              }
+            });
+          },
+          fail: (err) => {
+            wx.hideLoading();
+            wx.showToast({ title: '下载失败: ' + (err.errMsg || ''), icon: 'none' });
+          }
+        });
+      },
+      fail: (err) => {
+        wx.hideLoading();
+        wx.showToast({ title: '获取图片链接失败', icon: 'none' });
+      }
+    });
+  },
+
 })

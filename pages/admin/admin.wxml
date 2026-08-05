@@ -1,10 +1,11 @@
 <!--admin.wxml-->
+<page-meta page-style="{{_prodDragActive ? 'overflow: hidden;' : ''}}"></page-meta>
 
 <!-- 顶部自定义导航栏 -->
 <navigation-bar title="管理后台" back="{{true}}" color="#5B3A29" background="#FFFFFF"></navigation-bar>
 
 <!-- 主内容滚动区 -->
-<scroll-view class="admin-scroll" scroll-y>
+<scroll-view class="admin-scroll" scroll-y="{{!_prodDragActive}}" scroll-top="{{_lockedScrollTop}}" bindscroll="onAdminScroll">
   <view class="admin-body">
 
     <!-- Tab 切换栏 -->
@@ -26,13 +27,26 @@
     <!-- ========== 数据统计 Tab ========== -->
     <view wx:if="{{activeTab === 'stats'}}" class="tab-content">
 
-      <!-- 今日销售额 -->
+      <!-- 统计周期选择 -->
+      <view class="stats-period-bar">
+        <view class="period-btn {{statsPeriod === 'day' ? 'period-active' : ''}}" bindtap="onStatsPeriod" data-period="day">
+          <text class="period-text {{statsPeriod === 'day' ? 'period-text-active' : ''}}">日</text>
+        </view>
+        <view class="period-btn {{statsPeriod === 'week' ? 'period-active' : ''}}" bindtap="onStatsPeriod" data-period="week">
+          <text class="period-text {{statsPeriod === 'week' ? 'period-text-active' : ''}}">周</text>
+        </view>
+        <view class="period-btn {{statsPeriod === 'month' ? 'period-active' : ''}}" bindtap="onStatsPeriod" data-period="month">
+          <text class="period-text {{statsPeriod === 'month' ? 'period-text-active' : ''}}">月</text>
+        </view>
+      </view>
+
+      <!-- 销售额 -->
       <view class="stat-card">
         <view class="stat-card-header">
           <view class="stat-icon-wrap stat-icon-red">
             <image src="/assets/CodeBubbyAssets/4_630/2.svg" class="stat-icon-img" mode="aspectFit"></image>
           </view>
-          <text class="stat-card-label">今日销售额</text>
+          <text class="stat-card-label">{{statsPeriod === 'day' ? '今日' : statsPeriod === 'week' ? '本周' : '本月'}}销售额</text>
         </view>
         <text class="stat-card-value stat-value-red">¥{{todaySales}}</text>
       </view>
@@ -100,10 +114,28 @@
         </view>
       </view>
 
-      <!-- 新增商品按钮 -->
-      <view class="add-product-btn" bindtap="onAddProduct">
-        <image src="/assets/CodeBubbyAssets/4_745/2.svg" class="add-product-icon" mode="aspectFit"></image>
-        <text class="add-product-text">新增商品</text>
+      <!-- 商品状态筛选 -->
+      <view class="category-filter status-filter">
+        <view
+          wx:for="{{statusFilters}}"
+          wx:key="value"
+          class="category-btn {{activeStatusFilter === item.value ? 'category-btn-active' : ''}}"
+          bindtap="onStatusFilter"
+          data-value="{{item.value}}"
+        >
+          <text class="category-btn-text {{activeStatusFilter === item.value ? 'category-btn-text-active' : ''}}">{{item.label}} ({{item.count}})</text>
+        </view>
+      </view>
+
+      <!-- 新增商品按钮 + 刷新 -->
+      <view class="add-product-row">
+        <view class="add-product-btn" bindtap="onAddProduct">
+          <image src="/assets/CodeBubbyAssets/4_745/2.svg" class="add-product-icon" mode="aspectFit"></image>
+          <text class="add-product-text">新增商品</text>
+        </view>
+        <view class="refresh-btn" bindtap="onRefreshProducts">
+          <text class="refresh-btn-text">刷新</text>
+        </view>
       </view>
 
       <!-- 加载中 -->
@@ -121,7 +153,12 @@
         <view
           wx:for="{{filteredProducts}}"
           wx:key="_id"
-          class="product-card"
+          class="product-card {{_prodDragTarget === index && _prodDragActive ? 'product-card-dragging' : ''}}"
+          style="{{_prodDragActive && _prodDragIdx === index ? 'transform: translateY(' + _prodDragOffY + 'px); z-index: 10; opacity: 0.9;' : ''}}"
+          bindtouchstart="onProductDragStart"
+          bindtouchmove="onProductDragMove"
+          bindtouchend="onProductDragEnd"
+          data-index="{{index}}"
         >
           <view class="product-card-left">
             <image src="{{item.imageURL || item.image || ''}}" class="product-img" mode="aspectFill"></image>
@@ -129,25 +166,25 @@
               <text class="product-name">{{item.name}}</text>
               <!-- 咖啡类商品：烘焙度和处理法标签 -->
               <view class="coffee-info-tags" wx:if="{{item.category === 'coffee' && (item.roastLevel || item.processingMethod)}}">
-                <text wx:if="{{item.roastLevel}}" class="coffee-tag roast-tag" bindtap="onQuickEditRoast" data-id="{{item._id}}" data-roast="{{item.roastLevel}}">{{item.roastLevel}}</text>
-                <text wx:if="{{item.processingMethod}}" class="coffee-tag process-tag" bindtap="onQuickEditProcessing" data-id="{{item._id}}" data-processing="{{item.processingMethod}}">{{item.processingMethod}}</text>
+                <text wx:if="{{item.roastLevel}}" class="coffee-tag roast-tag" catchtap="onQuickEditRoast" data-id="{{item._id}}" data-roast="{{item.roastLevel}}">{{item.roastLevel}}</text>
+                <text wx:if="{{item.processingMethod}}" class="coffee-tag process-tag" catchtap="onQuickEditProcessing" data-id="{{item._id}}" data-processing="{{item.processingMethod}}">{{item.processingMethod}}</text>
               </view>
               <view class="product-meta">
                 <text class="product-price">¥{{item.price}}</text>
                 <view class="product-tag">
                   <text class="product-tag-text">{{item.categoryLabel}}</text>
                 </view>
-                <view class="product-status-tag product-status-{{item.saleStatus}}" bindtap="onQuickEditStatus" data-id="{{item._id}}" data-status="{{item.saleStatus}}">
+                <view class="product-status-tag product-status-{{item.saleStatus}}" catchtap="onQuickEditStatus" data-id="{{item._id}}" data-status="{{item.saleStatus}}">
                   <text class="product-status-text">{{item.saleStatus === 'on' ? '上架' : item.saleStatus === 'off' ? '下架' : '售罄'}}</text>
                 </view>
               </view>
             </view>
           </view>
           <view class="product-actions">
-            <view class="product-action-btn" bindtap="onEditProduct" data-id="{{item._id}}">
+            <view class="product-action-btn" catchtap="onEditProduct" data-id="{{item._id}}">
               <image src="/assets/CodeBubbyAssets/4_745/4.svg" class="product-action-icon" mode="aspectFit"></image>
             </view>
-            <view class="product-action-btn" bindtap="onDeleteProduct" data-id="{{item._id}}">
+            <view class="product-action-btn" catchtap="onDeleteProduct" data-id="{{item._id}}">
               <image src="/assets/CodeBubbyAssets/4_745/5.svg" class="product-action-icon" mode="aspectFit"></image>
             </view>
           </view>
@@ -237,6 +274,61 @@
     <!-- ========== 首页内容 Tab ========== -->
     <view wx:if="{{activeTab === 'home'}}" class="tab-content">
 
+      <!-- 首页商品展示设置 -->
+      <view class="home-settings-card home-hero-card">
+        <text class="home-settings-title">首页商品展示</text>
+        <text class="home-hero-hint">选择要在首页重点展示的商品，点击图片可替换</text>
+
+        <view class="featured-list">
+          <view
+            wx:for="{{featuredItems}}"
+            wx:key="productId"
+            class="featured-item {{_dragTargetIndex === index && _dragActive ? 'featured-dragging' : ''}}"
+            style="{{_dragActive && _draggingIndex === index ? 'transform: translateY(' + _dragOffsetY + 'px); z-index: 10; opacity: 0.85;' : ''}}"
+            data-index="{{index}}"
+          >
+            <!-- 拖拽按钮：长按2秒启动拖拽 -->
+            <view
+              class="featured-drag-handle {{_dragTargetIndex === index && !_dragActive ? 'featured-drag-activating' : ''}}"
+              catchtouchstart="onFeaturedDragStart"
+              catchtouchmove="onFeaturedDragMove"
+              catchtouchend="onFeaturedDragEnd"
+              data-index="{{index}}"
+            >
+              <text class="featured-drag-icon">⠿</text>
+              <text class="featured-drag-label">拖拽排序</text>
+            </view>
+            <image
+              src="{{item.imageURL}}"
+              class="featured-img"
+              mode="aspectFill"
+              bindtap="onReplaceFeaturedImage"
+              data-index="{{index}}"
+            ></image>
+            <view class="featured-info-row">
+              <text class="featured-name-text">{{item.name || '加载中...'}}</text>
+              <view class="hero-img-delete" catchtap="onDeleteFeaturedItem" data-index="{{index}}">
+                <text class="hero-img-delete-text">✕</text>
+              </view>
+            </view>
+          </view>
+
+          <view class="featured-add" bindtap="onAddFeaturedProduct">
+            <text class="hero-img-add-icon">＋</text>
+            <text class="hero-img-add-text">添加商品</text>
+          </view>
+        </view>
+
+        <view class="home-form-actions">
+          <view class="home-action-save" bindtap="onSaveFeaturedProducts">
+            <text class="home-action-save-text">保存</text>
+          </view>
+          <view class="home-action-cancel" bindtap="onCancelFeaturedProducts">
+            <text class="home-action-cancel-text">取消</text>
+          </view>
+        </view>
+      </view>
+
       <!-- 英雄区轮播图设置 -->
       <view class="home-settings-card home-hero-card">
         <text class="home-settings-title">英雄区轮播图</text>
@@ -281,7 +373,7 @@
 
       <!-- Wi-Fi 设置 -->
       <view class="home-settings-card">
-        <text class="home-settings-title">首页内容设置</text>
+        <text class="home-settings-title">Wi-Fi设置</text>
         <view class="home-form-body">
           <!-- Wi-Fi名称 -->
           <view class="home-form-item">
@@ -309,6 +401,46 @@
               <text class="home-action-save-text">保存</text>
             </view>
             <view class="home-action-cancel" bindtap="onCancelHomeSettings">
+              <text class="home-action-cancel-text">取消</text>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <!-- 营业时间设置 -->
+      <view class="home-settings-card">
+        <view class="home-settings-title-row">
+          <text class="home-settings-title">营业时间</text>
+          <view class="staff-close-btn {{shopClosed ? 'close-active' : ''}}" bindtap="onToggleClosed">
+            <text class="staff-close-text">{{shopClosed ? '打烊' : '营业'}}</text>
+          </view>
+        </view>
+        <view class="home-form-body">
+          <view class="home-form-item">
+            <text class="home-form-label">营业时间</text>
+            <picker mode="time" value="{{openingTime}}" bindchange="onPickerOpeningTime">
+              <view class="pm-picker-inner"><text class="pm-picker-text">{{openingTime || '选择营业时间'}}</text><text class="pm-picker-arrow">▾</text></view>
+            </picker>
+          </view>
+          <view class="home-form-item">
+            <text class="home-form-label">打烊时间</text>
+            <picker mode="time" value="{{closingTime}}" bindchange="onPickerClosingTime">
+              <view class="pm-picker-inner"><text class="pm-picker-text">{{closingTime || '选择打烊时间'}}</text><text class="pm-picker-arrow">▾</text></view>
+            </picker>
+          </view>
+          <view class="home-form-item">
+            <text class="home-form-label">打烊提示标题</text>
+            <input class="home-form-input" value="{{closedTitle}}" placeholder="店铺已打烊" bindinput="onInputClosedTitle"/>
+          </view>
+          <view class="home-form-item">
+            <text class="home-form-label">打烊提示内容</text>
+            <input class="home-form-input" value="{{closedMessage}}" placeholder="明天 08:00 开始营业" bindinput="onInputClosedMessage"/>
+          </view>
+          <view class="home-form-actions">
+            <view class="home-action-save" bindtap="onSaveBusinessHours">
+              <text class="home-action-save-text">保存</text>
+            </view>
+            <view class="home-action-cancel" bindtap="onCancelBusinessHours">
               <text class="home-action-cancel-text">取消</text>
             </view>
           </view>
@@ -384,10 +516,98 @@
           </view>
         </view>
       </view>
+
+      <!-- 桌面点单二维码 -->
+      <view class="home-settings-card">
+        <text class="home-settings-title">桌面点单二维码</text>
+        <text class="home-hero-hint">为每张桌子生成专属小程序码，顾客扫码即可点单</text>
+
+        <!-- 新增桌位按钮 -->
+        <view class="home-action-save" bindtap="onAddTable" style="margin-top: 24rpx;">
+          <text class="home-action-save-text">＋ 新增桌位</text>
+        </view>
+
+        <!-- 桌位列表 -->
+        <view wx:if="{{tables.length > 0}}" class="table-list">
+          <view wx:for="{{tables}}" wx:key="_id" class="table-row">
+            <!-- QR 预览 -->
+            <view class="table-qr-preview">
+              <image wx:if="{{item.qrTempURL}}" src="{{item.qrTempURL}}" mode="aspectFit" class="table-qr-img"></image>
+              <view wx:else class="table-qr-placeholder">
+                <text class="table-qr-placeholder-text">未生成</text>
+              </view>
+            </view>
+            <!-- 桌位信息 -->
+            <view class="table-info">
+              <text class="table-name-text">{{item.name}}</text>
+              <text class="table-status-text" wx:if="{{!item.enabled}}">已禁用</text>
+            </view>
+            <!-- 操作按钮 -->
+            <view class="table-actions">
+              <view class="table-action-btn table-action-primary" bindtap="onGenerateQR" data-id="{{item._id}}">
+                <text class="table-action-text">{{item.qrFileID ? '重新生成' : '生成'}}</text>
+              </view>
+              <view wx:if="{{item.qrFileID}}" class="table-action-btn table-action-download" bindtap="onDownloadQR" data-id="{{item._id}}">
+                <text class="table-action-text">下载</text>
+              </view>
+              <view class="table-action-btn table-action-edit" bindtap="onEditTable" data-id="{{item._id}}">
+                <text class="table-action-text">编辑</text>
+              </view>
+              <view class="table-action-btn table-action-delete" bindtap="onDeleteTable" data-id="{{item._id}}">
+                <text class="table-action-text">删除</text>
+              </view>
+            </view>
+          </view>
+        </view>
+        <view wx:elif="{{_tablesLoaded}}" class="empty-tip" style="padding: 40rpx 0;">
+          <text class="empty-text">暂无桌位，点击上方按钮添加</text>
+        </view>
+      </view>
+
     </view>
 
   </view>
 </scroll-view>
+
+<!-- ========== 新增/编辑桌位弹窗 ========== -->
+<view wx:if="{{showTableModal}}" class="pm-mask" catchtap="onCloseTableModal"></view>
+<view wx:if="{{showTableModal}}" class="pm-box">
+  <view class="pm-header">
+    <text class="pm-title">{{editingTable.id ? '编辑桌位' : '新增桌位'}}</text>
+    <view class="pm-close" bindtap="onCloseTableModal">
+      <text class="pm-close-text">✕</text>
+    </view>
+  </view>
+  <view class="pm-content">
+    <!-- 桌位名称 -->
+    <view class="pm-field">
+      <text class="pm-label">桌位名称</text>
+      <input
+        class="pm-input"
+        value="{{editingTable.name}}"
+        placeholder="例如：1号桌、靠窗座位"
+        placeholder-class="pm-placeholder"
+        bindinput="onInputTableName"
+      />
+    </view>
+    <!-- 启用状态 -->
+    <view class="pm-field">
+      <text class="pm-label">启用</text>
+      <view class="pm-switch-row">
+        <switch checked="{{editingTable.enabled}}" bindchange="onToggleTableEnabled" color="#C08A4D"/>
+        <text class="pm-switch-text">{{editingTable.enabled ? '启用' : '禁用'}}</text>
+      </view>
+    </view>
+  </view>
+  <view class="pm-footer">
+    <view class="pm-save-btn" bindtap="onSaveTable">
+      <text class="pm-save-text">保存</text>
+    </view>
+    <view class="pm-cancel-btn" bindtap="onCloseTableModal">
+      <text class="pm-cancel-text">取消</text>
+    </view>
+  </view>
+</view>
 
 <!-- ========== 新增/编辑商品弹窗 ========== -->
 <view wx:if="{{showProductModal}}" class="pm-mask" catchtap="onCloseProductModal"></view>
@@ -747,6 +967,56 @@
       <text class="quick-modal-btn-text">取消</text>
     </view>
     <view class="quick-modal-btn quick-modal-confirm" bindtap="onSaveQuickStatus">
+      <text class="quick-modal-btn-text">确定</text>
+    </view>
+  </view>
+</view>
+
+<!-- ========== 选择商品弹窗（首页商品展示） ========== -->
+<view wx:if="{{showFeaturedPicker}}" class="quick-modal-mask" catchtap="onCloseFeaturedPicker"></view>
+<view wx:if="{{showFeaturedPicker}}" class="quick-modal-box">
+  <view class="quick-modal-header">
+    <text class="quick-modal-title">选择展示商品</text>
+    <view class="quick-modal-close" bindtap="onCloseFeaturedPicker">
+      <text class="quick-modal-close-text">✕</text>
+    </view>
+  </view>
+  <scroll-view scroll-y class="quick-modal-content" style="max-height: 60vh;">
+    <view class="quick-option-list">
+      <view
+        wx:for="{{featuredPickerProducts}}"
+        wx:key="_id"
+        class="quick-option-item"
+        bindtap="onSelectFeaturedProduct"
+        data-index="{{index}}"
+      >
+        <text class="quick-option-text">{{item.name}}（¥{{item.price}}）</text>
+      </view>
+    </view>
+  </scroll-view>
+
+</view>
+
+<!-- ========== 长期打烊日期选择弹窗 ========== -->
+<view wx:if="{{showCloseDatePicker}}" class="quick-modal-mask" catchtap="onCancelCloseDate"></view>
+<view wx:if="{{showCloseDatePicker}}" class="quick-modal-box">
+  <view class="quick-modal-header">
+    <text class="quick-modal-title">选择恢复营业日期</text>
+    <view class="quick-modal-close" bindtap="onCancelCloseDate">
+      <text class="quick-modal-close-text">✕</text>
+    </view>
+  </view>
+  <view class="quick-modal-content" style="padding: 32rpx;">
+    <text style="font-size:26rpx;color:#8B6F5E;display:block;margin-bottom:24rpx;text-align:center">将于选定日期 {{openingTime || '09:30'}} 恢复营业</text>
+    <picker mode="date" value="{{closeUntilDate}}" bindchange="onCloseDateChange">
+      <view class="pm-picker-inner"><text class="pm-picker-text">{{closeUntilDate || '请选择日期'}}</text><text class="pm-picker-arrow">▾</text></view>
+    </picker>
+  </view>
+  <view class="quick-modal-footer">
+    <view class="quick-modal-btn quick-modal-cancel" bindtap="onCancelCloseDate">
+      <text class="quick-modal-btn-text">取消</text>
+    </view>
+    <view class="quick-modal-btn quick-modal-confirm" bindtap="onConfirmCloseDate">
       <text class="quick-modal-btn-text">确定</text>
     </view>
   </view>

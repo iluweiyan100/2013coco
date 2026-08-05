@@ -12,6 +12,14 @@
 <scroll-view class="scrollarea" scroll-y type="list">
   <view class="container">
     
+    <!-- 桌位提示条 -->
+    <view wx:if="{{tableContextActive}}" class="table-context-bar">
+      <text class="table-context-text">🪑 当前桌位：{{tableContextName || '加载中...'}}</text>
+      <view class="table-context-exit" bindtap="onClearTableContext">
+        <text class="table-context-exit-text">退出桌位</text>
+      </view>
+    </view>
+
     <!-- Banner 轮播图 -->
     <view class="banner-container">
       <!-- 有自定义图片时：swiper 轮播 -->
@@ -32,6 +40,14 @@
       <view wx:else class="banner-placeholder"></view>
     </view>
 
+    <!-- 打烊浮窗 -->
+    <view wx:if="{{shopClosed}}" class="closed-overlay" bindtap="onOverlayTap" bindlongpress="onOverlayLongPress">
+      <view class="closed-overlay-box">
+        <text class="closed-title">{{closedTitle}}</text>
+        <text wx:if="{{closedMessage}}" class="closed-msg">{{closedMessage}}</text>
+      </view>
+    </view>
+
     <!-- 堂食/外带选择区 -->
     <view class="dining-options">
       <!-- 堂食 -->
@@ -46,7 +62,7 @@
       </view>
 
       <!-- 外带 -->
-      <view class="option-card" bindtap="onTakeawayTap">
+      <view class="option-card" bindtap="onTakeawayTap" bindlongpress="onTakeawayLongPress">
         <view class="option-icon takeaway-icon">
           <image src="/images/icons/takeaway.svg" class="option-svg" mode="aspectFit"></image>
         </view>
@@ -62,6 +78,22 @@
       <image src="/public/images/wifi.svg" class="wifi-icon-svg" mode="aspectFit"></image>
       <text class="wifi-text">店内WiFi</text>
       <text class="arrow">→</text>
+    </view>
+
+    <!-- 首页商品展示（纵向排列） -->
+    <view wx:if="{{featuredProducts.length > 0}}" class="featured-section">
+      <view
+        wx:for="{{featuredProducts}}"
+        wx:key="productId"
+        class="featured-card"
+        bindtap="onFeaturedTap"
+        data-id="{{item.productId}}"
+      >
+        <image src="{{item.imageURL}}" mode="aspectFill" class="featured-img"></image>
+        <view class="featured-info">
+          <text class="featured-name">{{item.name}}</text>
+        </view>
+      </view>
     </view>
 
   </view>
