@@ -31,11 +31,14 @@ logs/
 !.vscode/launch.json
 !.vscode/extensions.json
 !.vscode/mcp.json
-1745080857_20260505_cert/apiclient_key.pem
-.gitignore
-1745080857_20260505_cert/apiclient_cert.p12
-1745080857_20260505_cert/apiclient_cert.pem
-cloudfunctions/createPayment/apiclient_key.pem
+
+# 忽略商户证书和密钥（敏感信息，通过云开发控制台环境变量管理）
+*_cert/
+*.pem
+*.p12
+*.p8
+apiclient_*
+!cloudfunctions/*/package.json
 
 # 忽略图片文件
 *.png
@@ -52,8 +55,5 @@ cloudfunctions/createPayment/apiclient_key.pem
 *.txt
 *.md
 
+# 忽略字体文件
 仓耳舒圆体 W03.TTF
-fenxiangshuoming
-.gitignore
-.gitignore
-.gitignore

@@ -2,18 +2,15 @@
 const cloud = require('wx-server-sdk')
 const axios = require('axios')
 const crypto = require('crypto')
-const fs = require('fs')
-const path = require('path')
-
 cloud.init({ env: 'cloud3-d2gbcvyqkbc0fbf94' })
 
 const APP_ID = 'wxb5fb01ff608eaa3e'
 const MCH_ID = '1745080857'
-const SERIAL_NO = '26C6490988BBF77646E44A36C6779A023E875C57'
 const REFUND_URL = 'https://api.mch.weixin.qq.com/v3/refund/domestic/refunds'
 
-// 读取私钥
-const PRIVATE_KEY = fs.readFileSync(path.join(__dirname, 'apiclient_key.pem'), 'utf8')
+// 从环境变量读取商户证书和密钥（在云开发控制台配置）
+const PRIVATE_KEY = process.env.WX_MCH_PRIVATE_KEY
+const SERIAL_NO = process.env.WX_MCH_SERIAL_NO
 
 // 生成随机字符串
 function randomStr(len = 32) {

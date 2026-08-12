@@ -2,19 +2,16 @@
 const cloud = require('wx-server-sdk')
 const axios = require('axios')
 const crypto = require('crypto')
-const fs = require('fs')
-const path = require('path')
-
 cloud.init({ env: 'cloud3-d2gbcvyqkbc0fbf94' })
 
 const APP_ID = 'wxb5fb01ff608eaa3e'
 const MCH_ID = '1745080857'
-const SERIAL_NO = '26C6490988BBF77646E44A36C6779A023E875C57'
 const JSAPI_URL = 'https://api.mch.weixin.qq.com/v3/pay/transactions/jsapi'
 const NOTIFY_URL = 'https://cloud3-d2gbcvyqkbc0fbf94-1419079738.ap-shanghai.app.tcloudbase.com/createPaymentCallback'
 
-// 读取私钥
-const PRIVATE_KEY = fs.readFileSync(path.join(__dirname, 'apiclient_key.pem'), 'utf8')
+// 从环境变量读取商户证书和密钥（在云开发控制台配置）
+const PRIVATE_KEY = process.env.WX_MCH_PRIVATE_KEY
+const SERIAL_NO = process.env.WX_MCH_SERIAL_NO
 
 // 生成随机字符串
 function randomStr(len = 32) {
@@ -40,7 +37,6 @@ function buildAuthorization(method, urlPath, body) {
 
 exports.main = async (event, context) => {
   const { totalAmount, orderId, orderIds, openid } = event
-  const apiKeyV3 = process.env.WX_MCH_API_KEY
 
   console.log('[createPayment] 收到支付请求:', { totalAmount, orderId, orderIds, openid })
 

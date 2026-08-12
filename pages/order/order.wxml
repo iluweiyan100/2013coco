@@ -126,7 +126,12 @@
 <!-- 规格选择小浮窗 -->
 <view wx:if="{{showSpecModal}}" class="spec-mask" catchtap="onCancelSpec"></view>
 <view wx:if="{{showSpecModal}}" class="spec-popup">
-  <text class="spec-popup-title">{{specModalProduct.name}}</text>
+  <view class="spec-popup-header">
+    <text class="spec-popup-title">{{specModalProduct.name}}</text>
+    <view class="spec-close-btn" bindtap="onCancelSpec" hover-class="spec-close-btn-active">
+      <text class="spec-close-text">✕</text>
+    </view>
+  </view>
 
   <!-- 规格选项（有规格时才显示） -->
   <block wx:if="{{specModalType !== 'none'}}">
@@ -164,11 +169,11 @@
   </view>
 
   <view class="spec-actions">
-    <view class="spec-cancel-btn" bindtap="onCancelSpec">
-      <text class="spec-cancel-text">取消</text>
+    <view class="spec-cart-btn" bindtap="onConfirmSpec" hover-class="btn-active">
+      <text class="spec-cart-text">加入购物车</text>
     </view>
-    <view class="spec-confirm-btn" bindtap="onConfirmSpec">
-      <text class="spec-confirm-text">确认</text>
+    <view class="spec-confirm-btn" bindtap="onBuyNow" hover-class="btn-active">
+      <text class="spec-confirm-text">立即购买</text>
     </view>
   </view>
 </view>

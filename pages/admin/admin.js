@@ -30,6 +30,7 @@ Page({
       { value: 'coffee', label: '咖啡',        count: 0 },
       { value: 'icecream', label: '冰淇淋',    count: 0 },
       { value: 'dessert',  label: '甜点',      count: 0 },
+      { value: 'bar',      label: '排块',      count: 0 },
       { value: 'other',  label: '无咖啡因饮品', count: 0 }
     ],
     activeStatusFilter: 'all',
@@ -73,6 +74,7 @@ Page({
       { value: 'coffee',   label: '咖啡' },
       { value: 'icecream', label: '冰淇淋' },
       { value: 'dessert',  label: '甜点' },
+      { value: 'bar',      label: '排块' },
       { value: 'other',    label: '无咖啡因饮品' }
     ],
     // 烘焙度选项

@@ -1,5 +1,6 @@
 // order.js
 const app = getApp();
+const pay = require('../../utils/pay.js');
 
 Page({
   data: {
@@ -12,6 +13,7 @@ Page({
       { id: 'coffee',   name: '咖啡' },
       { id: 'icecream', name: '冰淇淋' },
       { id: 'dessert',  name: '甜点' },
+      { id: 'bar',      name: '排块' },
       { id: 'other',    name: '无咖啡因饮品' }
     ],
     allProducts: [],
@@ -144,7 +146,7 @@ Page({
       const categories = this.data.categories.filter(c => catIds.includes(c.id));
 
       // 按照分类顺序排序商品
-      const categoryOrder = ['coco', 'coffee', 'icecream', 'dessert', 'other'];
+      const categoryOrder = ['coco', 'coffee', 'icecream', 'dessert', 'bar', 'other'];
       const sortedProducts = products.slice().sort((a, b) => {
         return categoryOrder.indexOf(a.categoryId) - categoryOrder.indexOf(b.categoryId);
       });
@@ -267,6 +269,41 @@ Page({
 
     this.setData({ showSpecModal: false });
     this._addItemToCart(specModalProduct, selectedSpec, selectedOrderType);
+  },
+
+  // 规格弹窗：立即购买
+  onBuyNow() {
+    const { specModalProduct, selectedSpec, selectedOrderType, specModalType } = this.data;
+    if (!specModalProduct) return;
+
+    // 校验就餐方式
+    if (!selectedOrderType) {
+      wx.showToast({ title: '请选择堂食或外带', icon: 'none', duration: 1500 });
+      return;
+    }
+    // 校验规格（有选项时必选）
+    if (specModalType !== 'none' && !selectedSpec) {
+      wx.showToast({ title: '请选择规格', icon: 'none', duration: 1500 });
+      return;
+    }
+
+    // 关闭弹窗，调起支付
+    this.setData({ showSpecModal: false });
+    pay.pay({
+      orderGroups: [{
+        items: [{
+          name: specModalProduct.name,
+          price: specModalProduct.price,
+          qty: 1,
+          spec: selectedSpec
+        }],
+        orderType: selectedOrderType,
+        remark: ''
+      }],
+      onSuccess: () => {
+        wx.reLaunch({ url: '/pages/orders/orders' });
+      }
+    });
   },
 
   // 规格弹窗：取消

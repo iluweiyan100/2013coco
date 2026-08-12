@@ -309,14 +309,41 @@ page {
   box-sizing: border-box;
 }
 
+/* 弹窗头部：商品名称 + 关闭按钮 */
+.spec-popup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24rpx;
+}
+
 .spec-popup-title {
-  display: block;
+  flex: 1;
   font-size: 32rpx;
   font-weight: 600;
   color: #3A2318;
-  text-align: center;
-  margin-bottom: 8rpx;
   font-family: 'CangerShuYuanTi', Noto Serif SC;
+}
+
+.spec-close-btn {
+  width: 48rpx;
+  height: 48rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.04);
+  flex-shrink: 0;
+}
+
+.spec-close-btn-active {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.spec-close-text {
+  font-size: 28rpx;
+  color: rgba(58, 35, 24, 0.45);
+  line-height: 1;
 }
 
 .spec-popup-subtitle {
@@ -324,7 +351,7 @@ page {
   font-size: 26rpx;
   color: rgba(58, 35, 24, 0.55);
   text-align: center;
-  margin-bottom: 36rpx;
+  margin-bottom: 24rpx;
   font-family: 'CangerShuYuanTi', Noto Serif SC;
 }
 
@@ -377,19 +404,22 @@ page {
   gap: 20rpx;
 }
 
-.spec-cancel-btn {
+/* 加入购物车按钮（轮廓风格） */
+.spec-cart-btn {
   flex: 1;
   height: 80rpx;
-  background: #F5EDE4;
+  background: #FFF5F5;
+  border: 2rpx solid #A3212D;
   border-radius: 40rpx;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.spec-cancel-text {
+.spec-cart-text {
   font-size: 28rpx;
-  color: #8B6F5E;
+  font-weight: 500;
+  color: #A3212D;
   font-family: 'CangerShuYuanTi', Noto Serif SC;
 }
 

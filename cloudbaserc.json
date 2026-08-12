@@ -17,7 +17,7 @@
       "timeout": 10,
       "runtime": "Nodejs18.15",
       "envVariables": {
-        "WX_APP_SECRET": "e3a211197d4384af49b4146a5a1a59ed",
+        "WX_APP_SECRET": "__SET_IN_CLOUD_CONSOLE__",
         "MINIPROGRAM_STATE": "developer"
       }
     },
@@ -26,8 +26,27 @@
       "timeout": 15,
       "runtime": "Nodejs18.15",
       "envVariables": {
-        "WX_APP_SECRET": "e3a211197d4384af49b4146a5a1a59ed",
+        "WX_APP_SECRET": "__SET_IN_CLOUD_CONSOLE__",
         "MINIPROGRAM_STATE": "formal"
+      }
+    },
+    {
+      "name": "createPayment",
+      "timeout": 10,
+      "runtime": "Nodejs18.15",
+      "envVariables": {
+        "WX_MCH_PRIVATE_KEY": "__SET_IN_CLOUD_CONSOLE__",
+        "WX_MCH_SERIAL_NO": "__SET_IN_CLOUD_CONSOLE__"
+      }
+    },
+    {
+      "name": "refundPayment",
+      "timeout": 10,
+      "runtime": "Nodejs18.15",
+      "envVariables": {
+        "WX_MCH_PRIVATE_KEY": "__SET_IN_CLOUD_CONSOLE__",
+        "WX_MCH_SERIAL_NO": "__SET_IN_CLOUD_CONSOLE__",
+        "WX_MCH_API_KEY": "__SET_IN_CLOUD_CONSOLE__"
       }
     },
     {
@@ -35,7 +54,7 @@
       "timeout": 15,
       "runtime": "Nodejs16.13",
       "envVariables": {
-        "WX_MCH_API_KEY": "lxygwqfqsgctys15994412130wblmxxx"
+        "WX_MCH_API_KEY": "__SET_IN_CLOUD_CONSOLE__"
       }
     }
   ]
