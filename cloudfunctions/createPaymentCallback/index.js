@@ -18,6 +18,20 @@ function decryptResource(apiKeyV3, resource) {
   return JSON.parse(decrypted)
 }
 
+// 桌单条目状态（旧数据无 state 默认 pending）
+function stateOf(i) { return i && i.state ? i.state : 'pending' }
+function deriveStatus(items) {
+  const arr = items || []
+  if (arr.some(i => stateOf(i) === 'paying')) return 'paying'
+  if (arr.some(i => stateOf(i) === 'pending')) return 'open'
+  if (arr.length > 0) return 'paid'
+  return 'open'
+}
+function sumPending(items) {
+  return parseFloat((items || []).filter(i => stateOf(i) === 'pending')
+    .reduce((s, i) => s + (Number(i.price) || 0) * (i.qty || 1), 0).toFixed(2))
+}
+
 exports.main = async (event, context) => {
   const apiKeyV3 = process.env.WX_MCH_API_KEY
 
@@ -46,29 +60,137 @@ exports.main = async (event, context) => {
         paidAt: db.serverDate(),
       }
 
-      // 通过 outTradeNo 字段批量更新所有关联订单（堂食+外带各一条）
-      const byOutTradeNo = await db.collection('orders')
-        .where({ outTradeNo: out_trade_no, status: 'pending' })
-        .update({ data: updateData })
-      console.log('[createPaymentCallback] 按 outTradeNo 更新条数:', byOutTradeNo.stats.updated)
-
-      // 兜底：若 outTradeNo 未写入（单订单旧数据），按 orderId 精确更新
-      let byOrderIdUpdated = 0
-      if (byOutTradeNo.stats.updated === 0) {
-        const byOrderId = await db.collection('orders')
-          .where({ orderId: out_trade_no, status: 'pending' })
-          .update({ data: updateData })
-        console.log('[createPaymentCallback] 按 orderId 兜底更新条数:', byOrderId.stats.updated)
-        byOrderIdUpdated = byOrderId.stats.updated
+      // 查所有关联订单（堂食+外带各一条；不限定 status，客户端可能已先行置 making）
+      let paidOrders = []
+      try {
+        paidOrders = (await db.collection('orders').where({ outTradeNo: out_trade_no }).get()).data || []
+      } catch (e) {
+        paidOrders = []
+      }
+      // 兜底：旧数据 outTradeNo 未写入，按 orderId 匹配
+      if (paidOrders.length === 0) {
+        try {
+          paidOrders = (await db.collection('orders').where({ orderId: out_trade_no }).get()).data || []
+        } catch (e) {
+          paidOrders = []
+        }
       }
 
-      console.log('[createPaymentCallback] 订单更新完成, out_trade_no:', out_trade_no)
+      // 幂等补写：仅对「尚无 transactionId」的订单补写，避免重复回调重复通知。
+      // 客户端支付成功后已把 status 置 making，故不能再用 status:'pending' 过滤。
+      let isFirstUpdate = false
+      for (const o of paidOrders) {
+        if (!o.transactionId) {
+          try {
+            await db.collection('orders').doc(o._id).update({ data: updateData })
+            isFirstUpdate = true
+          } catch (e) {
+            console.warn('[createPaymentCallback] 补写订单失败:', o._id, e.message)
+          }
+        }
+      }
+      console.log('[createPaymentCallback] 订单补写完成, out_trade_no:', out_trade_no, 'isFirstUpdate:', isFirstUpdate)
 
-      // 幂等保护：仅首次更新成功时才发通知，防止微信支付重复回调
-      const isFirstUpdate = byOutTradeNo.stats.updated > 0 || byOrderIdUpdated > 0
-      if (!isFirstUpdate) {
-        console.log('[createPaymentCallback] 订单已处理过，跳过通知')
-        return { code: 'SUCCESS', message: '成功' }
+      let linkageFailed = false
+
+      // ===== 联动共享桌单：按本次支付的条目标记已下单（兼容旧整桌一起付）=====
+      try {
+        const tableIds = [...new Set(paidOrders.map(o => o.tableId).filter(Boolean))]
+        for (const tid of tableIds) {
+          const ordersOfTable = paidOrders.filter(o => o.tableId === tid)
+          await db.runTransaction(async t => {
+            const sref = t.collection('table_sessions').doc(tid)
+            let s = null
+            try { s = (await sref.get()).data } catch (e) { s = null }
+            if (!s) return
+            const now = Date.now()
+            const items = (s.items || []).slice()
+            const completedOrders = (s.completedOrders || []).slice()
+
+            for (const order of ordersOfTable) {
+              // 幂等：该订单已记录则跳过
+              if (completedOrders.some(c => c.orderId === order._id)) continue
+              const uids = order.tableItemUids || []
+              if (uids.length > 0) {
+                // 新路径（一起付/分开付）：按 uid 标记对应条目
+                let matched = []
+                for (const uid of uids) {
+                  const it = items.find(i => i.uid === uid)
+                  if (it && stateOf(it) !== 'paid') matched.push(it)
+                }
+                // 兜底：按 uid 未命中时回退按 openid 匹配在途结算条目
+                if (matched.length === 0) {
+                  matched = items.filter(i => stateOf(i) === 'paying' && i.lockOpenid === order.openid)
+                }
+                if (matched.length === 0) continue
+                const amount = matched.reduce((sum, i) => sum + (Number(i.price) || 0) * (i.qty || 1), 0)
+                const itemCount = matched.reduce((n, i) => n + (i.qty || 1), 0)
+                for (const it of matched) {
+                  it.state = 'paid'
+                  it.paidOrderId = order._id
+                  it.paidPickupNumber = order.pickupNumber || ''
+                  it.paidAt = now
+                  it.lockOpenid = ''
+                  it.lockAt = 0
+                  it.lockOrderId = ''
+                }
+                completedOrders.push({
+                  orderId: order._id,
+                  pickupNumber: order.pickupNumber || '',
+                  paidBy: order.openid,
+                  amount: parseFloat((Number(order.totalAmount) || amount).toFixed(2)),
+                  itemCount,
+                  createdAt: now,
+                })
+              } else if (s.status === 'paying') {
+                // 旧整桌一起付兜底：整桌 items 置 paid
+                for (const it of items) {
+                  if (stateOf(it) !== 'paid') {
+                    it.state = 'paid'
+                    it.paidOrderId = order._id
+                    it.paidPickupNumber = order.pickupNumber || s.pickupNumber || ''
+                    it.paidAt = now
+                  }
+                }
+                completedOrders.push({
+                  orderId: order._id,
+                  pickupNumber: order.pickupNumber || s.pickupNumber || '',
+                  paidBy: order.openid,
+                  amount: Number(order.totalAmount) || 0,
+                  itemCount: items.reduce((n, i) => n + (i.qty || 1), 0),
+                  createdAt: now,
+                })
+              }
+            }
+
+            await sref.update({
+              data: {
+                items, completedOrders,
+                status: deriveStatus(items),
+                totalAmount: sumPending(items),
+                orderId: out_trade_no,
+                updatedAt: now,
+              }
+            })
+          })
+          console.log('[createPaymentCallback] 桌单条目已标记, tableId:', tid)
+        }
+      } catch (e) {
+        linkageFailed = true
+        console.error('[createPaymentCallback] 联动桌单失败（将返回 FAIL 让微信重试）:', e.message)
+      }
+
+      // 幂等保护：仅首次补写 transactionId 时才发通知，防止微信支付重复回调
+      if (isFirstUpdate) {
+
+      // ===== 通知店员端有新订单：写事件标记（店员端 watch order_events/latest 触发即时刷新）=====
+      try {
+        await db.collection('order_events').doc('latest').set({
+          data: { ts: Date.now(), orderId: out_trade_no }
+        })
+        console.log('[createPaymentCallback] 已写入 order_events 事件:', out_trade_no)
+      } catch (e) {
+        console.warn('[createPaymentCallback] 写入 order_events 失败（不影响支付）:', e.message)
       }
 
       // ===== 店员离线检测：有设备在看店员端则不发通知 =====
@@ -85,14 +207,6 @@ exports.main = async (event, context) => {
       } catch (e) {
         console.warn('[createPaymentCallback] 读取 admin_whitelist 失败，使用空列表', e.message)
       }
-      // 查询订单（提前获取下单用户 openid，用于排除自身心跳）
-      const orderQuery = await db.collection('orders')
-        .where({ outTradeNo: out_trade_no })
-        .get()
-      const paidOrders = orderQuery.data.length > 0 ? orderQuery.data : (
-        await db.collection('orders').where({ orderId: out_trade_no }).get()
-      ).data
-
       // 收集下单用户的 openid，排除其自身心跳
       const ordererOpenids = [...new Set(paidOrders.map(o => o.openid).filter(Boolean))]
       console.log('[createPaymentCallback] 下单用户 openids:', ordererOpenids)
@@ -101,7 +215,7 @@ exports.main = async (event, context) => {
       try {
         const hbRes = await db.collection('staff_heartbeat')
           .where({
-            lastSeen: db.command.gte(new Date(Date.now() - 60000)),
+            lastSeen: db.command.gte(new Date(Date.now() - 120000)),
             openid: ordererOpenids.length > 0 ? db.command.nin(ordererOpenids) : db.command.neq('__no_match__')
           })
           .count()
@@ -139,7 +253,14 @@ exports.main = async (event, context) => {
         console.error('[createPaymentCallback] 发送订阅消息失败（不影响支付）:', notifyErr.message)
       }
       }
+      } else {
+        console.log('[createPaymentCallback] 重复回调，跳过通知')
+      }
 
+      // 联动桌单失败必须返回 FAIL 让微信重试，否则条目永久卡 paying
+      if (linkageFailed) {
+        return { code: 'FAIL', message: '联动桌单失败' }
+      }
     }
 
     return { code: 'SUCCESS', message: '成功' }

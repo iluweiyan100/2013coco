@@ -46,6 +46,15 @@ exports.main = async (event, context) => {
 
   const db = cloud.database()
 
+  // 鉴权：仅店员/管理员可退款
+  const openid = cloud.getWXContext().OPENID
+  const [staff, admin] = await Promise.all([
+    db.collection('staff_whitelist').where({ openid, status: 1 }).limit(1).get().catch(() => ({ data: [] })),
+    db.collection('admin_whitelist').where({ openid, status: 1 }).limit(1).get().catch(() => ({ data: [] }))
+  ])
+  const authorized = (staff.data && staff.data.length > 0) || (admin.data && admin.data.length > 0)
+  if (!authorized) throw new Error('无权限')
+
   // 查询所有关联订单（可能包含堂食和外带）
   let relatedOrders = []
   if (outTradeNo) {

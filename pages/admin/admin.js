@@ -30,15 +30,14 @@ Page({
       { value: 'coffee', label: '咖啡',        count: 0 },
       { value: 'icecream', label: '冰淇淋',    count: 0 },
       { value: 'dessert',  label: '甜点',      count: 0 },
-      { value: 'bar',      label: '排块',      count: 0 },
+      { value: 'bar',      label: '巧克力排块',      count: 0 },
       { value: 'other',  label: '无咖啡因饮品', count: 0 }
     ],
     activeStatusFilter: 'all',
     statusFilters: [
       { value: 'all', label: '全部' },
       { value: 'on',  label: '上架' },
-      { value: 'off', label: '下架' },
-      { value: 'sold', label: '售罄' }
+      { value: 'off', label: '下架' }
     ],
     products: [],
     filteredProducts: [],
@@ -74,7 +73,7 @@ Page({
       { value: 'coffee',   label: '咖啡' },
       { value: 'icecream', label: '冰淇淋' },
       { value: 'dessert',  label: '甜点' },
-      { value: 'bar',      label: '排块' },
+      { value: 'bar',      label: '巧克力排块' },
       { value: 'other',    label: '无咖啡因饮品' }
     ],
     // 烘焙度选项
@@ -290,7 +289,6 @@ Page({
       { value: 'all', label: '全部', count: baseList.length },
       { value: 'on',  label: '上架', count: baseList.filter(p => p.saleStatus === 'on').length },
       { value: 'off',  label: '下架', count: baseList.filter(p => p.saleStatus === 'off').length },
-      { value: 'sold', label: '售罄', count: baseList.filter(p => p.saleStatus === 'sold').length },
     ];
     this.setData({ statusFilters: filters });
   },
@@ -854,15 +852,18 @@ Page({
         startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       }
 
-      // 查询周期内订单（排除已退款的）
-      const periodRes = await db.collection('orders')
-        .where({
-          createTime: db.command.gte(startDate),
-          status: db.command.neq('refunded')
-        })
-        .get();
-
-      const periodOrders = periodRes.data || [];
+      // 查询周期内订单（排除已退款的）—— 全量读取改走云函数鉴权，客户端按周期过滤
+      const cfRes = await wx.cloud.callFunction({
+        name: 'initDB',
+        data: { action: 'getOrders', sinceDays: 40, limit: 1000 }
+      });
+      const allOrders = (cfRes.result && cfRes.result.data) || [];
+      const periodOrders = allOrders.filter(order => {
+        if (order.status === 'refunded') return false;
+        const ct = order.createTime || {};
+        const ts = (ct.$date ? new Date(ct.$date) : new Date(order.createTime || 0)).getTime();
+        return ts >= startDate.getTime();
+      });
 
       // 销售额
       let totalSales = 0;
@@ -933,21 +934,19 @@ Page({
   // 从云数据库加载订单列表
   async _loadOrdersFromCloud() {
     try {
-      const db = wx.cloud.database();
-      // 仅显示14天内的订单
-      const twoWeeksAgo = new Date();
-      twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
-      const res = await db.collection('orders')
-        .where({ createTime: db.command.gte(twoWeeksAgo) })
-        .orderBy('createTime', 'desc')
-        .limit(100)
-        .get();
+      // 仅显示14天内的订单（全量读取改走云函数鉴权）
+      const cfRes = await wx.cloud.callFunction({
+        name: 'initDB',
+        data: { action: 'getOrders', sinceDays: 14, limit: 100 }
+      });
+      const rawOrders = (cfRes.result && cfRes.result.data) || [];
 
       // 转换云数据库订单数据格式
-      const orders = res.data.map(order => {
-        const createTime = order.createTime || {};
-        const timeStr = createTime.$date
-          ? new Date(createTime.$date).toLocaleString('zh-CN', {
+      const orders = rawOrders.map(order => {
+        const ct = order.createTime || {};
+        const timeValue = ct.$date || order.createTime || null;
+        const timeStr = timeValue
+          ? new Date(timeValue).toLocaleString('zh-CN', {
               month: '2-digit',
               day: '2-digit',
               hour: '2-digit',
@@ -1088,10 +1087,13 @@ Page({
         if (res.confirm) {
           wx.showLoading({ title: '处理中...', mask: true });
           try {
-            const db = wx.cloud.database();
-            await db.collection('orders').doc(id).update({
-              data: { status }
+            const callRes = await wx.cloud.callFunction({
+              name: 'initDB',
+              data: { action: 'updateOrderStatus', id, status }
             });
+            if (!callRes.result || !callRes.result.success) {
+              throw new Error((callRes.result && callRes.result.message) || '更新失败');
+            }
             wx.hideLoading();
             wx.showToast({ title: '更新成功', icon: 'success' });
             this._loadOrdersFromCloud();

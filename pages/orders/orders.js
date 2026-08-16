@@ -61,19 +61,22 @@ Page({
     });
 
     const db = wx.cloud.database();
+    const _ = db.command;
     const twoWeeksAgo = new Date();
     twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+    // 只查本人订单：orders 读权限已收紧为 owner-only（安全规则 in 不支持 doc 数组字段，
+    // 同桌成员可见需改走云函数，暂不在此实现）
     db.collection('orders')
-      .where({
-        openid: openid,
-        createTime: db.command.gte(twoWeeksAgo)
-      })
+      .where({ openid: openid, createTime: _.gte(twoWeeksAgo) })
       .orderBy('createTime', 'desc')  // 降序，最新的订单在最顶端
       .get({
         success: (res) => {
           console.log('[LoadOrders] 查询结果数量:', res.data.length);
           console.log('[LoadOrders] 原始订单数据:', res.data);
-          const orders = res.data.map(order => this.formatOrder(order));
+          // 过滤 pending 订单（未支付/支付中断），与实时监听 _addSingleOrder/_updateSingleOrder 行为一致
+          const orders = res.data
+            .filter(order => (order.status || 'pending') !== 'pending')
+            .map(order => this.formatOrder(order));
           console.log('[LoadOrders] 格式化后订单数据:', orders);
           this.setData({
             orders: orders
@@ -212,9 +215,7 @@ Page({
     const _ = db.command;
 
     this.ordersWatcher = db.collection('orders')
-      .where({
-        openid: openid
-      })
+      .where({ openid: openid })
       .watch({
         onChange: (snapshot) => {
           console.log('[Orders] ========== 订单变化触发 ==========');

@@ -1,4 +1,9 @@
 // staff.js - 店员点单窗口
+
+// 音频单例（模块级，跨页面实例复用）
+let _audio = null;         // 共享音频实例（解锁与提示音复用同一个，iOS 解锁依赖实例）
+let _unlocked = false;     // 是否已完成音频解锁（需用户交互后解锁）
+
 Page({
   data: {
     dineInOrders: [],      // 堂食订单
@@ -6,12 +11,19 @@ Page({
     completedOrders: [],   // 已完成订单
     statusBarHeight: 0,    // 状态栏高度
     shopClosed: false,     // 打烊状态
+    soundEnabled: false,   // 声音是否已解锁开启
   },
 
   onLoad() {
     this.setData({
-      statusBarHeight: wx.getWindowInfo().statusBarHeight
+      statusBarHeight: wx.getWindowInfo().statusBarHeight,
+      soundEnabled: _unlocked   // 已解锁则直接隐藏开启横幅
     });
+
+    // 全局忽略 iOS 物理静音键，提示音在静音模式下也能响
+    try {
+      wx.setInnerAudioOption({ obeyMuteSwitch: false, mixWithOther: true });
+    } catch (e) {}
 
     // 打印当前环境信息
     console.log('[Staff] ========== 初始化信息 ==========');
@@ -24,145 +36,69 @@ Page({
     console.log('[Staff] globalData openid:', getApp().globalData.openid);
 
     this._loadInitialOrders();
-    this._startWatching();
     this._heartbeat();
     this._loadShopStatus();
+    this._startOrderWatcher();
 
-    // 启动定时轮询作为备用方案（每 30 秒），同时续期心跳
+    // 兜底：每 60 秒对账一次（防 watch 断连/后台漏单）+ 心跳（心跳间隔 60 秒）
     this.refreshTimer = setInterval(() => {
-      console.log('[Staff] 定时刷新执行');
       this._loadInitialOrders();
       this._heartbeat();
-    }, 30000);
+    }, 60000);
   },
 
-  // 初始加载：获取所有制作中、待取餐和已完成的订单
+  // 初始加载：获取所有制作中、待取餐和已完成的订单（改走云函数，替代客户端 watch）
   async _loadInitialOrders() {
-    const db = wx.cloud.database();
-    const _ = db.command;
-
     try {
       const res = await wx.cloud.callFunction({
-          name: 'initDB',
-          data: { action: 'getActiveOrders' },
-        });
-        this._classifyOrders(res.result.data || []);
+        name: 'initDB',
+        data: { action: 'getActiveOrders' },
+      });
+      const orders = res.result.data || [];
+      this._classifyOrders(orders);
+      // 检测新订单并播放提示音（首次加载不播）
+      const ids = orders.map(o => o._id);
+      if (this._knownOrderIds && ids.some(id => !this._knownOrderIds.includes(id))) {
+        this._playNewOrderSound();
+      }
+      this._knownOrderIds = ids;
+      return true;
     } catch (e) {
       console.error('[Staff] 加载初始订单失败', e);
       wx.showToast({ title: '加载失败', icon: 'none' });
+      return false;
     }
   },
 
-  // 启动数据库实时监听
-  _startWatching() {
-    const db = wx.cloud.database();
-    const _ = db.command;
-
-    console.log('[Staff] 开始启动 watch 监听...');
-    console.log('[Staff] 监听条件: status in [making, ready, done, pending]');
-
-    this.orderWatcher = db.collection('orders')
-      .orderBy('createTime', 'asc')
-      .limit(200)
-      .watch({
-        onChange: (snapshot) => {
-          console.log('[Staff] ========== 订单变化触发 ==========');
-          console.log('[Staff] docChanges 数量:', snapshot.docChanges.length);
-          console.log('[Staff] docChanges 类型:', snapshot.docChanges.map(c => c.dataType));
-
-          // 处理所有变化：新增、更新、删除
-          snapshot.docChanges.forEach(change => {
-            const doc = change.doc;
-            const dataType = change.dataType; // 'init', 'add', 'update', 'remove'
-
-            console.log('[Staff] --- 处理变化 ---');
-            console.log('[Staff] 类型:', dataType);
-            console.log('[Staff] 订单ID:', doc._id);
-            console.log('[Staff] 订单状态:', doc.status);
-            console.log('[Staff] 订单类型:', doc.orderType);
-            console.log('[Staff] 取餐号:', doc.pickupNumber);
-
-            switch(dataType) {
-              case 'init':
-                // 初始化数据已通过 _loadInitialOrders 处理
-                console.log('[Staff] init 类型，跳过');
-                break;
-
-              case 'add':
-                // 新订单：添加到对应区域
-                console.log('[Staff] 新增订单，检查状态');
-                console.log('[Staff] 当前 dineInOrders 数量:', this.data.dineInOrders.length);
-                console.log('[Staff] 当前 takeawayOrders 数量:', this.data.takeawayOrders.length);
-
-                // 只添加非 pending 状态的订单
-                if (doc.status !== 'pending') {
-                  console.log('[Staff] 订单状态为', doc.status, '，添加到列表');
-                  this._addNewOrder(doc);
-                  this._playNewOrderSound();
-                  console.log('[Staff] 添加后 dineInOrders 数量:', this.data.dineInOrders.length);
-                  console.log('[Staff] 添加后 takeawayOrders 数量:', this.data.takeawayOrders.length);
-                } else {
-                  console.log('[Staff] 订单状态为 pending，跳过显示');
-                }
-                break;
-
-              case 'update':
-                // 订单更新：可能是状态变化
-                console.log('[Staff] ========== 订单更新 ==========');
-                console.log('[Staff] 订单ID:', doc._id);
-                console.log('[Staff] 订单状态:', doc.status);
-                console.log('[Staff] 当前堂食列表:', this.data.dineInOrders.map(o => `${o.pickupNumber}(${o._id.slice(-6)})`));
-
-                // 检查订单是否已经在显示列表中
-                const inDineIn = this.data.dineInOrders.find(o => o._id === doc._id);
-                const inTakeaway = this.data.takeawayOrders.find(o => o._id === doc._id);
-                const inCompleted = this.data.completedOrders.find(o => o._id === doc._id);
-
-                console.log('[Staff] 在堂食列表:', !!inDineIn);
-                console.log('[Staff] 在外带列表:', !!inTakeaway);
-                console.log('[Staff] 在已完成列表:', !!inCompleted);
-
-                if (doc.status === 'done') {
-                  // 移到已完成列表
-                  console.log('[Staff] 状态为 done，调用 _moveOrderToCompleted');
-                  this._moveOrderToCompleted(doc._id);
-                } else if (['making', 'ready'].includes(doc.status)) {
-                  // 如果订单之前在 pending 状态，现在变成 making/ready，需要添加到列表
-                  if (!inDineIn && !inTakeaway && !inCompleted) {
-                    console.log('[Staff] 订单从不在任何列表，添加到制作列表');
-                    this._addNewOrder(doc);
-                    this._playNewOrderSound();
-                  } else {
-                    // 更新新订单列表中的数据
-                    console.log('[Staff] 订单已在列表中，更新数据');
-                    this._updateOrder(doc);
-                  }
-                } else if (doc.status === 'pending') {
-                  // 如果订单变回 pending（退款等情况），从显示列表中移除
-                  console.log('[Staff] 状态为 pending，从列表中移除');
-                  this._removeOrder(doc._id);
-                }
-                break;
-
-              case 'remove':
-                // 订单删除：从列表中移除
-                console.log('[Staff] 订单删除，从列表中移除');
-                this._removeOrder(doc._id);
-                break;
-            }
-          });
-          console.log('[Staff] ========== 变化处理完成 ==========');
+  // 启动新订单事件监听（watch order_events/latest，支付成功时云端写事件 → 即时刷新）
+  _startOrderWatcher() {
+    try {
+      const db = wx.cloud.database();
+      this.orderWatcher = db.collection('order_events').doc('latest').watch({
+        onChange: () => {
+          console.log('[Staff] order_events 变化，触发即时刷新');
+          // 简单防抖：合并短时间内的连续事件
+          if (this._orderRefreshDebounce) clearTimeout(this._orderRefreshDebounce);
+          this._orderRefreshDebounce = setTimeout(() => this._loadInitialOrders(), 300);
         },
         onError: (err) => {
-          console.error('[Staff] ========== 监听失败 ==========');
-          console.error('[Staff] 错误信息:', err);
-          wx.showToast({
-            title: '监听失败，请刷新页面',
-            icon: 'none',
-            duration: 3000
-          });
+          console.warn('[Staff] order_events watch 出错，兜底轮询接管:', err);
+          this._restartOrderWatcher();
         }
       });
+    } catch (e) {
+      console.warn('[Staff] 启动 watch 失败，兜底轮询接管:', e);
+    }
+  },
+
+  // watch 断连后延迟重连
+  _restartOrderWatcher() {
+    if (this.orderWatcher) {
+      try { this.orderWatcher.close(); } catch (e) {}
+      this.orderWatcher = null;
+    }
+    if (this._watcherRestartTimer) clearTimeout(this._watcherRestartTimer);
+    this._watcherRestartTimer = setTimeout(() => this._startOrderWatcher(), 5000);
   },
 
   // 将订单分类到不同列表
@@ -441,42 +377,24 @@ Page({
 
     wx.showLoading({ title: '处理中...', mask: true });
 
-    const updateData = {
-      status: 'done',
-      completeTime: db.serverDate()
-    };
-
-    console.log('[Staff] 准备更新数据:', updateData);
-
-    db.collection('orders').doc(orderId).update({
-      data: updateData
-    }).then(res => {
-      console.log('[Staff] ========== 数据库更新返回 ==========');
-      console.log('[Staff] 更新结果:', res);
-      console.log('[Staff] stats:', res.stats);
-      console.log('[Staff] stats.updated:', res.stats.updated);
-      console.log('[Staff] stats.removed:', res.stats.removed);
-
-      // 检查是否真的更新成功
-      if (res.stats && res.stats.updated > 0) {
-        console.log('[Staff] 数据库记录已更新');
-
-        // 验证数据库中的实际状态
-        return db.collection('orders').doc(orderId).get();
-      } else {
-        console.error('[Staff] 数据库更新失败，stats.updated 为 0');
-        console.error('[Staff] 可能原因：');
-        console.error('[Staff] 1. 数据库权限不足（已修改安全规则，请稍后重试）');
-        console.error('[Staff] 2. 订单已被其他设备完成');
-        console.error('[Staff] 3. 订单不存在或已被删除');
-        throw new Error('数据库更新失败，可能权限不足');
+    // 状态变更改走云函数鉴权（客户端直写 orders 已被安全规则禁止 update=false）
+    wx.cloud.callFunction({
+      name: 'initDB',
+      data: { action: 'updateOrderStatus', id: orderId, status: 'done' }
+    }).then(callRes => {
+      const r = callRes.result || {};
+      if (!r.success) {
+        throw new Error(r.message || '更新失败');
       }
-    }).then(docRes => {
-      console.log('[Staff] ========== 验证订单状态 ==========');
-      console.log('[Staff] 订单文档:', docRes.data);
-      console.log('[Staff] 订单状态:', docRes.data.status);
+      console.log('[Staff] 云函数更新订单状态成功');
 
-      if (docRes.data.status === 'done') {
+      // 云函数已回读订单数据（客户端直读 orders 已被安全规则收紧）
+      return r.order || {};
+    }).then(orderData => {
+      console.log('[Staff] ========== 验证订单状态 ==========');
+      console.log('[Staff] 订单状态:', orderData.status);
+
+      if (orderData.status === 'done') {
         console.log('[Staff] 订单状态已确认更新为 done');
 
         // ===== 发送取餐通知给顾客（仅首次完成时发送，防重复） =====
@@ -485,7 +403,6 @@ Page({
           wx.hideLoading();
           return;
         }
-        const orderData = docRes.data;
         if (orderData.openid && orderData.pickupNumber) {
           // character_string1 仅支持字母数字，中文会被微信 API 拒绝
           console.log('[Staff] 发送取餐通知, openid:', orderData.openid, '取餐码:', orderData.pickupNumber);
@@ -508,7 +425,7 @@ Page({
           console.warn('[Staff] 订单缺少 openid 或 pickupNumber，跳过通知');
         }
 
-        // 使用 setTimeout 确保 watch 事件有时间触发
+        // 使用 setTimeout 让本地状态有机会刷新
         setTimeout(() => {
           console.log('[Staff] 开始检查订单是否已移动');
           const stillInOrders = [...this.data.dineInOrders, ...this.data.takeawayOrders]
@@ -518,14 +435,14 @@ Page({
             console.log('[Staff] 订单仍在制作列表，主动移动到已完成');
             this._moveOrderToCompleted(orderId);
           } else {
-            console.log('[Staff] 订单已被 watch 事件移到已完成');
+            console.log('[Staff] 订单已被轮询刷新移到已完成');
           }
 
           wx.hideLoading();
           wx.showToast({ title: '订单已完成', icon: 'success', duration: 1000 });
         }, 100);
       } else {
-        console.error('[Staff] 订单状态未更新，当前状态:', docRes.data.status);
+        console.error('[Staff] 订单状态未更新，当前状态:', orderData.status);
         throw new Error('订单状态验证失败');
       }
     }).catch(err => {
@@ -557,14 +474,44 @@ Page({
     });
   },
 
+  // 初始化/复用共享音频实例
+  _ensureAudio() {
+    if (!_audio) {
+      _audio = wx.createInnerAudioContext();
+      _audio.obeyMuteSwitch = false;   // iOS 无视物理静音键
+      _audio.onError((e) => console.warn('[Staff] 音频播放出错', e));
+    }
+    return _audio;
+  },
+
+  // 解锁音频：首次用户交互时播放一次，之后才能自动播放提示音
+  onUnlockAudio() {
+    if (!_unlocked) {
+      _unlocked = true;
+      const audio = this._ensureAudio();
+      audio.stop();
+      audio.src = '/audio/03_ascending_chime.mp3';
+      audio.play();
+      console.log('[Staff] 音频已解锁，新订单提示音已开启');
+    }
+    this.setData({ soundEnabled: true });   // 无论是否已解锁，都隐藏开启横幅
+  },
+
   // 播放新订单提示音
   _playNewOrderSound() {
-    const audio = wx.createInnerAudioContext();
-    audio.src = '/audio/new-order.mp3';
-    audio.onError(() => {
-      console.warn('[Staff] 提示音播放失败');
-    });
+    // 震动提示（不依赖用户交互，最可靠）
+    wx.vibrateShort({ type: 'heavy' });
+
+    // 音频提示需先完成解锁，否则会被平台静默拦截
+    if (!_unlocked) {
+      console.warn('[Staff] 音频未解锁，跳过提示音');
+      return;
+    }
+    const audio = this._ensureAudio();
+    audio.stop();                            // 停掉上一次，避免重叠
+    audio.src = '/audio/06_success_melody.mp3';
     audio.play();
+    console.log('[Staff] 播放新订单提示音');
   },
 
   // 加载打烊状态
@@ -611,10 +558,18 @@ Page({
     }
   },
 
-  // 刷新页面
-  onRefresh() {
-    this._loadInitialOrders();
-    wx.showToast({ title: '已刷新', icon: 'success' });
+  // 刷新页面（刷新订单 + 打烊状态；成功才提示）
+  async onRefresh() {
+    const ok = await this._loadInitialOrders();
+    this._loadShopStatus();
+    if (ok) {
+      wx.showToast({ title: '已刷新', icon: 'success' });
+    }
+  },
+
+  // 打开桌位管理页
+  onOpenTableManage() {
+    wx.navigateTo({ url: '/pages/staff/tableManage/tableManage' });
   },
 
   // 返回首页
@@ -625,11 +580,18 @@ Page({
   },
 
   onUnload() {
-    if (this.orderWatcher) {
-      this.orderWatcher.close();
-    }
     if (this.refreshTimer) {
       clearInterval(this.refreshTimer);
+    }
+    if (this.orderWatcher) {
+      try { this.orderWatcher.close(); } catch (e) {}
+      this.orderWatcher = null;
+    }
+    if (this._watcherRestartTimer) clearTimeout(this._watcherRestartTimer);
+    if (this._orderRefreshDebounce) clearTimeout(this._orderRefreshDebounce);
+    // 停掉正在播放的提示音，但保留实例与解锁状态（模块级，便于下次进入复用）
+    if (_audio) {
+      _audio.stop();
     }
     this._removeHeartbeat();
   },

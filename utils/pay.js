@@ -4,6 +4,11 @@
 
 const SUBSCRIBE = require('../config/subscribe.js');
 
+// 生成自定义订单 _id（创建时即写入 orderId/outTradeNo，避免 post-add update 被安全规则禁止）
+function genOrderId() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+}
+
 /**
  * 获取每日递进取餐码：T01/T02... (堂食) 或 K01/K02... (外带)
  * @param {string} orderType - 'dine-in' | 'takeaway'
@@ -49,6 +54,7 @@ function buildOrder(items, orderType, remark) {
     statusText: '制作中',
     remark,
     products: items.map(item => ({
+      productId: item.id || '',
       name: item.name,
       temperature: item.spec || '',  // 与 staff 页面字段对齐
       quantity: item.qty || 1,
@@ -87,19 +93,29 @@ async function createPendingOrders(orders) {
   console.log('[CreatePendingOrders] openid:', openid);
 
   const db = wx.cloud.database();
-  const orderIds = [];
 
   // 获取桌位上下文
   const ctx = getApp().globalData.tableContext
     || wx.getStorageSync('tableContext') || null;
   console.log('[Pay] 桌位上下文:', JSON.stringify(ctx));
 
-  for (const order of orders) {
+  // 预生成所有订单 _id，创建时即写入 orderId/outTradeNo（安全规则已禁止 post-add update）
+  const orderIds = orders.map(() => genOrderId());
+  const outTradeNo = orderIds.length === 1
+    ? orderIds[0]
+    : orderIds[0].slice(0, 26) + '_' + orderIds.length;
+
+  for (let i = 0; i < orders.length; i++) {
+    const order = orders[i];
+    const orderId = orderIds[i];
     const pickupNumber = await getNextPickupNumber(order.orderType);
     console.log('[Pay] 订单 orderType:', order.orderType, '取餐码:', pickupNumber);
 
-    const res = await db.collection('orders').add({
+    await db.collection('orders').add({
       data: {
+        _id: orderId,
+        orderId: orderId,
+        outTradeNo: outTradeNo,
         openid: openid,
         pickupNumber: pickupNumber,
         orderType: order.orderType,
@@ -113,14 +129,28 @@ async function createPendingOrders(orders) {
         tableName: ctx ? (ctx.tableName || '') : ''
       }
     });
-    // 写入 orderId 和 outTradeNo 字段，供支付回调查询使用
-    await db.collection('orders').doc(res._id).update({
-      data: { orderId: res._id, outTradeNo: '' }
-    });
-    orderIds.push(res._id);
   }
 
-  return orderIds;
+  return { orderIds, outTradeNo };
+}
+
+/**
+ * 服务端查单：确认微信支付真实状态
+ * @param {string} outTradeNo
+ * @returns {'SUCCESS'|'NOT_PAID'|'UNKNOWN'}
+ */
+async function queryPaymentState(outTradeNo) {
+  try {
+    const res = await wx.cloud.callFunction({
+      name: 'createPayment',
+      data: { action: 'query', outTradeNo }
+    });
+    const r = res.result || {};
+    return r.tradeState === 'SUCCESS' ? 'SUCCESS' : 'NOT_PAID';
+  } catch (e) {
+    console.warn('[Pay] 查单失败（未知状态）:', e.message);
+    return 'UNKNOWN';
+  }
 }
 
 /**
@@ -176,6 +206,7 @@ async function executePay(orderGroups, onSuccess, onFail) {
   console.log('[Pay] openid:', openid);
 
   let orderIds = [];
+  let outTradeNo = '';
 
   try {
     // 1. 构建订单对象
@@ -188,19 +219,13 @@ async function executePay(orderGroups, onSuccess, onFail) {
       return;
     }
 
-    // 2. 创建待支付订单记录
-    orderIds = await createPendingOrders(orders);
+    // 2. 创建待支付订单记录（创建时即写入 orderId/outTradeNo）
+    const created = await createPendingOrders(orders);
+    orderIds = created.orderIds;
+    outTradeNo = created.outTradeNo;
 
-    // 3. 计算 outTradeNo（≤32字符）并回写到每条订单
+    // 3. 计算总金额
     const totalAmount = orders.reduce((s, o) => s + o.totalAmount, 0);
-    const outTradeNo = orderIds.length === 1
-      ? orderIds[0]
-      : orderIds[0].slice(0, 26) + '_' + orderIds.length;
-
-    const db = wx.cloud.database();
-    await Promise.all(orderIds.map(id =>
-      db.collection('orders').doc(id).update({ data: { outTradeNo } })
-    ));
 
     // 4. 调云函数统一下单
     const paymentRes = await wx.cloud.callFunction({
@@ -229,19 +254,12 @@ async function executePay(orderGroups, onSuccess, onFail) {
       paySign: params.paySign
     });
 
-    // 6. 支付成功，本地更新订单状态为 making（不等 webhook，确保用户端立即可见）
-    // 注意：仅更新 status，paidAt 由 webhook 回调写入，避免客户端 serverDate() 权限问题
+    // 6. 支付成功：订单状态由 webhook 回调权威写入 making（客户端不再直写，防伪造免费单）
+    // 7. 累加商品销量（best-effort，幂等由服务端 salesCounted 保证）
     try {
-      const db2 = wx.cloud.database();
-      const results = await Promise.all(orderIds.map(id =>
-        db2.collection('orders').doc(id).update({
-          data: { status: 'making' }
-        })
-      ));
-      console.log('[Pay] 订单状态更新为 making 成功:', results.map(r => r.stats));
-    } catch (updateErr) {
-      // 本地更新失败不影响主流程，webhook 会兜底
-      console.warn('[Pay] 本地更新订单状态失败:', updateErr);
+      await wx.cloud.callFunction({ name: 'initDB', data: { action: 'recordSales', orderIds } });
+    } catch (salesErr) {
+      console.warn('[Sales] 销量累加失败（可忽略）', salesErr);
     }
 
     payInFlight = false;
@@ -256,18 +274,41 @@ async function executePay(orderGroups, onSuccess, onFail) {
   } catch (e) {
     wx.hideLoading();
     console.error('[Pay] 支付流程失败:', e);
-    if (e.errMsg && e.errMsg.indexOf('cancel') !== -1) {
+    const isCancel = e.errMsg && e.errMsg.indexOf('cancel') !== -1;
+
+    if (isCancel) {
+      // 用户主动取消：无支付发生，安全删除待支付订单
       await deletePendingOrders(orderIds);
     } else {
-      await deletePendingOrders(orderIds);
-      if (onFail) {
-        onFail(e);
+      // 非取消：可能「已扣款但本地报错」，先查微信确认，绝不直接删单（防丢已付款订单）
+      const state = orderIds.length > 0 ? await queryPaymentState(outTradeNo) : 'NOT_PAID';
+      if (state === 'SUCCESS') {
+        // 已扣款：按成功处理（webhook 会兜底写订单状态）
+        try {
+          await wx.cloud.callFunction({ name: 'initDB', data: { action: 'recordSales', orderIds } });
+        } catch (salesErr) {
+          console.warn('[Sales] 销量累加失败（可忽略）', salesErr);
+        }
+        if (onSuccess) {
+          try { onSuccess(orderIds); } catch (e2) {
+            console.warn('[Pay] onSuccess 回调异常（订单已支付，不影响数据）:', e2);
+          }
+        }
+      } else if (state === 'NOT_PAID') {
+        // 明确未付：安全删除待支付订单
+        await deletePendingOrders(orderIds);
+        if (onFail) {
+          onFail(e);
+        } else {
+          wx.showToast({ title: e.message || '支付失败，请重试', icon: 'none', duration: 2000 });
+        }
       } else {
-        wx.showToast({
-          title: e.message || '支付失败，请重试',
-          icon: 'none',
-          duration: 2000
-        });
+        // 查单失败（UNKNOWN）：不删单，等 webhook 收尾
+        if (onFail) {
+          onFail(e);
+        } else {
+          wx.showToast({ title: '支付结果确认中，请稍后刷新', icon: 'none', duration: 2500 });
+        }
       }
     }
     payInFlight = false;

@@ -318,3 +318,97 @@ page {
   color: #FFFFFF;
   font-family: 'CangerShuYuanTi', Noto Serif SC;
 }
+
+/* 桌位共享桌单状态条 */
+.table-status-banner {
+  margin: 16rpx 24rpx 0;
+  padding: 20rpx 24rpx;
+  border-radius: 16rpx;
+  display: flex;
+  align-items: center;
+}
+
+.table-status-open {
+  background: rgba(163, 33, 45, 0.08);
+}
+
+.table-status-paying {
+  background: rgba(240, 160, 30, 0.12);
+}
+
+.table-status-paid {
+  background: rgba(56, 142, 60, 0.12);
+}
+
+.table-status-text {
+  font-size: 26rpx;
+  font-weight: 500;
+  color: #3A2318;
+  font-family: 'CangerShuYuanTi', Noto Serif SC;
+}
+
+/* 结算中/已下单时按钮置灰 */
+.cart-submit-disabled {
+  background: rgba(58, 35, 24, 0.35);
+}
+
+/* ========== 分开付 / 分组 ========== */
+.cart-actions {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  flex-shrink: 0;
+}
+
+.cart-submit-split {
+  background: #5B3A29;
+  padding: 0 40rpx;
+}
+
+.cart-group-count {
+  margin-left: 12rpx;
+  font-size: 22rpx;
+  color: rgba(58, 35, 24, 0.45);
+  font-family: 'CangerShuYuanTi', Noto Serif SC;
+}
+
+.cart-group-tag-paid {
+  background: rgba(56, 142, 60, 0.12);
+  color: #388E3C;
+}
+
+.cart-item-name-row {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.cart-item-mine {
+  font-size: 20rpx;
+  color: #A3212D;
+  background: rgba(163, 33, 45, 0.10);
+  border-radius: 8rpx;
+  padding: 2rpx 12rpx;
+  flex-shrink: 0;
+  font-family: 'CangerShuYuanTi', Noto Serif SC;
+}
+
+/* 结算中/已下单条目弱化显示 */
+.cart-item-locked {
+  opacity: 0.7;
+}
+
+.cart-item-paid {
+  opacity: 0.55;
+}
+
+.qty-num-locked {
+  color: rgba(58, 35, 24, 0.45);
+  font-weight: 400;
+}
+
+.cart-paid-hint {
+  font-size: 20rpx;
+  color: #388E3C;
+  font-family: 'CangerShuYuanTi', Noto Serif SC;
+}

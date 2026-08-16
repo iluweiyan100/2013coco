@@ -56,6 +56,11 @@
       "envVariables": {
         "WX_MCH_API_KEY": "__SET_IN_CLOUD_CONSOLE__"
       }
+    },
+    {
+      "name": "tableOrder",
+      "timeout": 10,
+      "runtime": "Nodejs18.15"
     }
   ]
 }

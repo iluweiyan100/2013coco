@@ -36,6 +36,29 @@ function buildAuthorization(method, urlPath, body) {
 }
 
 exports.main = async (event, context) => {
+  // 查单模式：主动查询微信支付订单状态（支付结果兜底，防止「已扣款但本地报错」导致重复支付）
+  if (event.action === 'query') {
+    const outTradeNo = event.outTradeNo || event.orderId || ''
+    if (!outTradeNo) throw new Error('缺少 outTradeNo')
+    const urlPath = `/v3/pay/transactions/out-trade-no/${outTradeNo}?mchid=${MCH_ID}`
+    const { authorization } = buildAuthorization('GET', urlPath, '')
+    try {
+      const response = await axios.get('https://api.mch.weixin.qq.com' + urlPath, {
+        headers: { 'Accept': 'application/json', 'Authorization': authorization, 'User-Agent': 'WXMiniProgram/1.0' },
+        timeout: 10000,
+      })
+      const data = response.data || {}
+      return {
+        tradeState: data.trade_state || '',
+        outTradeNo: data.out_trade_no || outTradeNo,
+        transactionId: data.transaction_id || '',
+      }
+    } catch (e) {
+      console.error('[createPayment][query] 查单失败:', e.response ? JSON.stringify(e.response.data) : e.message)
+      throw new Error('查单失败: ' + (e.response && e.response.data && e.response.data.message ? e.response.data.message : e.message))
+    }
+  }
+
   const { totalAmount, orderId, orderIds, openid } = event
 
   console.log('[createPayment] 收到支付请求:', { totalAmount, orderId, orderIds, openid })
@@ -44,7 +67,33 @@ exports.main = async (event, context) => {
     throw new Error('缺少 openid')
   }
 
-  const totalFee = Math.round(totalAmount * 100)
+  // 防低配价：校验客户端传入金额与订单文档合计一致（否则可付 1 分钱拿高额订单）
+  const db = cloud.database()
+  const orderIdList = (Array.isArray(orderIds) && orderIds.length ? orderIds : [orderId]).filter(Boolean)
+  if (orderIdList.length === 0) {
+    throw new Error('缺少订单 id')
+  }
+  let orderTotal = 0
+  for (const oid of orderIdList) {
+    let doc = null
+    try {
+      doc = (await db.collection('orders').doc(oid).get()).data
+    } catch (e) {
+      doc = null
+    }
+    if (!doc) {
+      throw new Error('订单不存在，无法支付')
+    }
+    orderTotal += Number(doc.totalAmount) || 0
+  }
+  const reqCents = Math.round((Number(totalAmount) || 0) * 100)
+  const orderCents = Math.round(orderTotal * 100)
+  if (reqCents !== orderCents) {
+    console.error('[createPayment] 金额校验失败:', { reqCents, orderCents, orderIdList })
+    throw new Error('订单金额不一致，请重新下单')
+  }
+
+  const totalFee = reqCents
 
   const reqBody = JSON.stringify({
     appid: APP_ID,

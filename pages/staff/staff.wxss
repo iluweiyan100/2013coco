@@ -757,3 +757,49 @@
 .staff-close-text { font-size: 13px; color: #2E7D32; font-weight: 500; }
 .close-active .staff-close-text { color: #C62828; }
 
+/* 桌位管理悬浮按钮（页面右下角，半透明；固定 px，横竖屏一致） */
+.staff-table-fab {
+  position: fixed;
+  right: 24px;
+  bottom: calc(24px + env(safe-area-inset-bottom));
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.7);
+  border: 2px solid rgba(192, 138, 77, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  z-index: 200;
+}
+.staff-table-fab:active {
+  background: rgba(255, 255, 255, 0.9);
+  transform: scale(0.96);
+}
+.staff-table-icon {
+  font-size: 32px;
+  line-height: 1;
+}
+
+/* 声音解锁提示横幅 */
+.sound-tip-banner {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 95;
+  padding: 14px 28px;
+  background: #FFF3E0;
+  border: 2px solid #FF9800;
+  border-radius: 40px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+}
+.sound-tip-banner:active {
+  background: #FFE0B2;
+}
+.sound-tip-text {
+  font-size: 30rpx;
+  color: #E65100;
+  font-weight: 600;
+}
+

@@ -22,6 +22,26 @@ exports.main = async (event, context) => {
   const db = cloud.database()
   const action = event.action || 'init'
 
+  // ===== 鉴权：除公开操作外，一律要求店员/管理员白名单 =====
+  // 公开操作 = 顾客点单/支付路径 + 幂等的集合初始化
+  const PUBLIC_ACTIONS = new Set([
+    'init',                 // 幂等：确保集合/初始文档存在
+    'getProducts',          // 顾客浏览菜单
+    'getFeaturedProducts',  // 顾客首页推荐
+    'getTableByCode',       // 顾客扫码进桌
+    'getNextPickupNumber',  // 顾客支付时取餐码
+    'recordSales',          // 顾客支付后销量累加（幂等）
+  ])
+  if (!PUBLIC_ACTIONS.has(action)) {
+    const openid = cloud.getWXContext().OPENID
+    const [staff, admin] = await Promise.all([
+      db.collection('staff_whitelist').where({ openid, status: 1 }).limit(1).get().catch(() => ({ data: [] })),
+      db.collection('admin_whitelist').where({ openid, status: 1 }).limit(1).get().catch(() => ({ data: [] }))
+    ])
+    const authorized = (staff.data && staff.data.length > 0) || (admin.data && admin.data.length > 0)
+    if (!authorized) return { success: false, message: '无权限' }
+  }
+
   // ===== 英雄区轮播图 =====
   if (action === 'setHeroImages') {
     const images = event.images || []
@@ -89,6 +109,7 @@ exports.main = async (event, context) => {
     const res = await db.collection('products').add({
       data: {
         ...product,
+        sales: product.sales || 0,
         createdAt: now,
         updatedAt: now
       }
@@ -142,6 +163,34 @@ exports.main = async (event, context) => {
     return { success: true, data: res.data }
   }
 
+  // ===== 店员/管理员更新订单状态（制作中/待取餐/已完成）=====
+  // 客户端直写 orders 已被安全规则禁止（update=false），状态变更统一走云函数鉴权
+  if (action === 'updateOrderStatus') {
+    const { id, status } = event
+    if (!id || !status) return { success: false, message: '缺少参数' }
+    if (!['making', 'ready', 'done'].includes(status)) return { success: false, message: '非法状态' }
+    const data = { status }
+    if (status === 'done') data.completeTime = db.serverDate()
+    await db.collection('orders').doc(id).update({ data })
+    // 回读更新后的订单，供店员端取餐通知使用（客户端直读 orders 已被安全规则收紧）
+    let order = null
+    try { order = (await db.collection('orders').doc(id).get()).data || null } catch (e) { order = null }
+    return { success: true, order }
+  }
+
+  // ===== 管理员/店员：读取全量订单（客户端直读已被安全规则收紧，改走云函数鉴权）=====
+  if (action === 'getOrders') {
+    const sinceDays = Math.min(Math.max(Number(event.sinceDays) || 14, 1), 90)
+    const limit = Math.min(Math.max(Number(event.limit) || 1000, 1), 1000)
+    const since = new Date(Date.now() - sinceDays * 24 * 3600000)
+    const res = await db.collection('orders')
+      .where({ createTime: db.command.gte(since) })
+      .orderBy('createTime', 'desc')
+      .limit(limit)
+      .get()
+    return { success: true, data: res.data }
+  }
+
   if (action === 'getProducts') {
     const res = await db.collection('products')
       .orderBy('sortOrder', 'asc')
@@ -149,6 +198,83 @@ exports.main = async (event, context) => {
       .limit(200)
       .get()
     return { success: true, data: res.data }
+  }
+
+  // ===== 取餐码：服务端按天顺序生成唯一码（堂食 T01/T02… / 外带 K01/K02…）=====
+  if (action === 'getNextPickupNumber') {
+    const orderType = event.orderType === 'takeaway' ? 'takeaway' : 'dine-in'
+    const prefix = orderType === 'dine-in' ? 'T' : 'K'
+    const day = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10) // 北京时间按天
+    const key = `${day}_${orderType}`
+    let seq = 0
+    try {
+      await db.runTransaction(async transaction => {
+        const ref = transaction.collection('pickup_counter').doc(key)
+        let n = 1
+        try {
+          const doc = await ref.get()
+          n = ((doc.data && doc.data.seq) || 0) + 1
+        } catch (e) {
+          // 仅「文档不存在」才从 1 开始；瞬态错误抛出让事务重试，防止 seq 重置撞号
+          const msg = String((e && (e.errMsg || e.message)) || '')
+          const isNotFound = /not exist|不存在|not found/i.test(msg) || (e && e.errCode === -502004)
+          if (!isNotFound) throw e
+          n = 1
+        }
+        await ref.set({ data: { seq: n, orderType } })
+        seq = n
+      })
+      return { success: true, pickupNumber: prefix + String(seq).padStart(2, '0') }
+    } catch (e) {
+      console.warn('[getNextPickupNumber] 顺序计数失败，使用随机码兜底:', e.message)
+      const letters = 'ABCDEFGH'
+      const fallback = prefix + letters[Math.floor(Math.random() * letters.length)] +
+        String(Math.floor(Math.random() * 99) + 1).padStart(2, '0')
+      return { success: true, pickupNumber: fallback }
+    }
+  }
+
+  // ===== 销量累加（支付成功后调用，幂等靠订单 salesCounted 标志）=====
+  if (action === 'recordSales') {
+    const orderIds = event.orderIds || []
+    const _ = db.command
+    let counted = 0
+    for (const orderId of orderIds) {
+      try {
+        const order = (await db.collection('orders').doc(orderId).get()).data
+        if (!order || order.salesCounted) continue   // 幂等：已计过则跳过
+        for (const p of (order.products || [])) {
+          if (!p.productId) continue
+          await db.collection('products').doc(p.productId)
+            .update({ data: { sales: _.inc(p.quantity || 1) } })
+        }
+        await db.collection('orders').doc(orderId)
+          .update({ data: { salesCounted: true } })
+        counted++
+      } catch (e) {
+        // 单条失败不影响整体
+      }
+    }
+    return { success: true, counted }
+  }
+
+  // ===== 历史销量按名称尽力回填（一次性，部署后手动触发）=====
+  if (action === 'backfillSales') {
+    const products = (await db.collection('products').limit(1000).get()).data || []
+    // 已支付订单（排除 pending 未支付）；退款不回退，故含 refunded
+    const orders = (await db.collection('orders')
+      .where({ status: db.command.neq('pending') }).limit(1000).get()).data || []
+    const nameMap = {}
+    orders.forEach(o => (o.products || []).forEach(p => {
+      if (p.name) nameMap[p.name] = (nameMap[p.name] || 0) + (p.quantity || 1)
+    }))
+    let updated = 0
+    for (const p of products) {
+      await db.collection('products').doc(p._id)
+        .update({ data: { sales: nameMap[p.name] || 0 } })
+      updated++
+    }
+    return { success: true, updated, matched: Object.keys(nameMap).length }
   }
 
   // 批量更新商品排序
@@ -167,21 +293,25 @@ exports.main = async (event, context) => {
     try {
       const res = await db.collection('featuredProducts').doc('config').get()
       const items = res.data.items || []
-      // 同时查出商品名称
+      // 同时查出商品名称（仅上架商品，下架商品不展示）
       const productIds = items.map(i => i.productId).filter(Boolean)
       let nameMap = {}
       if (productIds.length > 0) {
         const prodRes = await db.collection('products').where({
-          _id: db.command.in(productIds)
-        }).get()
+          _id: db.command.in(productIds),
+          saleStatus: 'on'
+        }).limit(100).get()
         ;(prodRes.data || []).forEach(p => { nameMap[p._id] = p.name })
       }
+      // 只保留在架商品（nameMap 命中才返回）
       return {
         success: true,
-        data: items.map(item => ({
-          ...item,
-          name: nameMap[item.productId] || '',
-        })),
+        data: items
+          .filter(item => nameMap[item.productId] !== undefined)
+          .map(item => ({
+            ...item,
+            name: nameMap[item.productId] || '',
+          })),
       }
     } catch (e) {
       if (e.errCode === -502005) {
@@ -316,5 +446,8 @@ exports.main = async (event, context) => {
   await ensureCollection('featuredProducts', { _id: 'config', items: [] })
   await ensureCollection('staff_heartbeat', { _id: '_placeholder', openid: '_placeholder', lastSeen: new Date() })
   await ensureCollection('tables', { _id: '_placeholder', name: '', code: '', qrFileID: '', enabled: true, createdAt: Date.now(), updatedAt: Date.now() })
+  await ensureCollection('pickup_counter', { _id: '_placeholder', seq: 0 })
+  await ensureCollection('table_sessions', { _id: '_placeholder', tableId: '', items: [], members: {}, status: 'open' })
+  await ensureCollection('order_events', { _id: 'latest', ts: Date.now(), orderId: '' })
   return { success: true, action: 'init' }
 }

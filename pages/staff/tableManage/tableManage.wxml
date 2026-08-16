@@ -1,0 +1,45 @@
+<!-- tableManage.wxml -->
+<view class="navbar" style="padding-top: {{statusBarHeight}}px; height: calc({{statusBarHeight}}px + 44px);">
+  <view class="navbar-content">
+    <view class="back-btn" bindtap="onBack">
+      <text class="back-icon">←</text>
+    </view>
+    <text class="navbar-title">桌位管理</text>
+  </view>
+</view>
+
+<view class="navbar-placeholder" style="height: calc({{statusBarHeight}}px + 44px);"></view>
+
+<view class="page-body">
+  <view wx:if="{{tables.length === 0}}" class="empty-tip">
+    <text class="empty-text">暂无桌位</text>
+  </view>
+
+  <view class="table-grid">
+    <view
+      wx:for="{{tables}}"
+      wx:key="_id"
+      class="table-item {{item.enabled ? '' : 'disabled'}} {{selectedTableId === item._id ? 'selected' : ''}}"
+      bindtap="onSelectTable"
+      data-id="{{item._id}}"
+    >
+      <text class="table-name">🪑 {{item.name}}</text>
+      <text class="table-status {{item.enabled ? 'status-open' : 'status-off'}}">{{item.enabled ? '营业中' : '已禁用'}}</text>
+    </view>
+  </view>
+</view>
+
+<view class="bottom-actions">
+  <view
+    class="action-btn clear-btn"
+    bindtap="onClearTable"
+  >
+    <text class="action-text">清台</text>
+  </view>
+  <view
+    class="action-btn {{selectedTable && !selectedTable.enabled ? 'restore-btn' : 'disable-btn'}}"
+    bindtap="onToggleDisable"
+  >
+    <text class="action-text">{{selectedTable && !selectedTable.enabled ? '恢复' : '禁用'}}</text>
+  </view>
+</view>

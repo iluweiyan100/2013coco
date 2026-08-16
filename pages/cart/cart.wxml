@@ -15,10 +15,10 @@
   <view class="navbar-placeholder" style="height: calc({{statusBarHeight}}px + 44px);"></view>
 
   <!-- 空购物车 -->
-  <view wx:if="{{dineInList.length === 0 && takeawayList.length === 0}}" class="cart-empty">
+  <view wx:if="{{(tableMode ? tableItems.length : (dineInList.length + takeawayList.length)) === 0}}" class="cart-empty">
     <image src="/images/icons/cart.png" class="cart-empty-icon" mode="aspectFit"></image>
-    <text class="cart-empty-text">购物车还是空的</text>
-    <text class="cart-empty-hint">快去点单页添加喜欢的饮品吧～</text>
+    <text class="cart-empty-text">{{tableMode ? '本桌还没有点单' : '购物车还是空的'}}</text>
+    <text class="cart-empty-hint">{{tableMode ? '扫码点单后，这里会实时同步本桌已点' : '快去点单页添加喜欢的饮品吧～'}}</text>
     <view class="cart-empty-btn" bindtap="onGoOrder">
       <text class="cart-empty-btn-text">去点单</text>
     </view>
@@ -28,57 +28,123 @@
   <block wx:else>
     <scroll-view class="cart-scroll" scroll-y>
 
-      <!-- ===== 堂食分组 ===== -->
-      <view wx:if="{{dineInList.length > 0}}" class="cart-group">
-        <view class="cart-group-header">
-          <view class="cart-group-tag cart-group-tag-dine">堂食</view>
+      <!-- ===== 桌位模式：共享桌单 + 状态 ===== -->
+      <block wx:if="{{tableMode}}">
+        <view class="table-status-banner table-status-{{tableStatus}}">
+          <text wx:if="{{tableStatus === 'open'}}" class="table-status-text">🪑 {{tableName}} · 本桌共享点单中</text>
+          <text wx:elif="{{tableStatus === 'paying'}}" class="table-status-text">🪑 {{tableName}} · 正在结算中…</text>
+          <text wx:else class="table-status-text">🪑 {{tableName}} · 已下单 取餐码 {{tablePickupNumber}}</text>
         </view>
-        <view class="cart-list">
-          <view class="cart-item" wx:for="{{dineInList}}" wx:key="uid">
-            <image src="{{item.image}}" class="cart-item-img" mode="aspectFill"></image>
-            <view class="cart-item-info">
-              <text class="cart-item-name">{{item.name}}</text>
-              <text wx:if="{{item.spec}}" class="cart-item-temp">{{item.spec}}</text>
-              <text class="cart-item-price">¥{{item.price}}</text>
-            </view>
-            <view class="cart-item-qty-row">
-              <view class="qty-btn" bindtap="onDecQty" data-uid="{{item.uid}}">
-                <text class="qty-btn-text">−</text>
-              </view>
-              <text class="qty-num">{{item.qty}}</text>
-              <view class="qty-btn" bindtap="onIncQty" data-uid="{{item.uid}}">
-                <text class="qty-btn-text">+</text>
-              </view>
-            </view>
-          </view>
-        </view>
-      </view>
 
-      <!-- ===== 外带分组 ===== -->
-      <view wx:if="{{takeawayList.length > 0}}" class="cart-group">
-        <view class="cart-group-header">
-          <view class="cart-group-tag cart-group-tag-takeaway">外带</view>
-        </view>
-        <view class="cart-list">
-          <view class="cart-item" wx:for="{{takeawayList}}" wx:key="uid">
-            <image src="{{item.image}}" class="cart-item-img" mode="aspectFill"></image>
-            <view class="cart-item-info">
-              <text class="cart-item-name">{{item.name}}</text>
-              <text wx:if="{{item.spec}}" class="cart-item-temp">{{item.spec}}</text>
-              <text class="cart-item-price">¥{{item.price}}</text>
-            </view>
-            <view class="cart-item-qty-row">
-              <view class="qty-btn" bindtap="onDecQty" data-uid="{{item.uid}}">
-                <text class="qty-btn-text">−</text>
+        <!-- 待支付 -->
+        <view class="cart-group" wx:if="{{pendingItems.length > 0}}">
+          <view class="cart-group-header">
+            <view class="cart-group-tag cart-group-tag-dine">待支付</view>
+            <text class="cart-group-count">共 {{pendingCount}} 件</text>
+          </view>
+          <view class="cart-list">
+            <view class="cart-item {{item.state === 'paying' ? 'cart-item-locked' : ''}}" wx:for="{{pendingItems}}" wx:key="uid">
+              <image src="{{item.image}}" class="cart-item-img" mode="aspectFill"></image>
+              <view class="cart-item-info">
+                <view class="cart-item-name-row">
+                  <text class="cart-item-name">{{item.name}}</text>
+                  <text wx:if="{{item.isMine}}" class="cart-item-mine">我的</text>
+                </view>
+                <text wx:if="{{item.spec}}" class="cart-item-temp">{{item.spec}}</text>
+                <text class="cart-item-price">¥{{item.price}}</text>
               </view>
-              <text class="qty-num">{{item.qty}}</text>
-              <view class="qty-btn" bindtap="onIncQty" data-uid="{{item.uid}}">
-                <text class="qty-btn-text">+</text>
+              <view class="cart-item-qty-row">
+                <block wx:if="{{item.isMine && item.state === 'pending'}}">
+                  <view class="qty-btn" bindtap="onDecQty" data-uid="{{item.uid}}">
+                    <text class="qty-btn-text">−</text>
+                  </view>
+                  <text class="qty-num">{{item.qty}}</text>
+                  <view class="qty-btn" bindtap="onIncQty" data-uid="{{item.uid}}">
+                    <text class="qty-btn-text">+</text>
+                  </view>
+                </block>
+                <text wx:else class="qty-num qty-num-locked">×{{item.qty}}</text>
               </view>
             </view>
           </view>
         </view>
-      </view>
+
+        <!-- 已下单 -->
+        <view class="cart-group cart-group-paid" wx:if="{{paidItems.length > 0}}">
+          <view class="cart-group-header">
+            <view class="cart-group-tag cart-group-tag-paid">已下单</view>
+          </view>
+          <view class="cart-list">
+            <view class="cart-item cart-item-paid" wx:for="{{paidItems}}" wx:key="uid">
+              <image src="{{item.image}}" class="cart-item-img" mode="aspectFill"></image>
+              <view class="cart-item-info">
+                <view class="cart-item-name-row">
+                  <text class="cart-item-name">{{item.name}}</text>
+                  <text wx:if="{{item.isMine}}" class="cart-item-mine">我的</text>
+                </view>
+                <text wx:if="{{item.spec}}" class="cart-item-temp">{{item.spec}}</text>
+                <text class="cart-item-price">¥{{item.price}}</text>
+              </view>
+              <view class="cart-item-qty-row">
+                <text class="qty-num qty-num-locked">×{{item.qty}}</text>
+              </view>
+            </view>
+          </view>
+        </view>
+      </block>
+
+      <!-- ===== 非桌位模式：堂食/外带分组 ===== -->
+      <block wx:else>
+        <view wx:if="{{dineInList.length > 0}}" class="cart-group">
+          <view class="cart-group-header">
+            <view class="cart-group-tag cart-group-tag-dine">堂食</view>
+          </view>
+          <view class="cart-list">
+            <view class="cart-item" wx:for="{{dineInList}}" wx:key="uid">
+              <image src="{{item.image}}" class="cart-item-img" mode="aspectFill"></image>
+              <view class="cart-item-info">
+                <text class="cart-item-name">{{item.name}}</text>
+                <text wx:if="{{item.spec}}" class="cart-item-temp">{{item.spec}}</text>
+                <text class="cart-item-price">¥{{item.price}}</text>
+              </view>
+              <view class="cart-item-qty-row">
+                <view class="qty-btn" bindtap="onDecQty" data-uid="{{item.uid}}">
+                  <text class="qty-btn-text">−</text>
+                </view>
+                <text class="qty-num">{{item.qty}}</text>
+                <view class="qty-btn" bindtap="onIncQty" data-uid="{{item.uid}}">
+                  <text class="qty-btn-text">+</text>
+                </view>
+              </view>
+            </view>
+          </view>
+        </view>
+
+        <view wx:if="{{takeawayList.length > 0}}" class="cart-group">
+          <view class="cart-group-header">
+            <view class="cart-group-tag cart-group-tag-takeaway">外带</view>
+          </view>
+          <view class="cart-list">
+            <view class="cart-item" wx:for="{{takeawayList}}" wx:key="uid">
+              <image src="{{item.image}}" class="cart-item-img" mode="aspectFill"></image>
+              <view class="cart-item-info">
+                <text class="cart-item-name">{{item.name}}</text>
+                <text wx:if="{{item.spec}}" class="cart-item-temp">{{item.spec}}</text>
+                <text class="cart-item-price">¥{{item.price}}</text>
+              </view>
+              <view class="cart-item-qty-row">
+                <view class="qty-btn" bindtap="onDecQty" data-uid="{{item.uid}}">
+                  <text class="qty-btn-text">−</text>
+                </view>
+                <text class="qty-num">{{item.qty}}</text>
+                <view class="qty-btn" bindtap="onIncQty" data-uid="{{item.uid}}">
+                  <text class="qty-btn-text">+</text>
+                </view>
+              </view>
+            </view>
+          </view>
+        </view>
+      </block>
 
       <!-- 备注 -->
       <view class="cart-remark-card">
@@ -97,11 +163,27 @@
     <!-- 底部结算栏 -->
     <view class="cart-footer">
       <view class="cart-footer-left">
-        <text class="cart-total-label">合计</text>
-        <text class="cart-total-price">¥{{totalPrice}}</text>
-        <text class="cart-total-count">共{{totalCount}}件</text>
+        <text class="cart-total-label">{{tableMode ? '待支付' : '合计'}}</text>
+        <text class="cart-total-price">¥{{tableMode ? pendingTotal : totalPrice}}</text>
+        <text class="cart-total-count">共{{tableMode ? pendingCount : totalCount}}件</text>
+        <text wx:if="{{tableMode && paidCount > 0}}" class="cart-paid-hint">已下单 {{paidCount}} 件</text>
       </view>
-      <view class="cart-submit-btn" bindtap="onPayNow">
+
+      <!-- 桌位模式：分开付（多人时）+ 一起付 -->
+      <view wx:if="{{tableMode}}" class="cart-actions">
+        <view
+          wx:if="{{isMultiPayer}}"
+          class="cart-submit-btn cart-submit-split {{myPendingCount === 0 ? 'cart-submit-disabled' : ''}}"
+          bindtap="onPaySplit"
+        >
+          <text class="cart-submit-text">分开付 ¥{{myPendingTotal}}</text>
+        </view>
+        <view class="cart-submit-btn {{pendingCount === 0 ? 'cart-submit-disabled' : ''}}" bindtap="onPayTogether">
+          <text class="cart-submit-text">一起付 ¥{{pendingTotal}}</text>
+        </view>
+      </view>
+
+      <view wx:else class="cart-submit-btn" bindtap="onPayNow">
         <text class="cart-submit-text">立即支付</text>
       </view>
     </view>

@@ -10,6 +10,15 @@
 <!-- 占位空间，防止内容被导航栏遮挡 -->
 <view class="navbar-placeholder" style="height: calc({{statusBarHeight}}px + 44px);"></view>
 
+<!-- 桌位共享点单状态条 -->
+<view wx:if="{{tableMode}}" class="table-mode-banner">
+  <text class="table-mode-text">
+    <block wx:if="{{tableStatus === 'open'}}">🪑 {{tableName}} · 本桌共享点单中</block>
+    <block wx:elif="{{tableStatus === 'paying'}}">🪑 {{tableName}} · 本桌正在结算</block>
+    <block wx:else>🪑 {{tableName}} · 已下单 取餐码 {{tablePickupNumber}}</block>
+  </text>
+</view>
+
 <view class="order-container">
   
   <!-- 主内容区：双栏布局 -->
@@ -35,11 +44,12 @@
     </view>
 
     <!-- 右侧商品列表 - 显示所有商品 -->
-    <scroll-view 
-      class="product-list" 
-      scroll-y 
+    <scroll-view
+      class="product-list"
+      scroll-y
       scroll-into-view="{{scrollToView}}"
       scroll-with-animation
+      bindscroll="onProductScroll"
     >
       <block wx:for="{{allProducts}}" wx:key="id">
         <!-- 分类标题（每个分类的第一个商品前显示） -->
@@ -54,7 +64,7 @@
         <!-- 商品卡片 -->
         <view class="product-card" id="product-{{index}}">
           <!-- 商品图片 -->
-          <image src="{{item.image}}" mode="aspectFill" class="product-image" lazy-load></image>
+          <image src="{{item.image}}" mode="aspectFill" class="product-image" lazy-load bindtap="onPreviewImage" data-url="{{item.image}}"></image>
           
           <!-- 商品信息区 -->
           <view class="product-info">
@@ -149,30 +159,32 @@
     </view>
   </block>
 
-  <!-- 就餐方式（始终显示） -->
-  <text class="spec-popup-subtitle">请选择就餐方式</text>
-  <view class="spec-options spec-options-row">
-    <view
-      class="spec-option spec-option-half {{selectedOrderType === 'dine-in' ? 'spec-option-active' : ''}}"
-      bindtap="onSelectOrderType"
-      data-val="dine-in"
-    >
-      <text class="spec-option-text {{selectedOrderType === 'dine-in' ? 'spec-option-text-active' : ''}}">堂食</text>
+  <!-- 就餐方式（桌位模式锁定堂食，隐藏选择） -->
+  <block wx:if="{{!tableMode}}">
+    <text class="spec-popup-subtitle">请选择就餐方式</text>
+    <view class="spec-options spec-options-row">
+      <view
+        class="spec-option spec-option-half {{selectedOrderType === 'dine-in' ? 'spec-option-active' : ''}}"
+        bindtap="onSelectOrderType"
+        data-val="dine-in"
+      >
+        <text class="spec-option-text {{selectedOrderType === 'dine-in' ? 'spec-option-text-active' : ''}}">堂食</text>
+      </view>
+      <view
+        class="spec-option spec-option-half {{selectedOrderType === 'takeaway' ? 'spec-option-active' : ''}}"
+        bindtap="onSelectOrderType"
+        data-val="takeaway"
+      >
+        <text class="spec-option-text {{selectedOrderType === 'takeaway' ? 'spec-option-text-active' : ''}}">外带</text>
+      </view>
     </view>
-    <view
-      class="spec-option spec-option-half {{selectedOrderType === 'takeaway' ? 'spec-option-active' : ''}}"
-      bindtap="onSelectOrderType"
-      data-val="takeaway"
-    >
-      <text class="spec-option-text {{selectedOrderType === 'takeaway' ? 'spec-option-text-active' : ''}}">外带</text>
-    </view>
-  </view>
+  </block>
 
   <view class="spec-actions">
     <view class="spec-cart-btn" bindtap="onConfirmSpec" hover-class="btn-active">
-      <text class="spec-cart-text">加入购物车</text>
+      <text class="spec-cart-text">{{tableMode ? '加入本桌' : '加入购物车'}}</text>
     </view>
-    <view class="spec-confirm-btn" bindtap="onBuyNow" hover-class="btn-active">
+    <view wx:if="{{!tableMode}}" class="spec-confirm-btn" bindtap="onBuyNow" hover-class="btn-active">
       <text class="spec-confirm-text">立即购买</text>
     </view>
   </view>

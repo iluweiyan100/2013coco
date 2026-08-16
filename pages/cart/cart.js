@@ -1,6 +1,13 @@
 // cart.js
 const app = getApp();
 const SUBSCRIBE = require('../../config/subscribe.js');
+const pay = require('../../utils/pay.js');
+const tableOrder = require('../../utils/tableOrder.js');
+
+// 生成自定义订单 _id（创建时即写入 orderId/outTradeNo，避免 post-add update 被安全规则禁止）
+function genOrderId() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+}
 
 Page({
   data: {
@@ -9,18 +16,120 @@ Page({
     dineInList: [],
     takeawayList: [],
     totalPrice: '0',
-    totalCount: 0
+    totalCount: 0,
+    // 桌位共享桌单模式
+    tableMode: false,
+    tableStatus: 'open',      // open | paying | paid
+    tablePickupNumber: '',
+    tableName: '',
+    tableItems: [],           // 全量（含 pending/paying/paid）
+    myOpenid: '',
+    pendingItems: [],         // 待支付
+    paidItems: [],            // 已下单
+    pendingCount: 0,          // 待支付件数（全桌）
+    pendingTotal: '0',        // 待支付合计（全桌）
+    myPendingTotal: '0',      // 我的待支付合计
+    myPendingCount: 0,        // 我的待支付件数
+    paidCount: 0,             // 已下单件数
+    isMultiPayer: false,      // 是否多人点单（决定是否显示分开付）
   },
 
   onLoad() {
     this.setData({
       statusBarHeight: wx.getWindowInfo().statusBarHeight
     });
-    this._syncFromGlobal();
+    if (tableOrder.isTableMode()) {
+      this.setData({ tableMode: true });
+      this._startTableSession(tableOrder.getTableId());
+    } else {
+      this._syncFromGlobal();
+    }
   },
 
   onShow() {
-    this._syncFromGlobal();
+    if (tableOrder.isTableMode()) {
+      if (!this.data.tableMode) this.setData({ tableMode: true });
+      this._startTableSession(tableOrder.getTableId());
+    } else {
+      if (this.data.tableMode) this.setData({ tableMode: false });
+      this._syncFromGlobal();
+    }
+  },
+
+  onUnload() {
+    this._stopTableWatcher();
+  },
+
+  // ===== 桌位共享桌单 =====
+  async _startTableSession(tableId) {
+    if (this._tableId === tableId && this._tableWatcher) return;
+    this._stopTableWatcher();
+    this._tableId = tableId;
+
+    try {
+      const r = await tableOrder.join(tableId);
+      if (r.reset) wx.showToast({ title: '已开启新桌单', icon: 'none', duration: 1500 });
+      this._applyTableSession(r.session);
+    } catch (e) {
+      console.warn('[Cart] 加入桌单失败', e);
+      tableOrder.getSession(tableId).then(r => this._applyTableSession(r.session)).catch(() => {});
+    }
+
+    this._tableWatcher = tableOrder.watch(tableId, {
+      onChange: session => this._applyTableSession(session),
+      onError: () => {
+        tableOrder.getSession(tableId).then(r => this._applyTableSession(r.session)).catch(() => {});
+      }
+    });
+
+    this._heartbeatTimer = setInterval(() => {
+      if (tableOrder.isTableMode()) tableOrder.heartbeat(tableId).catch(() => {});
+    }, 30000);
+  },
+
+  _applyTableSession(session) {
+    if (!session) return;
+    const myOpenid = wx.getStorageSync('openid') || getApp().globalData.openid || '';
+    const items = (session.items || []).map(i => ({
+      ...i,
+      state: i.state || 'pending',
+      isMine: (i.addedBy || '') === myOpenid
+    }));
+    // 待支付组：pending（可编辑）+ paying（结算中冻结显示）
+    const pendingItems = items.filter(i => i.state === 'pending' || i.state === 'paying');
+    // 已下单组
+    const paidItems = items.filter(i => i.state === 'paid');
+    // 真正待支付的合计（用于按钮金额/件数，不含结算中）
+    const trulyPending = items.filter(i => i.state === 'pending');
+    const pendingCount = trulyPending.reduce((s, i) => s + (i.qty || 1), 0);
+    const pendingTotal = trulyPending.reduce((s, i) => s + (Number(i.price) || 0) * (i.qty || 1), 0).toFixed(2);
+    const myPending = trulyPending.filter(i => i.isMine);
+    const myPendingTotal = myPending.reduce((s, i) => s + (Number(i.price) || 0) * (i.qty || 1), 0).toFixed(2);
+    const myPendingCount = myPending.reduce((s, i) => s + (i.qty || 1), 0);
+    const paidCount = paidItems.reduce((s, i) => s + (i.qty || 1), 0);
+    // 多人判定含结算中的条目（pending+paying），否则他人结算中时你的「分开付」按钮会消失、无法付款
+    const payers = [...new Set(pendingItems.map(i => i.addedBy).filter(Boolean))];
+    const isMultiPayer = payers.length >= 2;
+    this.setData({
+      myOpenid,
+      tableItems: items,
+      pendingItems,
+      paidItems,
+      tableStatus: session.status || 'open',
+      tablePickupNumber: session.pickupNumber || '',
+      tableName: session.tableName || '',
+      pendingCount,
+      pendingTotal,
+      myPendingTotal,
+      myPendingCount,
+      paidCount,
+      isMultiPayer
+    });
+  },
+
+  _stopTableWatcher() {
+    if (this._tableWatcher) { this._tableWatcher.close(); this._tableWatcher = null; }
+    if (this._heartbeatTimer) { clearInterval(this._heartbeatTimer); this._heartbeatTimer = null; }
   },
 
   // 从 globalData 同步购物车数据，按 orderType 分组
@@ -42,8 +151,22 @@ Page({
   },
 
   // 增加数量
-  onIncQty(e) {
+  async onIncQty(e) {
     const uid = e.currentTarget.dataset.uid;
+    if (this.data.tableMode) {
+      const item = (this.data.tableItems || []).find(i => i.uid === uid);
+      if (!item) return;
+      if (item.state !== 'pending' || !item.isMine) {
+        wx.showToast({ title: '只能修改自己的待支付商品', icon: 'none', duration: 1500 });
+        return;
+      }
+      try {
+        await tableOrder.updateQty(tableOrder.getTableId(), uid, (item.qty || 1) + 1);
+      } catch (err) {
+        wx.showToast({ title: err.message || '操作失败', icon: 'none', duration: 1500 });
+      }
+      return;
+    }
     const list = (app.globalData.cartItems || []).map(item => {
       if (item.uid === uid) return { ...item, qty: item.qty + 1 };
       return item;
@@ -52,8 +175,22 @@ Page({
   },
 
   // 减少数量
-  onDecQty(e) {
+  async onDecQty(e) {
     const uid = e.currentTarget.dataset.uid;
+    if (this.data.tableMode) {
+      const item = (this.data.tableItems || []).find(i => i.uid === uid);
+      if (!item) return;
+      if (item.state !== 'pending' || !item.isMine) {
+        wx.showToast({ title: '只能修改自己的待支付商品', icon: 'none', duration: 1500 });
+        return;
+      }
+      try {
+        await tableOrder.updateQty(tableOrder.getTableId(), uid, (item.qty || 1) - 1);
+      } catch (err) {
+        wx.showToast({ title: err.message || '操作失败', icon: 'none', duration: 1500 });
+      }
+      return;
+    }
     const list = (app.globalData.cartItems || []).map(item => {
       if (item.uid === uid) return { ...item, qty: item.qty - 1 };
       return item;
@@ -76,8 +213,43 @@ Page({
     wx.navigateBack({ delta: 1 });
   },
 
-  // 立即支付：先请求订阅授权，再调用云函数创建支付订单
+  // 一起付（桌位模式）：一人付全桌所有未付款点单
+  onPayTogether() {
+    if (!this.data.tableMode) return;
+    // 自己已有在途结算：即时拦截（服务端也会拒绝）
+    if (this.data.pendingItems.some(i => i.state === 'paying' && i.isMine)) {
+      wx.showToast({ title: '你有正在结算的点单，请先完成或取消', icon: 'none', duration: 1500 });
+      return;
+    }
+    if (this.data.pendingCount === 0) {
+      wx.showToast({ title: '本桌没有待支付的点单', icon: 'none', duration: 1500 });
+      return;
+    }
+    this._requestSubscribe(() => {
+      this._doTablePay('together');
+    });
+  },
+
+  // 分开付（桌位模式）：只付自己点的
+  onPaySplit() {
+    if (!this.data.tableMode) return;
+    if (!this.data.isMultiPayer) {
+      wx.showToast({ title: '只有一人点单，请用一起付', icon: 'none', duration: 1500 });
+      return;
+    }
+    if (this.data.myPendingCount === 0) {
+      wx.showToast({ title: '你没有待支付的点单', icon: 'none', duration: 1500 });
+      return;
+    }
+    this._requestSubscribe(() => {
+      this._doTablePay('split');
+    });
+  },
+
+  // 立即支付（非桌位模式）：先请求订阅授权，再调用云函数创建支付订单
   onPayNow() {
+    if (this.data.tableMode) return;  // 桌位模式走 onPayTogether / onPaySplit
+
     const { dineInList, takeawayList, remark } = this.data;
     const totalItems = [...dineInList, ...takeawayList];
     if (totalItems.length === 0) return;
@@ -90,7 +262,6 @@ Page({
 
   /**
    * 请求订阅消息授权（同步调用栈中触发，不可 await）
-   * 勾选"总是保持以上选择"后后续不会再弹窗，静默续期
    */
   _requestSubscribe(callback) {
     wx.requestSubscribeMessage({
@@ -105,68 +276,45 @@ Page({
         console.warn('[Subscribe] 订阅消息授权失败:', err);
       },
       complete: () => {
-        // 无论授权结果如何，继续支付流程
         callback();
       },
     });
   },
 
-  /**
-   * 执行实际支付流程
-   */
-  async _doPay(dineInList, takeawayList, remark) {
-    const totalItems = [...dineInList, ...takeawayList];
+  // ===== 桌位模式：一起付 / 分开付 =====
+  async _doTablePay(mode) {
+    const tableId = tableOrder.getTableId();
+    if (!tableId || this._paying) return;
+    this._paying = true;
 
-    wx.showLoading({ title: '正在下单...', mask: true });
-
-    // 确保有 openid
-    let openid = wx.getStorageSync('openid');
-    if (!openid) {
-      const app = getApp();
-      if (app.globalData.openid) {
-        openid = app.globalData.openid;
-        wx.setStorageSync('openid', openid);
-      } else {
-        wx.hideLoading();
-        wx.showToast({
-          title: '用户未登录，请重新打开小程序',
-          icon: 'none'
-        });
-        return;
-      }
-    }
-    console.log('[PayNow] openid:', openid);
-
+    let checkout = null;
     try {
-      // 1. 先创建订单记录（状态为 pending）
-      const orders = [];
-      if (dineInList.length > 0) {
-        orders.push(this._buildOrder(dineInList, 'dine-in', remark));
-      }
-      if (takeawayList.length > 0) {
-        orders.push(this._buildOrder(takeawayList, 'takeaway', remark));
-      }
+      wx.showLoading({ title: '正在结算...', mask: true });
+      checkout = mode === 'split'
+        ? await tableOrder.startSplitCheckout(tableId)
+        : await tableOrder.startCheckout(tableId);
+    } catch (e) {
+      wx.hideLoading();
+      this._paying = false;
+      wx.showToast({ title: e.message || '结算失败', icon: 'none', duration: 2000 });
+      return;
+    }
 
-      const orderIds = await this._createPendingOrders(orders);
-      
-      // 2. 计算 outTradeNo（≤32字符）并回写到每条订单，供 callback 批量查询
-      const totalAmount = orders.reduce((s, o) => s + o.totalAmount, 0);
-      const outTradeNo = orderIds.length === 1
-        ? orderIds[0]
-        : orderIds[0].slice(0, 26) + '_' + orderIds.length;
+    let orderId = '';
+    try {
+      // 1. 创建一张订单（pending）：一起付合并全桌、分开付只含本人条目
+      orderId = await this._createTableOrder(checkout, mode);
 
-      // 回写 outTradeNo 到所有关联订单
-      const db2 = wx.cloud.database();
-      await Promise.all(orderIds.map(id =>
-        db2.collection('orders').doc(id).update({ data: { outTradeNo } })
-      ));
-      
+      // 1.5 回写结算锁对应订单 id（供超时恢复/幂等判断；等待完成后再发起支付，缩小「无 lockOrderId」窗口）
+      await tableOrder.bindTableCheckout(tableId, orderId).catch(() => {});
+
+      // 2. 统一下单
       const paymentRes = await wx.cloud.callFunction({
         name: 'createPayment',
         data: {
-          totalAmount: totalAmount,
-          orderId: outTradeNo,
-          orderIds: orderIds,
+          totalAmount: checkout.totalAmount,
+          orderId: orderId,
+          orderIds: [orderId],
           openid: wx.getStorageSync('openid')
         }
       });
@@ -177,7 +325,7 @@ Page({
         throw new Error('获取支付参数失败');
       }
 
-      // 3. 调起支付
+      // 3. 调起微信支付
       const params = paymentRes.result.paymentParams;
       await wx.requestPayment({
         timeStamp: params.timeStamp,
@@ -187,130 +335,129 @@ Page({
         paySign: params.paySign
       });
 
-      // 4. 支付成功，清空购物车并跳转
+      // 4. 支付成功：由服务端校验支付并完成桌单（complete 内部查微信 + 写订单 making + 标记条目 paid）
+      const finished = await this._finishTablePay(mode, tableId, orderId);
+      if (!finished) {
+        wx.showToast({ title: '支付成功，确认中…', icon: 'none', duration: 2500 });
+      }
+
+    } catch (e) {
+      wx.hideLoading();
+      console.error('[TablePay] 支付流程失败:', e);
+      const isCancel = !!(e.errMsg && e.errMsg.indexOf('cancel') !== -1);
+
+      if (isCancel) {
+        // 用户主动取消：无支付发生，释放结算锁 + 删除本张未支付订单（防垃圾数据累积）
+        if (mode === 'split') {
+          await tableOrder.releaseSplitCheckout(tableId, orderId).catch(() => {});
+        } else {
+          await tableOrder.releaseCheckout(tableId, orderId).catch(() => {});
+        }
+        if (orderId) {
+          wx.cloud.database().collection('orders').doc(orderId).remove().catch(() => {});
+        }
+      } else if (orderId) {
+        // 非取消：可能是「已扣款但本地报错」。让服务端确认支付；
+        // 确认不了就保留锁等 webhook 收尾，绝不误释放（防重复扣款）
+        const finished = await this._finishTablePay(mode, tableId, orderId).catch(() => false);
+        if (!finished) {
+          wx.showToast({ title: '支付结果确认中，请稍后刷新', icon: 'none', duration: 2500 });
+        }
+      } else {
+        wx.showToast({ title: e.message || '支付失败，请重试', icon: 'none', duration: 2000 });
+      }
+    } finally {
+      this._paying = false;
+    }
+  },
+
+  // 服务端确认支付并完成桌单（complete*Checkout 内部查微信真实状态，未付/查单失败返回 NOT_PAID）
+  async _finishTablePay(mode, tableId, orderId) {
+    try {
+      if (mode === 'split') {
+        await tableOrder.completeSplitCheckout(tableId, orderId);
+      } else {
+        await tableOrder.completeCheckout(tableId, orderId);
+      }
+    } catch (err) {
+      // NOT_PAID：服务端查单未确认成功 → 保留锁等 webhook，返回 false（不抛错、不释放）
+      if (err && err.code === 'NOT_PAID') return false;
+      throw err;
+    }
+
+    // 销量累加（幂等）
+    wx.cloud.callFunction({ name: 'initDB', data: { action: 'recordSales', orderIds: [orderId] } })
+      .catch(e => console.warn('[Sales] 销量累加失败（可忽略）', e));
+
+    wx.showToast({ title: '支付成功', icon: 'success', duration: 1200 });
+    setTimeout(() => {
+      wx.reLaunch({ url: '/pages/orders/orders' });
+    }, 1400);
+    return true;
+  },
+
+  // 创建一张桌位订单（一起付合并全桌 / 分开付只含本人条目）
+  async _createTableOrder(checkout, mode) {
+    const openid = wx.getStorageSync('openid') || getApp().globalData.openid;
+    if (!openid) throw new Error('用户未登录，请重新打开小程序');
+
+    const db = wx.cloud.database();
+    const items = checkout.items || [];
+    // 预生成 _id，创建时即写入 orderId/outTradeNo（安全规则已禁止 post-add update）
+    const orderId = genOrderId();
+    await db.collection('orders').add({
+      data: {
+        _id: orderId,
+        orderId: orderId,
+        outTradeNo: orderId,
+        openid: openid,
+        pickupNumber: checkout.pickupNumber,
+        orderType: 'dine-in',
+        status: 'pending',
+        remark: this.data.remark || '',
+        products: items.map(i => ({
+          productId: i.productId || '',
+          name: i.name,
+          temperature: i.spec || '',
+          quantity: i.qty || 1,
+          price: (i.price || 0) * (i.qty || 1)
+        })),
+        totalAmount: checkout.totalAmount,
+        createTime: db.serverDate(),
+        tableId: tableOrder.getTableId(),
+        tableName: tableOrder.getTableName(),
+        // 分开付：只有付款人可见；一起付：结算时在场的同桌成员都可见
+        memberOpenids: (mode === 'split')
+          ? [openid]
+          : (checkout.memberOpenids && checkout.memberOpenids.length ? checkout.memberOpenids : [openid]),
+        // 本次结算锁定的条目 uid（供支付回调精确标记已付）
+        tableItemUids: (mode === 'split')
+          ? (checkout.uidList || items.map(i => i.uid))
+          : items.map(i => i.uid)
+      }
+    });
+    return orderId;
+  },
+
+  /**
+   * 执行实际支付流程（非桌位模式，复用 utils/pay.js 的服务端唯一取餐码逻辑）
+   */
+  async _doPay(dineInList, takeawayList, remark) {
+    const orderGroups = [];
+    if (dineInList.length > 0) {
+      orderGroups.push({ items: dineInList, orderType: 'dine-in', remark });
+    }
+    if (takeawayList.length > 0) {
+      orderGroups.push({ items: takeawayList, orderType: 'takeaway', remark });
+    }
+    pay.executePay(orderGroups, () => {
+      // 支付成功：清空本地购物车并跳转订单页
       app.globalData.cartItems = [];
       wx.showToast({ title: '支付成功', icon: 'success', duration: 1200 });
       setTimeout(() => {
         wx.reLaunch({ url: '/pages/orders/orders' });
       }, 1400);
-
-    } catch (e) {
-      wx.hideLoading();
-      console.error('[Pay] 支付流程失败:', e);
-      if (e.errMsg && e.errMsg.indexOf('cancel') !== -1) {
-        // 用户取消支付，删除pending订单
-        await this._deletePendingOrders();
-      } else {
-        wx.showToast({ 
-          title: e.message || '支付失败，请重试', 
-          icon: 'none',
-          duration: 2000
-        });
-      }
-    }
-  },
-
-  // 构建单笔订单对象
-  _buildOrder(items, orderType, remark) {
-    const now = new Date();
-    const pad = n => String(n).padStart(2, '0');
-    const letters = 'ABCDEFGH';
-    const pickupNumber = letters[Math.floor(Math.random() * letters.length)] +
-      String(Math.floor(Math.random() * 99) + 1).padStart(2, '0');
-    const totalAmount = items.reduce((s, i) => s + parseFloat(i.price) * i.qty, 0);
-
-    return {
-      id: Date.now() + Math.random(),
-      pickupNumber,
-      date: `${pad(now.getMonth() + 1)}-${pad(now.getDate())}`,
-      time: `${pad(now.getHours())}:${pad(now.getMinutes())}`,
-      orderType,  // 直接保持英文 'dine-in' / 'takeaway'
-      status: 'making',
-      statusText: '制作中',
-      remark,
-      products: items.map(item => ({
-        name: item.name,
-        temperature: item.spec || '',  // 与 staff 页面字段对齐
-        quantity: item.qty,
-        price: parseFloat(item.price) * item.qty
-      })),
-      totalAmount: parseFloat(totalAmount.toFixed(2))
-    };
-  },
-
-  // 创建待支付订单记录，返回订单ID数组
-  async _createPendingOrders(orders) {
-    let openid = wx.getStorageSync('openid');
-    if (!openid) {
-      // 如果没有 openid，先获取
-      const app = getApp();
-      if (app.globalData.openid) {
-        openid = app.globalData.openid;
-        wx.setStorageSync('openid', openid);
-      } else {
-        throw new Error('用户未登录，请重新打开小程序');
-      }
-    }
-    console.log('[CreatePendingOrders] openid:', openid);
-
-    const db = wx.cloud.database();
-
-    const orderIds = [];
-
-    // 同一批订单（堂食+外带）共用同一个取餐编号
-    const letters = 'ABCDEFGH';
-    const sharedPickupNumber = letters[Math.floor(Math.random() * letters.length)] +
-      String(Math.floor(Math.random() * 99) + 1).padStart(2, '0');
-
-    // 获取桌位上下文
-    const ctx = getApp().globalData.tableContext
-      || wx.getStorageSync('tableContext') || null;
-    console.log('[Cart] 桌位上下文:', JSON.stringify(ctx));
-    console.log('[Cart] globalData.tableContext:', JSON.stringify(getApp().globalData.tableContext));
-
-    for (const order of orders) {
-      console.log('[Cart] 订单 orderType:', order.orderType, 'tableName:', ctx ? ctx.tableName : 'N/A');
-      const res = await db.collection('orders').add({
-        data: {
-          openid: openid,
-          pickupNumber: sharedPickupNumber,
-          orderType: order.orderType,  // 已是英文 'dine-in' / 'takeaway'
-          status: 'pending',
-          remark: order.remark || '',
-          products: order.products,
-          totalAmount: order.totalAmount,
-          createTime: db.serverDate(),
-          // 关联桌位（所有订单类型）
-          tableId: ctx ? (ctx.tableId || '') : '',
-          tableName: ctx ? (ctx.tableName || '') : ''
-        }
-      });
-      // 写入 orderId 和 outTradeNo 字段，供支付回调查询使用
-      await db.collection('orders').doc(res._id).update({
-        data: { orderId: res._id, outTradeNo: '' }  // outTradeNo 待拿到后统一回写
-      });
-      orderIds.push(res._id);
-    }
-
-    return orderIds;
-  },
-
-  // 删除待支付订单（支付取消时调用）
-  async _deletePendingOrders() {
-    const openid = wx.getStorageSync('openid');
-    const db = wx.cloud.database();
-    const _ = db.command;
-
-    try {
-      await db.collection('orders')
-        .where({
-          openid: openid,
-          status: 'pending'
-        })
-        .remove();
-    } catch (e) {
-      console.warn('[Pay] 删除pending订单失败', e);
-    }
+    });
   },
 
   // 重新计算合计

@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm list *)",
+      "Bash(tcb login *)",
+      "Bash(cat ~/.cloudbase/cli.json 2>/dev/null || echo \"No cached TCB login found\")",
+      "Read(//Users/qinyao/.cloudbase/**)",
+      "Bash(node --check \"/Users/qinyao/projects/wxminiprogram/20260402 2013coco/2013coco/cloudfunctions/sendSubscribeMessage/index.js\")",
+      "Bash(node --check \"/Users/qinyao/projects/wxminiprogram/20260402 2013coco/2013coco/cloudfunctions/createPaymentCallback/index.js\")",
+      "Bash(git add *)",
+      "Bash(git commit -m 'feat: 订阅消息通知、分享图片裁剪、订单排序优化 *)",
+      "Bash(git push *)"
+    ]
+  }
+}

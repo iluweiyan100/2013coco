@@ -6,6 +6,17 @@ const db = cloud.database()
 exports.main = async (event, context) => {
   console.log('Received event:', JSON.stringify(event))
 
+  // 鉴权：仅店员/管理员可清空集合
+  const openid = cloud.getWXContext().OPENID
+  const [staff, admin] = await Promise.all([
+    db.collection('staff_whitelist').where({ openid, status: 1 }).limit(1).get().catch(() => ({ data: [] })),
+    db.collection('admin_whitelist').where({ openid, status: 1 }).limit(1).get().catch(() => ({ data: [] }))
+  ])
+  const authorized = (staff.data && staff.data.length > 0) || (admin.data && admin.data.length > 0)
+  if (!authorized) {
+    return { success: false, error: '无权限' }
+  }
+
   const collectionName = event.collectionName || event
 
   if (!collectionName) {

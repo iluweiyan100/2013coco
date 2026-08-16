@@ -171,11 +171,12 @@
               </view>
               <view class="product-meta">
                 <text class="product-price">¥{{item.price}}</text>
+                <text class="product-sales">销量 {{item.sales || 0}}</text>
                 <view class="product-tag">
                   <text class="product-tag-text">{{item.categoryLabel}}</text>
                 </view>
                 <view class="product-status-tag product-status-{{item.saleStatus}}" catchtap="onQuickEditStatus" data-id="{{item._id}}" data-status="{{item.saleStatus}}">
-                  <text class="product-status-text">{{item.saleStatus === 'on' ? '上架' : item.saleStatus === 'off' ? '下架' : '售罄'}}</text>
+                  <text class="product-status-text">{{item.saleStatus === 'on' ? '上架' : '下架'}}</text>
                 </view>
               </view>
             </view>
@@ -835,13 +836,6 @@
         >
           <text class="pm-status-text {{editingProduct.saleStatus === 'off' ? 'pm-status-text-active' : ''}}">下架</text>
         </view>
-        <view
-          class="pm-status-btn {{editingProduct.saleStatus === 'sold' ? 'pm-status-active' : ''}}"
-          bindtap="onSelectStatus"
-          data-status="sold"
-        >
-          <text class="pm-status-text {{editingProduct.saleStatus === 'sold' ? 'pm-status-text-active' : ''}}">售罄</text>
-        </view>
       </view>
     </view>
 
@@ -951,14 +945,6 @@
       >
         <text class="quick-option-text">下架</text>
         <text wx:if="{{quickEditingStatus === 'off'}}" class="quick-option-check">✓</text>
-      </view>
-      <view
-        class="quick-option-item {{quickEditingStatus === 'sold' ? 'quick-option-selected' : ''}}"
-        bindtap="onSelectQuickStatus"
-        data-status="sold"
-      >
-        <text class="quick-option-text">售罄</text>
-        <text wx:if="{{quickEditingStatus === 'sold'}}" class="quick-option-check">✓</text>
       </view>
     </view>
   </view>

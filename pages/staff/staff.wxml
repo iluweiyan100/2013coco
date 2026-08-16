@@ -1,4 +1,6 @@
 <!-- staff.wxml -->
+<!-- 根容器：任意点击解锁音频（小程序需用户交互后才能自动播放提示音） -->
+<view class="staff-page" catchtap="onUnlockAudio">
 <!-- 导航栏 -->
 <view class="navbar" style="padding-top: {{statusBarHeight}}px; height: calc({{statusBarHeight}}px + 44px);">
   <view class="navbar-content">
@@ -17,6 +19,16 @@
 
 <!-- 占位空间，防止内容被导航栏遮挡 -->
 <view class="navbar-placeholder" style="height: calc({{statusBarHeight}}px + 44px);"></view>
+
+<!-- 声音未开启提示：点击一次即可解锁新订单提示音（平台要求首次播放需用户交互） -->
+<view
+  wx:if="{{!soundEnabled}}"
+  class="sound-tip-banner"
+  style="top: calc({{statusBarHeight}}px + 44px + 16px);"
+  bindtap="onUnlockAudio"
+>
+  <text class="sound-tip-text">🔔 点击开启新订单提示音</text>
+</view>
 
 <view class="staff-container">
   <!-- 左栏：新订单（2/3） -->
@@ -200,4 +212,10 @@
       </view>
     </scroll-view>
   </view>
+</view>
+
+<!-- 桌位管理悬浮按钮（页面右下角） -->
+<view class="staff-table-fab" bindtap="onOpenTableManage">
+  <text class="staff-table-icon">🪑</text>
+</view>
 </view>

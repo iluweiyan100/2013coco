@@ -583,3 +583,20 @@ page {
   font-weight: 600;
   line-height: 1;
 }
+
+/* 桌位共享点单状态条 */
+.table-mode-banner {
+  margin: 16rpx 24rpx 0;
+  padding: 20rpx 24rpx;
+  border-radius: 16rpx;
+  background: rgba(163, 33, 45, 0.08);
+  display: flex;
+  align-items: center;
+}
+
+.table-mode-text {
+  font-size: 26rpx;
+  font-weight: 500;
+  color: #3A2318;
+  font-family: 'CangerShuYuanTi', Noto Serif SC;
+}

@@ -1,0 +1,14 @@
+{
+  "name": "tableOrder",
+  "version": "1.0.0",
+  "description": "桌位共享桌单：加入/加菜/结算锁/取餐码",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "latest"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC"
+}

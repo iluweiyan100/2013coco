@@ -476,6 +476,11 @@ page {
   font-weight: 500;
 }
 
+.product-sales {
+  font-size: 22rpx;
+  color: #A8988B;
+}
+
 .product-tag {
   background: #F5EDE4;
   border-radius: 8rpx;
@@ -502,7 +507,6 @@ page {
 
 .product-status-on   { background: rgba(39, 167, 79, 0.12); }
 .product-status-off  { background: rgba(91, 58, 41, 0.10); }
-.product-status-sold { background: rgba(163, 33, 45, 0.10); }
 
 .product-status-text {
   font-size: 22rpx;
@@ -510,7 +514,6 @@ page {
 
 .product-status-on   .product-status-text { color: #27A74F; }
 .product-status-off  .product-status-text { color: #8B6F5E; }
-.product-status-sold .product-status-text { color: #A3212D; }
 
 .product-actions {
   display: flex;
