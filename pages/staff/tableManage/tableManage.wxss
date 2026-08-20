@@ -140,6 +140,11 @@ page {
   border-top: 1rpx solid #E7DDD1;
 }
 
+/* 未选中桌位时底部按钮置灰 */
+.bottom-actions.no-selection .action-btn {
+  opacity: 0.4;
+}
+
 .action-btn {
   flex: 1;
   height: 88rpx;

@@ -365,6 +365,26 @@ page {
   padding: 0 40rpx;
 }
 
+/* 多人点单（分开付 + 一起付 同时出现）：结算栏改两行布局，避免总价与双按钮挤压错乱 */
+.cart-footer-multi {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 16rpx;
+}
+
+.cart-footer-multi .cart-footer-left {
+  justify-content: space-between;
+}
+
+.cart-footer-multi .cart-actions {
+  width: 100%;
+}
+
+.cart-footer-multi .cart-submit-btn {
+  flex: 1;
+  padding: 0 24rpx;
+}
+
 .cart-group-count {
   margin-left: 12rpx;
   font-size: 22rpx;
@@ -409,6 +429,14 @@ page {
 
 .cart-paid-hint {
   font-size: 20rpx;
+  color: #388E3C;
+  font-family: 'CangerShuYuanTi', Noto Serif SC;
+}
+
+/* 全桌已下单：结算栏仅提示（隐藏支付按钮时） */
+.cart-all-paid-hint {
+  font-size: 28rpx;
+  font-weight: 500;
   color: #388E3C;
   font-family: 'CangerShuYuanTi', Noto Serif SC;
 }

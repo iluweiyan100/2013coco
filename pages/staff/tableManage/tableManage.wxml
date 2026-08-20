@@ -29,7 +29,7 @@
   </view>
 </view>
 
-<view class="bottom-actions">
+<view class="bottom-actions {{selectedTable ? '' : 'no-selection'}}">
   <view
     class="action-btn clear-btn"
     bindtap="onClearTable"

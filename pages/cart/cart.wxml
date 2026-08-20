@@ -40,7 +40,7 @@
         <view class="cart-group" wx:if="{{pendingItems.length > 0}}">
           <view class="cart-group-header">
             <view class="cart-group-tag cart-group-tag-dine">待支付</view>
-            <text class="cart-group-count">共 {{pendingCount}} 件</text>
+            <text class="cart-group-count">共 {{pendingListCount}} 件</text>
           </view>
           <view class="cart-list">
             <view class="cart-item {{item.state === 'paying' ? 'cart-item-locked' : ''}}" wx:for="{{pendingItems}}" wx:key="uid">
@@ -73,6 +73,7 @@
         <view class="cart-group cart-group-paid" wx:if="{{paidItems.length > 0}}">
           <view class="cart-group-header">
             <view class="cart-group-tag cart-group-tag-paid">已下单</view>
+            <text class="cart-group-count">共 {{paidCount}} 件</text>
           </view>
           <view class="cart-list">
             <view class="cart-item cart-item-paid" wx:for="{{paidItems}}" wx:key="uid">
@@ -161,16 +162,21 @@
     </scroll-view>
 
     <!-- 底部结算栏 -->
-    <view class="cart-footer">
+    <view class="cart-footer {{tableMode && isMultiPayer ? 'cart-footer-multi' : ''}}">
       <view class="cart-footer-left">
-        <text class="cart-total-label">{{tableMode ? '待支付' : '合计'}}</text>
-        <text class="cart-total-price">¥{{tableMode ? pendingTotal : totalPrice}}</text>
-        <text class="cart-total-count">共{{tableMode ? pendingCount : totalCount}}件</text>
-        <text wx:if="{{tableMode && paidCount > 0}}" class="cart-paid-hint">已下单 {{paidCount}} 件</text>
+        <!-- 全桌已下单：仅提示，不显示待支付金额与支付按钮 -->
+        <text wx:if="{{tableMode && tableStatus === 'paid'}}" class="cart-all-paid-hint">本桌已下单 {{paidCount}} 件</text>
+        <block wx:else>
+          <text class="cart-total-label">{{tableMode ? '待支付' : '合计'}}</text>
+          <!-- 多人点单时不再显示单一「待支付总额」（与「一起付」金额重复），改由两个按钮各自展示金额 -->
+          <text wx:if="{{!(tableMode && isMultiPayer)}}" class="cart-total-price">¥{{tableMode ? pendingTotal : totalPrice}}</text>
+          <text class="cart-total-count">共{{tableMode ? pendingCount : totalCount}}件</text>
+          <text wx:if="{{tableMode && paidCount > 0}}" class="cart-paid-hint">已下单 {{paidCount}} 件</text>
+        </block>
       </view>
 
-      <!-- 桌位模式：分开付（多人时）+ 一起付 -->
-      <view wx:if="{{tableMode}}" class="cart-actions">
+      <!-- 桌位模式：分开付（多人时）+ 一起付；全桌已下单时不显示 -->
+      <view wx:if="{{tableMode && tableStatus !== 'paid'}}" class="cart-actions">
         <view
           wx:if="{{isMultiPayer}}"
           class="cart-submit-btn cart-submit-split {{myPendingCount === 0 ? 'cart-submit-disabled' : ''}}"
@@ -183,7 +189,7 @@
         </view>
       </view>
 
-      <view wx:else class="cart-submit-btn" bindtap="onPayNow">
+      <view wx:elif="{{!tableMode}}" class="cart-submit-btn" bindtap="onPayNow">
         <text class="cart-submit-text">立即支付</text>
       </view>
     </view>

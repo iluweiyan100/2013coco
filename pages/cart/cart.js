@@ -26,7 +26,8 @@ Page({
     myOpenid: '',
     pendingItems: [],         // 待支付
     paidItems: [],            // 已下单
-    pendingCount: 0,          // 待支付件数（全桌）
+    pendingCount: 0,          // 待支付件数（全桌，不含结算中）
+    pendingListCount: 0,      // 待支付分组内件数（含结算中，用于列表头计数）
     pendingTotal: '0',        // 待支付合计（全桌）
     myPendingTotal: '0',      // 我的待支付合计
     myPendingCount: 0,        // 我的待支付件数
@@ -51,7 +52,7 @@ Page({
       if (!this.data.tableMode) this.setData({ tableMode: true });
       this._startTableSession(tableOrder.getTableId());
     } else {
-      if (this.data.tableMode) this.setData({ tableMode: false });
+      if (this.data.tableMode) this.setData({ tableMode: false, isMultiPayer: false });
       this._syncFromGlobal();
     }
   },
@@ -102,6 +103,7 @@ Page({
     // 真正待支付的合计（用于按钮金额/件数，不含结算中）
     const trulyPending = items.filter(i => i.state === 'pending');
     const pendingCount = trulyPending.reduce((s, i) => s + (i.qty || 1), 0);
+    const pendingListCount = pendingItems.reduce((s, i) => s + (i.qty || 1), 0);
     const pendingTotal = trulyPending.reduce((s, i) => s + (Number(i.price) || 0) * (i.qty || 1), 0).toFixed(2);
     const myPending = trulyPending.filter(i => i.isMine);
     const myPendingTotal = myPending.reduce((s, i) => s + (Number(i.price) || 0) * (i.qty || 1), 0).toFixed(2);
@@ -119,6 +121,7 @@ Page({
       tablePickupNumber: session.pickupNumber || '',
       tableName: session.tableName || '',
       pendingCount,
+      pendingListCount,
       pendingTotal,
       myPendingTotal,
       myPendingCount,
