@@ -667,8 +667,8 @@
       </picker>
     </view>
 
-    <!-- 价格独行 -->
-    <view class="pm-field">
+    <!-- 价格独行（冰淇淋按球数计价，不显示价格输入） -->
+    <view wx:if="{{editingProduct.category !== 'icecream'}}" class="pm-field">
       <text class="pm-label">价格（元）</text>
       <input
         class="pm-input pm-input-short"
@@ -680,8 +680,8 @@
       />
     </view>
 
-    <!-- 温度选项 -->
-    <view class="pm-field">
+    <!-- 温度选项（冰淇淋默认冰，不显示温度勾选） -->
+    <view wx:if="{{editingProduct.category !== 'icecream'}}" class="pm-field">
       <text class="pm-label">温度选项</text>
       <view class="pm-checkbox-group">
         <view class="pm-checkbox-item" bindtap="onToggleIce">
@@ -705,33 +705,46 @@
       </view>
     </view>
 
-    <!-- 拼球选项（仅冰淇淋类） -->
+    <!-- 拼球选项与价格（仅冰淇淋类，价格全局一份） -->
     <view wx:if="{{editingProduct.category === 'icecream'}}" class="pm-field">
-      <text class="pm-label">拼球选项</text>
-      <view class="pm-checkbox-group">
-        <view class="pm-checkbox-item" bindtap="onToggleScoop" data-val="单球">
-          <view class="pm-checkbox-box {{editingProduct.scoopChecked['单球'] ? 'pm-checkbox-checked' : ''}}">
+      <text class="pm-label">拼球选项与价格（全局）</text>
+      <view class="pm-scoop-group">
+        <view class="pm-scoop-row">
+          <view class="pm-checkbox-box {{editingProduct.scoopChecked['单球'] ? 'pm-checkbox-checked' : ''}}" bindtap="onToggleScoop" data-val="单球">
             <text wx:if="{{editingProduct.scoopChecked['单球']}}" class="pm-checkbox-tick">✓</text>
           </view>
-          <text class="pm-checkbox-label">单球</text>
+          <text class="pm-scoop-label">单球</text>
+          <input class="pm-input pm-input-small" type="digit" value="{{scoopPrices.single}}" data-key="single" bindinput="onInputScoopPrice" catchtap="noop" />
+          <text class="pm-scoop-unit">元</text>
         </view>
-        <view class="pm-checkbox-item" bindtap="onToggleScoop" data-val="双球">
-          <view class="pm-checkbox-box {{editingProduct.scoopChecked['双球'] ? 'pm-checkbox-checked' : ''}}">
+        <view class="pm-scoop-row">
+          <view class="pm-checkbox-box {{editingProduct.scoopChecked['双球'] ? 'pm-checkbox-checked' : ''}}" bindtap="onToggleScoop" data-val="双球">
             <text wx:if="{{editingProduct.scoopChecked['双球']}}" class="pm-checkbox-tick">✓</text>
           </view>
-          <text class="pm-checkbox-label">双球</text>
+          <text class="pm-scoop-label">双球</text>
+          <input class="pm-input pm-input-small" type="digit" value="{{scoopPrices.double}}" data-key="double" bindinput="onInputScoopPrice" catchtap="noop" />
+          <text class="pm-scoop-unit">元</text>
         </view>
-        <view class="pm-checkbox-item" bindtap="onToggleScoop" data-val="三球">
-          <view class="pm-checkbox-box {{editingProduct.scoopChecked['三球'] ? 'pm-checkbox-checked' : ''}}">
+        <view class="pm-scoop-row">
+          <view class="pm-checkbox-box {{editingProduct.scoopChecked['三球'] ? 'pm-checkbox-checked' : ''}}" bindtap="onToggleScoop" data-val="三球">
             <text wx:if="{{editingProduct.scoopChecked['三球']}}" class="pm-checkbox-tick">✓</text>
           </view>
-          <text class="pm-checkbox-label">三球</text>
+          <text class="pm-scoop-label">三球</text>
+          <input class="pm-input pm-input-small" type="digit" value="{{scoopPrices.triple}}" data-key="triple" bindinput="onInputScoopPrice" catchtap="noop" />
+          <text class="pm-scoop-unit">元</text>
         </view>
-        <view class="pm-checkbox-item" bindtap="onToggleScoop" data-val="四球">
-          <view class="pm-checkbox-box {{editingProduct.scoopChecked['四球'] ? 'pm-checkbox-checked' : ''}}">
-            <text wx:if="{{editingProduct.scoopChecked['四球']}}" class="pm-checkbox-tick">✓</text>
+      </view>
+    </view>
+
+    <!-- 可拼球开关（仅冰淇淋类） -->
+    <view wx:if="{{editingProduct.category === 'icecream'}}" class="pm-field">
+      <text class="pm-label">可拼球</text>
+      <view class="pm-checkbox-group">
+        <view class="pm-checkbox-item" bindtap="onToggleScoopEnabled">
+          <view class="pm-checkbox-box {{editingProduct.scoopEnabled ? 'pm-checkbox-checked' : ''}}">
+            <text wx:if="{{editingProduct.scoopEnabled}}" class="pm-checkbox-tick">✓</text>
           </view>
-          <text class="pm-checkbox-label">四球</text>
+          <text class="pm-checkbox-label">该商品可作为拼球口味</text>
         </view>
       </view>
     </view>
@@ -806,8 +819,8 @@
       </view>
     </view>
 
-    <!-- 规格 -->
-    <view class="pm-field">
+    <!-- 规格（冰淇淋用风味标签替代） -->
+    <view wx:if="{{editingProduct.category !== 'icecream'}}" class="pm-field">
       <text class="pm-label">规格（可选）</text>
       <input
         class="pm-input"
@@ -816,6 +829,53 @@
         placeholder-class="pm-placeholder"
         bindinput="onInputSpec"
       />
+    </view>
+
+    <!-- 风味标签（仅冰淇淋类，用 ; 分隔） -->
+    <view wx:if="{{editingProduct.category === 'icecream'}}" class="pm-field">
+      <text class="pm-label">风味标签（用 ; 分隔）</text>
+      <input
+        class="pm-input"
+        value="{{editingProduct.flavors}}"
+        placeholder="例如：香草;巧克力;抹茶"
+        placeholder-class="pm-placeholder"
+        bindinput="onInputFlavors"
+      />
+    </view>
+
+    <!-- 其他可选（仅冰淇淋类，加料名列表 + 单选/多选） -->
+    <view wx:if="{{editingProduct.category === 'icecream'}}" class="pm-field">
+      <text class="pm-label">其他可选（加料）</text>
+      <view class="pm-checkbox-group">
+        <view class="pm-checkbox-item" bindtap="onToggleToppingMode" data-val="multi">
+          <view class="pm-checkbox-box {{editingProduct.toppingMode === 'multi' ? 'pm-checkbox-checked' : ''}}">
+            <text wx:if="{{editingProduct.toppingMode === 'multi'}}" class="pm-checkbox-tick">✓</text>
+          </view>
+          <text class="pm-checkbox-label">多选</text>
+        </view>
+        <view class="pm-checkbox-item" bindtap="onToggleToppingMode" data-val="single">
+          <view class="pm-checkbox-box {{editingProduct.toppingMode === 'single' ? 'pm-checkbox-checked' : ''}}">
+            <text wx:if="{{editingProduct.toppingMode === 'single'}}" class="pm-checkbox-tick">✓</text>
+          </view>
+          <text class="pm-checkbox-label">单选</text>
+        </view>
+      </view>
+      <view wx:for="{{editingProduct.toppings}}" class="pm-topping-row">
+        <input
+          class="pm-input"
+          value="{{item}}"
+          placeholder="材料名称，如：奥利奥碎"
+          placeholder-class="pm-placeholder"
+          bindinput="onInputTopping"
+          data-index="{{index}}"
+        />
+        <view class="pm-topping-del" bindtap="onRemoveTopping" data-index="{{index}}">
+          <text class="pm-topping-del-text">−</text>
+        </view>
+      </view>
+      <view class="pm-topping-add" bindtap="onAddTopping">
+        <text class="pm-topping-add-text">＋ 添加一项</text>
+      </view>
     </view>
 
     <!-- 商品状态 -->

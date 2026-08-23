@@ -50,6 +50,7 @@
       scroll-into-view="{{scrollToView}}"
       scroll-with-animation
       bindscroll="onProductScroll"
+      bindscrolltolower="onProductScrollToLower"
     >
       <block wx:for="{{allProducts}}" wx:key="id">
         <!-- 分类标题（每个分类的第一个商品前显示） -->
@@ -70,8 +71,8 @@
           <view class="product-info">
             <text class="product-name">{{item.name}}</text>
 
-            <!-- 规格标签：合并显示冰/热/常温和咖啡烘焙度/处理法 -->
-            <view class="spec-tags" wx:if="{{item.supportIce || item.supportHot || item.supportNormal || (item.categoryId === 'coffee' && (item.roastLevel || item.processingMethod))}}">
+            <!-- 规格标签：合并显示冰/热/常温和咖啡烘焙度/处理法（冰淇淋默认冰，不显示温度标签） -->
+            <view class="spec-tags" wx:if="{{(item.supportIce || item.supportHot || item.supportNormal || (item.categoryId === 'coffee' && (item.roastLevel || item.processingMethod))) && item.categoryId !== 'icecream'}}">
               <!-- 温度选项（冰/热/常温） -->
               <text wx:if="{{item.supportIce}}" class="spec-tag">冰</text>
               <text wx:if="{{item.supportHot}}" class="spec-tag">热</text>
@@ -81,9 +82,9 @@
               <text wx:if="{{item.categoryId === 'coffee' && item.processingMethod}}" class="coffee-tag process-tag">{{item.processingMethod}}</text>
             </view>
 
-            <!-- 规格标签：拼球选项（冰淇淋） -->
-            <view class="spec-tags" wx:elif="{{item.scoopOptions && item.scoopOptions.length > 0}}">
-              <text wx:for="{{item.scoopOptions}}" wx:key="*this" class="spec-tag">{{item}}</text>
+            <!-- 风味描述标签（冰淇淋） -->
+            <view class="spec-tags" wx:if="{{item.categoryId === 'icecream' && item.flavorTags && item.flavorTags.length > 0}}">
+              <text wx:for="{{item.flavorTags}}" wx:for-item="f" wx:key="*this" class="spec-tag">{{f}}</text>
             </view>
 
             <!-- 底部：价格 + 加减号 -->
@@ -154,7 +155,42 @@
         bindtap="onSelectSpec"
         data-val="{{item}}"
       >
-        <text class="spec-option-text {{selectedSpec === item ? 'spec-option-text-active' : ''}}">{{item}}</text>
+        <text class="spec-option-text {{selectedSpec === item ? 'spec-option-text-active' : ''}}">{{item}}<text wx:if="{{specModalType === 'scoop'}}" class="spec-price"> ¥{{item === '单球' ? scoopConfig.single : (item === '双球' ? scoopConfig.double : scoopConfig.triple)}}</text></text>
+      </view>
+    </view>
+  </block>
+
+  <!-- 拼球口味选择（冰淇淋可拼球） -->
+  <block wx:if="{{specModalType === 'scoop'}}">
+    <text class="spec-popup-subtitle">可选拼球（已选 {{selectedScoopTotal}}/{{selectedScoopCount}} 球）</text>
+    <view class="flavor-list">
+      <view
+        wx:for="{{specFlavors}}"
+        wx:key="id"
+        class="flavor-chip {{item.qty > 0 ? 'flavor-chip-active' : ''}}"
+        bindtap="onIncFlavor"
+        data-index="{{index}}"
+      >
+        <view wx:if="{{item.qty > 0}}" class="flavor-minus" catchtap="onDecFlavor" data-index="{{index}}">
+          <text class="flavor-minus-text">−</text>
+        </view>
+        <text class="flavor-chip-text {{item.qty > 0 ? 'flavor-chip-text-active' : ''}}">{{item.name}}<text wx:if="{{item.qty > 1}}" class="flavor-qty">×{{item.qty}}</text></text>
+      </view>
+    </view>
+  </block>
+
+  <!-- 其他可选（加料，仅冰淇淋且后台配置了材料时显示） -->
+  <block wx:if="{{specModalType === 'scoop' && specToppings.length > 0}}">
+    <text class="spec-popup-subtitle">其他可选（{{specToppingMode === 'single' ? '单选' : '可多选'}}）</text>
+    <view class="flavor-list">
+      <view
+        wx:for="{{specToppings}}"
+        wx:key="name"
+        class="flavor-chip {{item.selected ? 'flavor-chip-active' : ''}}"
+        bindtap="onToggleTopping"
+        data-name="{{item.name}}"
+      >
+        <text class="flavor-chip-text {{item.selected ? 'flavor-chip-text-active' : ''}}">{{item.name}}</text>
       </view>
     </view>
   </block>

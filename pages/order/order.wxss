@@ -399,6 +399,72 @@ page {
   font-weight: 500;
 }
 
+/* 球数选项价格小字 */
+.spec-price {
+  font-size: 24rpx;
+  color: #A3212D;
+}
+
+/* 拼球口味选择 */
+.flavor-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+  margin-bottom: 28rpx;
+}
+
+.flavor-chip {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  padding: 12rpx 24rpx;
+  border-radius: 32rpx;
+  border: 2rpx solid #E7DDD1;
+  background: #FAF6F2;
+}
+
+.flavor-chip-active {
+  border-color: #A3212D;
+  background: rgba(163, 33, 45, 0.07);
+}
+
+.flavor-chip-text {
+  font-size: 26rpx;
+  color: #5A3A29;
+  font-family: 'CangerShuYuanTi', Noto Serif SC;
+}
+
+.flavor-chip-text-active {
+  color: #A3212D;
+  font-weight: 500;
+}
+
+/* 口味减号按钮 */
+.flavor-minus {
+  width: 36rpx;
+  height: 36rpx;
+  border-radius: 50%;
+  border: 2rpx solid #A3212D;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.flavor-minus-text {
+  font-size: 28rpx;
+  line-height: 1;
+  color: #A3212D;
+}
+
+/* 口味数量徽标（×2 / ×3） */
+.flavor-qty {
+  font-size: 24rpx;
+  color: #A3212D;
+  font-weight: 500;
+  margin-left: 4rpx;
+}
+
 .spec-actions {
   display: flex;
   gap: 20rpx;

@@ -197,7 +197,39 @@ exports.main = async (event, context) => {
       .orderBy('createdAt', 'asc')
       .limit(200)
       .get()
-    return { success: true, data: res.data }
+    // 附带全局拼球价格（公开可读）
+    let scoopConfig = { single: 28, double: 38, triple: 45 }
+    try {
+      const cfg = await db.collection('scoop_config').doc('config').get()
+      if (cfg && cfg.data) {
+        scoopConfig = {
+          single: Number(cfg.data.single) || 28,
+          double: Number(cfg.data.double) || 38,
+          triple: Number(cfg.data.triple) || 45
+        }
+      }
+    } catch (e) { /* 集合/文档不存在时用默认值 */ }
+    return { success: true, data: res.data, scoopConfig }
+  }
+
+  // ===== 全局拼球价格（单球/双球/三球，全局一份，后台可改）=====
+  if (action === 'setScoopConfig') {
+    const single = Number(event.single)
+    const double = Number(event.double)
+    const triple = Number(event.triple)
+    const data = {
+      single: single > 0 ? single : 28,
+      double: double > 0 ? double : 38,
+      triple: triple > 0 ? triple : 45,
+      updateTime: db.serverDate()
+    }
+    try {
+      await db.collection('scoop_config').doc('config').get()
+      await db.collection('scoop_config').doc('config').update({ data })
+    } catch (e) {
+      await db.collection('scoop_config').add({ data: { _id: 'config', ...data } })
+    }
+    return { success: true, scoopConfig: data }
   }
 
   // ===== 取餐码：服务端按天顺序生成唯一码（堂食 T01/T02… / 外带 K01/K02…）=====
@@ -444,6 +476,7 @@ exports.main = async (event, context) => {
   }
   await ensureCollection('heroImages', { _id: 'config', images: [] })
   await ensureCollection('featuredProducts', { _id: 'config', items: [] })
+  await ensureCollection('scoop_config', { _id: 'config', single: 28, double: 38, triple: 45 })
   await ensureCollection('staff_heartbeat', { _id: '_placeholder', openid: '_placeholder', lastSeen: new Date() })
   await ensureCollection('tables', { _id: '_placeholder', name: '', code: '', qrFileID: '', enabled: true, createdAt: Date.now(), updatedAt: Date.now() })
   await ensureCollection('pickup_counter', { _id: '_placeholder', seq: 0 })

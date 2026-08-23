@@ -56,7 +56,8 @@ function buildOrder(items, orderType, remark) {
     products: items.map(item => ({
       productId: item.id || '',
       name: item.name,
-      temperature: item.spec || '',  // 与 staff 页面字段对齐
+      temperature: item.temperature || item.spec || '',  // 冰淇淋固定「冰」，其它用 spec 兜底
+      spec: item.spec || '',  // 拼球详情（双球：口味A+口味B）或温度
       quantity: item.qty || 1,
       price: (parseFloat(item.price) || 0) * (item.qty || 1)
     })),

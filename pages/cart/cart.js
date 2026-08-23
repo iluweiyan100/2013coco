@@ -421,7 +421,8 @@ Page({
         products: items.map(i => ({
           productId: i.productId || '',
           name: i.name,
-          temperature: i.spec || '',
+          temperature: i.temperature || i.spec || '',  // 冰淇淋固定「冰」，其它用 spec 兜底
+          spec: i.spec || '',  // 拼球详情或温度
           quantity: i.qty || 1,
           price: (i.price || 0) * (i.qty || 1)
         })),

@@ -33,6 +33,14 @@ Page({
     selectedSpec: '',         // 已选择的规格值
     selectedOrderType: '',     // 弹窗内选择的就餐方式（初始由 orderType 带入）
 
+    // 拼球（冰淇淋）：全局价格 + 口味选择
+    scoopConfig: { single: 28, double: 38, triple: 45 },
+    specFlavors: [],          // 可拼球口味列表 [{ id, name, qty }]
+    selectedScoopCount: 1,    // 当前球数（1/2/3）
+    selectedScoopTotal: 0,    // 已选总球数（各口味 qty 之和）
+    specToppings: [],         // 其他可选（加料）[{ name, selected }]
+    specToppingMode: 'multi', // 加料选择方式 single | multi
+
     // 桌面二维码桌位名
     tableName: '',
 
@@ -65,6 +73,7 @@ Page({
         allProducts: cached.sortedProducts,
         categories: cached.categories,
         currentCategory: cached.categories.length > 0 ? cached.categories[0].id : '',
+        scoopConfig: cached.scoopConfig || this.data.scoopConfig,
         loading: false
       });
       this._refreshCartMap();
@@ -174,6 +183,7 @@ Page({
 
   onUnload() {
     this._stopTableWatcher();
+    clearTimeout(this._scrollLockTimer);
   },
 
   _cacheGet(key) {
@@ -196,22 +206,43 @@ Page({
     try {
       const res = await wx.cloud.callFunction({ name: 'initDB', data: { action: 'getProducts' } });
       const all = (res.result && res.result.data) || [];
+      const scoopConfig = (res.result && res.result.scoopConfig) || { single: 28, double: 38, triple: 45 };
       const products = all
         .filter(p => p.saleStatus === 'on')
         .map(p => {
           // 兼容旧 supportIceHot 字段
           const legacy = p.supportIceHot || false;
+          const scoopEnabled = !!p.scoopEnabled;
+          const scoopOptions = p.scoopOptions || [];
+          const isScoopable = p.category === 'icecream' && scoopOptions.length > 0;
+          // 卡片价格 = 勾选球数里的最低价（未勾选的球数不计入）
+          let minScoopPrice = null;
+          if (isScoopable) {
+            const KEYS = { '单球': 'single', '双球': 'double', '三球': 'triple' };
+            scoopOptions.forEach(o => {
+              const k = KEYS[o];
+              if (!k) return;
+              const v = Number(scoopConfig[k]);
+              if (!isNaN(v) && (minScoopPrice === null || v < minScoopPrice)) minScoopPrice = v;
+            });
+          }
           return {
             ...p,
             id: p._id,
             categoryId: p.category,
             categoryName: p.categoryLabel,
-            price: Number(p.price),
+            price: isScoopable ? (minScoopPrice != null ? minScoopPrice : scoopConfig.single) : Number(p.price),
             image: p.imageURL || p.image || '',
             supportIce: p.supportIce !== undefined ? p.supportIce : legacy,
             supportHot: p.supportHot !== undefined ? p.supportHot : legacy,
             supportNormal: p.supportNormal || false,
-            scoopOptions: p.scoopOptions || [],
+            scoopOptions: scoopOptions,
+            scoopEnabled: scoopEnabled,
+            // 冰淇淋风味标签（; 分隔，卡片展示用）
+            flavorTags: (p.flavors || '').split(';').map(s => s.trim()).filter(Boolean),
+            // 其他可选（加料）：材料名列表 + 单选/多选
+            toppings: (p.toppings || []).map(s => String(s).trim()).filter(Boolean),
+            toppingMode: p.toppingMode === 'single' ? 'single' : 'multi',
             // 新增咖啡相关字段
             roastLevel: p.roastLevel || '',          // 烘焙度
             processingMethod: p.processingMethod || '' // 处理法
@@ -231,13 +262,14 @@ Page({
         allProducts: sortedProducts,
         categories,
         currentCategory: categories.length > 0 ? categories[0].id : '',
+        scoopConfig,
         loading: false
       });
       this._refreshCartMap();
       this._measureCategoryPositions();
 
       // 缓存商品数据（15分钟有效，减少云端请求）
-      this._cacheSet('_cache_products', { categories, sortedProducts });
+      this._cacheSet('_cache_products', { categories, sortedProducts, scoopConfig });
 
       // 处理 scrollTo 参数：自动定位到指定商品
       if (this._pendingScrollTo) {
@@ -284,10 +316,14 @@ Page({
   onCategoryChange(e) {
     const categoryId = e.currentTarget.dataset.id;
     this.setData({ currentCategory: categoryId });
-    const targetIndex = this.data.allProducts.findIndex(p => p.categoryId === categoryId);
-    if (targetIndex !== -1) {
-      this.setData({ scrollToView: `product-${targetIndex}` });
-    }
+    // 锁定，避免程序滚动触发 onProductScroll 回写旧高亮
+    this._scrollLock = true;
+    clearTimeout(this._scrollLockTimer);
+    this._scrollLockTimer = setTimeout(() => { this._scrollLock = false; }, 600);
+    // 先重置再赋值，规避 scroll-into-view 同值不滚动
+    this.setData({ scrollToView: '' }, () => {
+      this.setData({ scrollToView: `category-${categoryId}` });
+    });
   },
 
   // 测量各分类标题在商品列表内的偏移，供右侧滚动时左侧联动
@@ -316,6 +352,7 @@ Page({
 
   // 右侧商品列表滚动：联动左侧分类高亮
   onProductScroll(e) {
+    if (this._scrollLock) return;   // 程序滚动期间不联动
     const scrollTop = e.detail.scrollTop;
     const positions = this.data.categoryPositions;
     if (!positions || positions.length === 0) return;
@@ -328,48 +365,178 @@ Page({
     }
   },
 
+  // 滚动到底部：点亮最后一个分类（末分类标题到不了顶部，需兜底）
+  onProductScrollToLower() {
+    const positions = this.data.categoryPositions;
+    if (positions && positions.length > 0) {
+      const last = positions[positions.length - 1].id;
+      if (last !== this.data.currentCategory) {
+        this.setData({ currentCategory: last });
+      }
+    }
+  },
+
   // 点击「+」：判断是否需要弹规格窗
   onAddToCart(e) {
     const productId = e.currentTarget.dataset.id;
     const product = this.data.allProducts.find(p => p.id === productId);
     if (!product) return;
 
-    // 构建温度选项
-    const tempOptions = [];
-    if (product.supportIce) tempOptions.push('冰');
-    if (product.supportHot) tempOptions.push('热');
-    if (product.supportNormal) tempOptions.push('常温');
+    const isIcecream = product.category === 'icecream';
+    const isScoopable = isIcecream && product.scoopOptions && product.scoopOptions.length > 0;
 
-    const hasSpec = (product.category === 'icecream' && product.scoopOptions && product.scoopOptions.length > 0)
-      || tempOptions.length > 0;
+    // 冰淇淋默认冰，不弹温度弹窗；非冰淇淋才构建温度选项
+    const tempOptions = [];
+    if (!isIcecream) {
+      if (product.supportIce) tempOptions.push('冰');
+      if (product.supportHot) tempOptions.push('热');
+      if (product.supportNormal) tempOptions.push('常温');
+    }
+
+    const hasSpec = isScoopable || tempOptions.length > 0;
 
     // 有规格 或 未确定就餐方式 → 打开弹窗
     if (hasSpec || !this.data.orderType) {
-      const isScoop = product.category === 'icecream' && product.scoopOptions && product.scoopOptions.length > 0;
-      const ORDER = ['单球', '双球', '三球', '四球'];
-      const sortedScoop = isScoop
-        ? product.scoopOptions.slice().sort((a, b) => ORDER.indexOf(a) - ORDER.indexOf(b))
-        : [];
-      console.log('[Order] 打开规格弹窗，orderType:', this.data.orderType);
-      this.setData({
-        showSpecModal: true,
-        specModalProduct: product,
-        specModalType: isScoop ? 'scoop' : (tempOptions.length > 0 ? 'temp' : 'none'),
-        specOptions: isScoop ? sortedScoop : tempOptions,
-        selectedSpec: isScoop ? (sortedScoop.includes('单球') ? '单球' : sortedScoop[0]) : (tempOptions.length > 0 ? tempOptions[0] : ''),
-        selectedOrderType: this.data.orderType  // 首页传入则预选
-      });
-      console.log('[Order] 设置后 selectedOrderType:', this.data.orderType);
+      if (isScoopable) {
+        this._openScoopModal(product);
+      } else {
+        this.setData({
+          showSpecModal: true,
+          specModalProduct: product,
+          specModalType: tempOptions.length > 0 ? 'temp' : 'none',
+          specOptions: tempOptions,
+          selectedSpec: tempOptions.length > 0 ? tempOptions[0] : '',
+          selectedOrderType: this.data.orderType  // 首页传入则预选
+        });
+      }
       return;
     }
 
-    // 无需选规格 + 已知就餐方式，直接加入购物车
-    this._addItemToCart(product, '', this.data.orderType);
+    // 无需选规格 + 已知就餐方式，直接加入购物车（冰淇淋默认冰）
+    this._addItemToCart(product, isIcecream ? '冰' : '', this.data.orderType, undefined, isIcecream ? '冰' : '');
   },
 
-  // 规格弹窗：选择规格
+  // 打开拼球规格弹窗（冰淇淋可拼球商品）
+  _openScoopModal(product) {
+    const ORDER = ['单球', '双球', '三球'];
+    const options = (product.scoopOptions || [])
+      .filter(o => ORDER.includes(o))
+      .sort((a, b) => ORDER.indexOf(a) - ORDER.indexOf(b));
+    // 默认球数跟随首个勾选项（不再硬编码单球）
+    const firstSpec = options.includes('单球') ? '单球' : options[0];
+    const firstCount = firstSpec === '单球' ? 1 : firstSpec === '双球' ? 2 : 3;
+    // 口味列表 = 当前商品（恒可选，支持同商品多球）+ 所有「可拼球」商品
+    const flavors = this.data.allProducts
+      .filter(p => p.category === 'icecream' && (p.scoopEnabled || p.id === product.id))
+      .map(p => ({ id: p.id, name: p.name, qty: p.id === product.id ? firstCount : 0 }));
+    this.setData({
+      showSpecModal: true,
+      specModalProduct: product,
+      specModalType: 'scoop',
+      specOptions: options,
+      selectedSpec: firstSpec,
+      specFlavors: flavors,
+      selectedScoopCount: firstCount,
+      selectedScoopTotal: firstCount,
+      specToppings: (product.toppings || []).map(name => ({ name, selected: false })),
+      specToppingMode: product.toppingMode === 'single' ? 'single' : 'multi',
+      selectedOrderType: this.data.orderType
+    });
+  },
+
+  // 规格弹窗：选择规格（温度 / 球数）—— 切球数保留已选口味，超上限时先削减非锚点商品
   onSelectSpec(e) {
-    this.setData({ selectedSpec: e.currentTarget.dataset.val });
+    const val = e.currentTarget.dataset.val;
+    const scoopCount = val === '单球' ? 1 : val === '双球' ? 2 : val === '三球' ? 3 : 0;
+    const anchorId = this.data.specModalProduct && this.data.specModalProduct.id;
+    const flavors = this.data.specFlavors.slice();
+    let total = flavors.reduce((s, f) => s + (f.qty || 0), 0);
+    const trim = (f) => {
+      while (f.qty > 0 && total > scoopCount) {
+        f.qty -= 1;
+        total -= 1;
+      }
+    };
+    // 第一遍：从末尾往前削减非锚点口味，优先保留进入弹窗的初始商品
+    for (let i = flavors.length - 1; i >= 0 && total > scoopCount; i--) {
+      if (flavors[i].id === anchorId) continue;
+      trim(flavors[i]);
+    }
+    // 第二遍：仍超限（只剩锚点有球）时削减锚点
+    for (let i = 0; i < flavors.length && total > scoopCount; i++) {
+      if (flavors[i].id === anchorId) trim(flavors[i]);
+    }
+    this.setData({
+      selectedSpec: val,
+      selectedScoopCount: scoopCount,
+      specFlavors: flavors,
+      selectedScoopTotal: total
+    });
+  },
+
+  // 规格弹窗：某口味 +1 球
+  onIncFlavor(e) {
+    const index = e.currentTarget.dataset.index;
+    const flavors = this.data.specFlavors.slice();
+    const flavor = flavors[index];
+    if (!flavor) return;
+    const count = this.data.selectedScoopCount || 1;
+    if (this.data.selectedScoopTotal >= count) {
+      wx.showToast({ title: `已选满 ${count} 球`, icon: 'none', duration: 1500 });
+      return;
+    }
+    flavor.qty += 1;
+    this.setData({ specFlavors: flavors, selectedScoopTotal: this.data.selectedScoopTotal + 1 });
+  },
+
+  // 规格弹窗：某口味 -1 球
+  onDecFlavor(e) {
+    const index = e.currentTarget.dataset.index;
+    const flavors = this.data.specFlavors.slice();
+    const flavor = flavors[index];
+    if (!flavor || flavor.qty <= 0) return;
+    flavor.qty -= 1;
+    this.setData({ specFlavors: flavors, selectedScoopTotal: this.data.selectedScoopTotal - 1 });
+  },
+
+  // 规格弹窗：切换其他可选（加料）。单选=互斥，多选=可多选
+  onToggleTopping(e) {
+    const name = e.currentTarget.dataset.name;
+    const list = this.data.specToppings.slice();
+    const item = list.find(t => t.name === name);
+    if (!item) return;
+    if (this.data.specToppingMode === 'single') {
+      // 单选：清空后再按需选中该项（点已选则取消）
+      const wasSelected = item.selected;
+      list.forEach(t => { t.selected = false; });
+      item.selected = !wasSelected;
+    } else {
+      item.selected = !item.selected;
+    }
+    this.setData({ specToppings: list });
+  },
+
+  // 按球数返回单件价
+  _scoopUnitPrice(spec) {
+    const s = spec || this.data.selectedSpec;
+    const cfg = this.data.scoopConfig || {};
+    if (s === '双球') return cfg.double !== undefined ? cfg.double : 38;
+    if (s === '三球') return cfg.triple !== undefined ? cfg.triple : 45;
+    return cfg.single !== undefined ? cfg.single : 28;
+  },
+
+  // 拼出拼球规格字符串，如「双球：香草+巧克力」「三球：香草×2+巧克力」，追加已选加料
+  _buildScoopSpec() {
+    const ball = this.data.selectedSpec || '单球';
+    const parts = this.data.specFlavors
+      .filter(f => f.qty > 0)
+      .map(f => f.qty > 1 ? `${f.name}×${f.qty}` : f.name);
+    const toppings = this.data.specToppings
+      .filter(t => t.selected)
+      .map(t => t.name);
+    let spec = `${ball}：${parts.join('+')}`;
+    if (toppings.length) spec += ` +${toppings.join('+')}`;
+    return spec;
   },
 
   // 规格弹窗：选择就餐方式
@@ -390,6 +557,19 @@ Page({
     // 校验规格（有选项时必选）
     if (specModalType !== 'none' && !selectedSpec) {
       wx.showToast({ title: '请选择规格', icon: 'none', duration: 1500 });
+      return;
+    }
+
+    // 拼球：校验已选总球数 == 球数，按球数计价，默认冰
+    if (specModalType === 'scoop') {
+      const count = this.data.selectedScoopCount || 1;
+      if (this.data.selectedScoopTotal !== count) {
+        wx.showToast({ title: `请选择 ${count} 球`, icon: 'none', duration: 1500 });
+        return;
+      }
+      const spec = this._buildScoopSpec();
+      this.setData({ showSpecModal: false });
+      this._addItemToCart(specModalProduct, spec, selectedOrderType, this._scoopUnitPrice(selectedSpec), '冰', this.data.selectedScoopCount);
       return;
     }
 
@@ -417,6 +597,20 @@ Page({
       return;
     }
 
+    let price = specModalProduct.price;
+    let spec = selectedSpec;
+    let temperature = '';
+    if (specModalType === 'scoop') {
+      const count = this.data.selectedScoopCount || 1;
+      if (this.data.selectedScoopTotal !== count) {
+        wx.showToast({ title: `请选择 ${count} 球`, icon: 'none', duration: 1500 });
+        return;
+      }
+      price = this._scoopUnitPrice(selectedSpec);
+      spec = this._buildScoopSpec();
+      temperature = '冰';
+    }
+
     // 关闭弹窗，调起支付
     this.setData({ showSpecModal: false });
     pay.pay({
@@ -424,9 +618,10 @@ Page({
         items: [{
           id: specModalProduct.id,
           name: specModalProduct.name,
-          price: specModalProduct.price,
+          price: price,
           qty: 1,
-          spec: selectedSpec
+          spec: spec,
+          temperature: temperature
         }],
         orderType: selectedOrderType,
         remark: ''
@@ -482,16 +677,20 @@ Page({
   },
 
   // 将商品加入购物车（桌位模式写共享桌单，否则写本地内存）
-  async _addItemToCart(product, spec, orderType) {
+  // price：单件价（拼球传球数价）；temperature：冰淇淋固定「冰」；scoopCount：球数（1/2/3）
+  async _addItemToCart(product, spec, orderType, price, temperature, scoopCount) {
+    const unitPrice = price !== undefined ? price : product.price;
     if (this.data.tableMode) {
       try {
         await tableOrder.addItem(tableOrder.getTableId(), {
           productId: product.id,
           name: product.name,
-          price: product.price,
+          price: unitPrice,
           image: product.image,
           category: product.category,
-          spec: spec || ''
+          spec: spec || '',
+          temperature: temperature || '',
+          scoopCount: scoopCount || 0
         });
         wx.showToast({ title: '已添加', icon: 'success', duration: 600 });
       } catch (err) {
@@ -510,10 +709,11 @@ Page({
         uid: `${product.id}_${spec}_${Date.now()}`,
         id: product.id,
         name: product.name,
-        price: product.price,
+        price: unitPrice,
         image: product.image,
         category: product.category,
         spec: spec,
+        temperature: temperature || '',
         orderType: orderType || '',
         qty: 1
       });

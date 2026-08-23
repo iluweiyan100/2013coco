@@ -124,7 +124,7 @@ function finalizePaid(matched, openid, orderId, pn, now) {
 function snapshotItems(items) {
   return items.map(i => ({
     uid: i.uid, productId: i.productId, name: i.name,
-    price: i.price, spec: i.spec, qty: i.qty, addedBy: i.addedBy,
+    price: i.price, spec: i.spec, temperature: i.temperature, qty: i.qty, addedBy: i.addedBy,
   }))
 }
 
@@ -233,11 +233,23 @@ exports.main = async (event, context) => {
       } catch (e) {
         product = null
       }
-      const price = product ? Number(product.price) || 0 : (Number(item.price) || 0)
+      let price = product ? Number(product.price) || 0 : (Number(item.price) || 0)
       const name = product ? product.name : item.name
       const image = product ? (product.imageURL || product.image || '') : (item.image || '')
       const category = product ? (product.category || '') : (item.category || '')
       const spec = item.spec || ''
+      const temperature = item.temperature || ''
+      // 可拼球商品：按球数取全局拼球价（服务端权威，防篡改）
+      const scoopCount = Number(item.scoopCount) || 0
+      if (product && product.category === 'icecream' && scoopCount >= 1 && scoopCount <= 3) {
+        try {
+          const cfg = await db.collection('scoop_config').doc('config').get()
+          const d = cfg && cfg.data
+          const map = { 1: 'single', 2: 'double', 3: 'triple' }
+          const key = map[scoopCount]
+          if (d && key && Number(d[key]) > 0) price = Number(d[key])
+        } catch (e) { /* 读不到用主价 */ }
+      }
       const uid = `${productId}_${spec}_${openid}`  // 追加归属，同人同品同规格合并、不同人分行
 
       let result = null
@@ -255,7 +267,7 @@ exports.main = async (event, context) => {
           existing.qty = (existing.qty || 1) + 1
         } else {
           items.push({
-            uid, addedBy: openid, productId, name, price, image, category, spec, qty: 1,
+            uid, addedBy: openid, productId, name, price, image, category, spec, temperature, qty: 1,
             state: 'pending', lockOpenid: '', lockAt: 0, lockOrderId: '',
             paidOrderId: '', paidAt: 0,
           })

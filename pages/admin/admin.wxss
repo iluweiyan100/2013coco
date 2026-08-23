@@ -853,6 +853,81 @@ page {
   line-height: 1;
 }
 
+/* 拼球选项与价格（冰淇淋，全局价格） */
+.pm-scoop-group {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.pm-scoop-row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.pm-scoop-label {
+  font-size: 28rpx;
+  color: #3A2318;
+  min-width: 80rpx;
+}
+
+.pm-scoop-row .pm-input {
+  width: 160rpx;
+  flex: none;
+  height: 64rpx;
+}
+
+.pm-scoop-unit {
+  font-size: 26rpx;
+  color: rgba(58, 35, 24, 0.60);
+}
+
+/* 其他可选（加料）列表 */
+.pm-topping-row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin-top: 20rpx;
+}
+
+.pm-topping-row .pm-input {
+  flex: 1;
+  height: 64rpx;
+}
+
+.pm-topping-del {
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: 50%;
+  border: 2rpx solid #A3212D;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.pm-topping-del-text {
+  font-size: 34rpx;
+  line-height: 1;
+  color: #A3212D;
+}
+
+.pm-topping-add {
+  height: 64rpx;
+  border-radius: 16rpx;
+  border: 2rpx dashed #C9B8A6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 20rpx;
+}
+
+.pm-topping-add-text {
+  font-size: 26rpx;
+  color: #8B6F5E;
+}
+
 .pm-footer {
   display: flex;
   gap: 24rpx;
