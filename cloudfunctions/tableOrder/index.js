@@ -239,15 +239,19 @@ exports.main = async (event, context) => {
       const category = product ? (product.category || '') : (item.category || '')
       const spec = item.spec || ''
       const temperature = item.temperature || ''
-      // 可拼球商品：按球数取全局拼球价（服务端权威，防篡改）
+      // 可拼球商品：按球数取拼球价（单独定价用商品价，否则全局；服务端权威，防篡改）
       const scoopCount = Number(item.scoopCount) || 0
       if (product && product.category === 'icecream' && scoopCount >= 1 && scoopCount <= 3) {
         try {
-          const cfg = await db.collection('scoop_config').doc('config').get()
-          const d = cfg && cfg.data
           const map = { 1: 'single', 2: 'double', 3: 'triple' }
           const key = map[scoopCount]
-          if (d && key && Number(d[key]) > 0) price = Number(d[key])
+          if (product.scoopPriceMode === 'custom' && product.scoopPrices && Number(product.scoopPrices[key]) > 0) {
+            price = Number(product.scoopPrices[key])
+          } else {
+            const cfg = await db.collection('scoop_config').doc('config').get()
+            const d = cfg && cfg.data
+            if (d && key && Number(d[key]) > 0) price = Number(d[key])
+          }
         } catch (e) { /* 读不到用主价 */ }
       }
       const uid = `${productId}_${spec}_${openid}`  // 追加归属，同人同品同规格合并、不同人分行
@@ -362,7 +366,7 @@ exports.main = async (event, context) => {
         const memberOpenids = Object.keys(s.members || {}).filter(k => (now - (s.members[k] || 0)) <= HEARTBEAT_TIMEOUT)
         if (!memberOpenids.includes(openid)) memberOpenids.push(openid)
 
-        const pickupNumber = await takePickupNumber(t, 'dine-in')
+        const pickupNumber = ''  // 取餐号改为支付成功后分配（complete*Checkout 内），结算锁定时不占用
 
         for (const it of pending) {
           it.state = 'paying'
@@ -396,7 +400,7 @@ exports.main = async (event, context) => {
 
         const snapshot = snapshotItems(mine)
         const totalAmount = parseFloat(snapshot.reduce((s, i) => s + (Number(i.price) || 0) * (i.qty || 1), 0).toFixed(2))
-        const pickupNumber = await takePickupNumber(t, 'dine-in')
+        const pickupNumber = ''  // 取餐号改为支付成功后分配（complete*Checkout 内），结算锁定时不占用
 
         for (const it of mine) {
           it.state = 'paying'
@@ -475,14 +479,17 @@ exports.main = async (event, context) => {
           const o = await t.collection('orders').doc(orderId).get()
           pn = (o.data && o.data.pickupNumber) || ''
         } catch (e) { /* 忽略 */ }
+        if (!pn) {
+          pn = await takePickupNumber(t, 'dine-in')  // 支付成功才分配；已存在则复用（与 webhook 收敛）
+        }
 
         completedOrders.push(finalizePaid(matched, openid, orderId, pn, now))
         await ref.update({ data: { items, completedOrders, status: deriveStatus(items), totalAmount: sumState(items, 'pending'), updatedAt: now } })
 
-        // 服务端权威写订单状态（替代客户端直写 orders，防伪造 making）
+        // 服务端权威写订单状态（替代客户端直写 orders，防伪造 making），并回填取餐号
         try {
           await t.collection('orders').doc(orderId).update({
-            data: { status: 'making', transactionId, paidAt: db.serverDate() }
+            data: { pickupNumber: pn, status: 'making', transactionId, paidAt: db.serverDate() }
           })
         } catch (e) { /* 订单写失败不阻塞，webhook 会兜底 */ }
       })

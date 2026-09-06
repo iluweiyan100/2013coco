@@ -414,7 +414,7 @@ Page({
         orderId: orderId,
         outTradeNo: orderId,
         openid: openid,
-        pickupNumber: checkout.pickupNumber,
+        pickupNumber: '',  // 取餐号改为支付成功后分配，下单时不占用
         orderType: 'dine-in',
         status: 'pending',
         remark: this.data.remark || '',

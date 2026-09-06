@@ -858,6 +858,7 @@ page {
   display: flex;
   flex-direction: column;
   gap: 16rpx;
+  margin-top: 24rpx;
 }
 
 .pm-scoop-row {

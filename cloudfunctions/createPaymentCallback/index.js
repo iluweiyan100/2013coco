@@ -32,6 +32,39 @@ function sumPending(items) {
     .reduce((s, i) => s + (Number(i.price) || 0) * (i.qty || 1), 0).toFixed(2))
 }
 
+// 取餐号：服务端按天顺序生成唯一码（堂食 T01/T02… / 外带 K01/K02…），支付成功时才分配
+async function allocatePickupNumber(db, orderType) {
+  const type = orderType === 'takeaway' ? 'takeaway' : 'dine-in'
+  const prefix = type === 'dine-in' ? 'T' : 'K'
+  const day = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10) // 北京时间按天
+  const key = `${day}_${type}`
+  try {
+    let seq = 0
+    await db.runTransaction(async transaction => {
+      const ref = transaction.collection('pickup_counter').doc(key)
+      let n = 1
+      try {
+        const doc = await ref.get()
+        n = ((doc.data && doc.data.seq) || 0) + 1
+      } catch (e) {
+        // 仅「文档不存在」才从 1 开始；瞬态错误抛出让事务重试，防止 seq 重置撞号
+        const msg = String((e && (e.errMsg || e.message)) || '')
+        const isNotFound = /not exist|不存在|not found/i.test(msg) || (e && e.errCode === -502004)
+        if (!isNotFound) throw e
+        n = 1
+      }
+      await ref.set({ data: { seq: n, orderType: type } })
+      seq = n
+    })
+    return prefix + String(seq).padStart(2, '0')
+  } catch (e) {
+    console.warn('[createPaymentCallback] 取餐号顺序计数失败，使用随机码兜底:', e.message)
+    const letters = 'ABCDEFGH'
+    return prefix + letters[Math.floor(Math.random() * letters.length)] +
+      String(Math.floor(Math.random() * 99) + 1).padStart(2, '0')
+  }
+}
+
 exports.main = async (event, context) => {
   const apiKeyV3 = process.env.WX_MCH_API_KEY
 
@@ -82,7 +115,19 @@ exports.main = async (event, context) => {
       for (const o of paidOrders) {
         if (!o.transactionId) {
           try {
-            await db.collection('orders').doc(o._id).update({ data: updateData })
+            // 取餐号支付成功才分配；已有（旧数据下单时已分配 / 客户端 completeTableCheckout 已并发分配）则复用，避免双分配
+            let pn = o.pickupNumber || ''
+            if (!pn) {
+              try {
+                const cur = (await db.collection('orders').doc(o._id).get()).data
+                if (cur && cur.pickupNumber) pn = cur.pickupNumber
+              } catch (e) { /* 忽略，按空处理 */ }
+            }
+            if (!pn) {
+              pn = await allocatePickupNumber(db, o.orderType || 'dine-in')
+            }
+            o.pickupNumber = pn  // 原地改写，供下方桌单联动读到新码
+            await db.collection('orders').doc(o._id).update({ data: { ...updateData, pickupNumber: pn } })
             isFirstUpdate = true
           } catch (e) {
             console.warn('[createPaymentCallback] 补写订单失败:', o._id, e.message)

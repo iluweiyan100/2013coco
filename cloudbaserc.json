@@ -61,6 +61,15 @@
       "name": "tableOrder",
       "timeout": 10,
       "runtime": "Nodejs18.15"
+    },
+    {
+      "name": "closeExpiredOrders",
+      "timeout": 60,
+      "runtime": "Nodejs18.15",
+      "envVariables": {
+        "WX_MCH_PRIVATE_KEY": "__SET_IN_CLOUD_CONSOLE__",
+        "WX_MCH_SERIAL_NO": "__SET_IN_CLOUD_CONSOLE__"
+      }
     }
   ]
 }

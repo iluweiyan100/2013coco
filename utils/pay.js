@@ -109,8 +109,6 @@ async function createPendingOrders(orders) {
   for (let i = 0; i < orders.length; i++) {
     const order = orders[i];
     const orderId = orderIds[i];
-    const pickupNumber = await getNextPickupNumber(order.orderType);
-    console.log('[Pay] 订单 orderType:', order.orderType, '取餐码:', pickupNumber);
 
     await db.collection('orders').add({
       data: {
@@ -118,7 +116,7 @@ async function createPendingOrders(orders) {
         orderId: orderId,
         outTradeNo: outTradeNo,
         openid: openid,
-        pickupNumber: pickupNumber,
+        pickupNumber: '',  // 取餐号改为支付成功后由 webhook 回填，下单时不占用
         orderType: order.orderType,
         status: 'pending',
         remark: order.remark || '',

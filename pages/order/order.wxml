@@ -82,8 +82,8 @@
               <text wx:if="{{item.categoryId === 'coffee' && item.processingMethod}}" class="coffee-tag process-tag">{{item.processingMethod}}</text>
             </view>
 
-            <!-- 风味描述标签（冰淇淋） -->
-            <view class="spec-tags" wx:if="{{item.categoryId === 'icecream' && item.flavorTags && item.flavorTags.length > 0}}">
+            <!-- 风味描述标签（冰淇淋 / 巧克力排块） -->
+            <view class="spec-tags" wx:if="{{(item.categoryId === 'icecream' || item.categoryId === 'bar') && item.flavorTags && item.flavorTags.length > 0}}">
               <text wx:for="{{item.flavorTags}}" wx:for-item="f" wx:key="*this" class="spec-tag">{{f}}</text>
             </view>
 
@@ -155,7 +155,7 @@
         bindtap="onSelectSpec"
         data-val="{{item}}"
       >
-        <text class="spec-option-text {{selectedSpec === item ? 'spec-option-text-active' : ''}}">{{item}}<text wx:if="{{specModalType === 'scoop'}}" class="spec-price"> ¥{{item === '单球' ? scoopConfig.single : (item === '双球' ? scoopConfig.double : scoopConfig.triple)}}</text></text>
+        <text class="spec-option-text {{selectedSpec === item ? 'spec-option-text-active' : ''}}">{{item}}<text wx:if="{{specModalType === 'scoop'}}" class="spec-price"> ¥{{item === '单球' ? specScoopPrices.single : (item === '双球' ? specScoopPrices.double : specScoopPrices.triple)}}</text></text>
       </view>
     </view>
   </block>
@@ -179,8 +179,8 @@
     </view>
   </block>
 
-  <!-- 其他可选（加料，仅冰淇淋且后台配置了材料时显示） -->
-  <block wx:if="{{specModalType === 'scoop' && specToppings.length > 0}}">
+  <!-- 其他可选（加料，后台配置了材料时显示） -->
+  <block wx:if="{{specToppings.length > 0}}">
     <text class="spec-popup-subtitle">其他可选（{{specToppingMode === 'single' ? '单选' : '可多选'}}）</text>
     <view class="flavor-list">
       <view

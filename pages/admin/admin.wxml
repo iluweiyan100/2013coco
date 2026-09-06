@@ -705,16 +705,30 @@
       </view>
     </view>
 
-    <!-- 拼球选项与价格（仅冰淇淋类，价格全局一份） -->
+    <!-- 拼球选项与价格（仅冰淇淋类，可全局或单独定价） -->
     <view wx:if="{{editingProduct.category === 'icecream'}}" class="pm-field">
-      <text class="pm-label">拼球选项与价格（全局）</text>
+      <text class="pm-label">拼球选项与价格</text>
+      <view class="pm-checkbox-group">
+        <view class="pm-checkbox-item" bindtap="onToggleScoopPriceMode" data-val="global">
+          <view class="pm-checkbox-box {{editingProduct.scoopPriceMode === 'global' ? 'pm-checkbox-checked' : ''}}">
+            <text wx:if="{{editingProduct.scoopPriceMode === 'global'}}" class="pm-checkbox-tick">✓</text>
+          </view>
+          <text class="pm-checkbox-label">全局定价</text>
+        </view>
+        <view class="pm-checkbox-item" bindtap="onToggleScoopPriceMode" data-val="custom">
+          <view class="pm-checkbox-box {{editingProduct.scoopPriceMode === 'custom' ? 'pm-checkbox-checked' : ''}}">
+            <text wx:if="{{editingProduct.scoopPriceMode === 'custom'}}" class="pm-checkbox-tick">✓</text>
+          </view>
+          <text class="pm-checkbox-label">单独定价</text>
+        </view>
+      </view>
       <view class="pm-scoop-group">
         <view class="pm-scoop-row">
           <view class="pm-checkbox-box {{editingProduct.scoopChecked['单球'] ? 'pm-checkbox-checked' : ''}}" bindtap="onToggleScoop" data-val="单球">
             <text wx:if="{{editingProduct.scoopChecked['单球']}}" class="pm-checkbox-tick">✓</text>
           </view>
           <text class="pm-scoop-label">单球</text>
-          <input class="pm-input pm-input-small" type="digit" value="{{scoopPrices.single}}" data-key="single" bindinput="onInputScoopPrice" catchtap="noop" />
+          <input class="pm-input pm-input-small" type="digit" value="{{editingProduct.scoopPriceMode === 'custom' ? editingProduct.scoopPrices.single : scoopPrices.single}}" data-key="single" bindinput="onInputScoopPrice" catchtap="noop" />
           <text class="pm-scoop-unit">元</text>
         </view>
         <view class="pm-scoop-row">
@@ -722,7 +736,7 @@
             <text wx:if="{{editingProduct.scoopChecked['双球']}}" class="pm-checkbox-tick">✓</text>
           </view>
           <text class="pm-scoop-label">双球</text>
-          <input class="pm-input pm-input-small" type="digit" value="{{scoopPrices.double}}" data-key="double" bindinput="onInputScoopPrice" catchtap="noop" />
+          <input class="pm-input pm-input-small" type="digit" value="{{editingProduct.scoopPriceMode === 'custom' ? editingProduct.scoopPrices.double : scoopPrices.double}}" data-key="double" bindinput="onInputScoopPrice" catchtap="noop" />
           <text class="pm-scoop-unit">元</text>
         </view>
         <view class="pm-scoop-row">
@@ -730,7 +744,7 @@
             <text wx:if="{{editingProduct.scoopChecked['三球']}}" class="pm-checkbox-tick">✓</text>
           </view>
           <text class="pm-scoop-label">三球</text>
-          <input class="pm-input pm-input-small" type="digit" value="{{scoopPrices.triple}}" data-key="triple" bindinput="onInputScoopPrice" catchtap="noop" />
+          <input class="pm-input pm-input-small" type="digit" value="{{editingProduct.scoopPriceMode === 'custom' ? editingProduct.scoopPrices.triple : scoopPrices.triple}}" data-key="triple" bindinput="onInputScoopPrice" catchtap="noop" />
           <text class="pm-scoop-unit">元</text>
         </view>
       </view>
@@ -831,8 +845,8 @@
       />
     </view>
 
-    <!-- 风味标签（仅冰淇淋类，用 ; 分隔） -->
-    <view wx:if="{{editingProduct.category === 'icecream'}}" class="pm-field">
+    <!-- 风味标签（冰淇淋 / 巧克力排块，用 ; 或 ；分隔） -->
+    <view wx:if="{{editingProduct.category === 'icecream' || editingProduct.category === 'bar'}}" class="pm-field">
       <text class="pm-label">风味标签（用 ; 分隔）</text>
       <input
         class="pm-input"
@@ -843,8 +857,8 @@
       />
     </view>
 
-    <!-- 其他可选（仅冰淇淋类，加料名列表 + 单选/多选） -->
-    <view wx:if="{{editingProduct.category === 'icecream'}}" class="pm-field">
+    <!-- 其他可选（加料名列表 + 单选/多选，所有类别） -->
+    <view class="pm-field">
       <text class="pm-label">其他可选（加料）</text>
       <view class="pm-checkbox-group">
         <view class="pm-checkbox-item" bindtap="onToggleToppingMode" data-val="multi">

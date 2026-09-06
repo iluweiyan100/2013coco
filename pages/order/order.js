@@ -15,7 +15,7 @@ Page({
       { id: 'icecream', name: '冰淇淋' },
       { id: 'dessert',  name: '甜点' },
       { id: 'bar',      name: '巧克力排块' },
-      { id: 'other',    name: '无咖啡因饮品' }
+      { id: 'other',    name: '无因饮品' }
     ],
     allProducts: [],
     loading: true,
@@ -35,6 +35,7 @@ Page({
 
     // 拼球（冰淇淋）：全局价格 + 口味选择
     scoopConfig: { single: 28, double: 38, triple: 45 },
+    specScoopPrices: { single: 28, double: 38, triple: 45 }, // 当前弹窗商品的生效拼球价（单独定价时用商品价）
     specFlavors: [],          // 可拼球口味列表 [{ id, name, qty }]
     selectedScoopCount: 1,    // 当前球数（1/2/3）
     selectedScoopTotal: 0,    // 已选总球数（各口味 qty 之和）
@@ -215,6 +216,18 @@ Page({
           const scoopEnabled = !!p.scoopEnabled;
           const scoopOptions = p.scoopOptions || [];
           const isScoopable = p.category === 'icecream' && scoopOptions.length > 0;
+          // 生效拼球价：默认全局；单独定价商品用其自定义价覆盖（仅取 >0 的有效值，空缺回退全局）
+          const effectivePrices = {
+            single: scoopConfig.single !== undefined ? scoopConfig.single : 28,
+            double: scoopConfig.double !== undefined ? scoopConfig.double : 38,
+            triple: scoopConfig.triple !== undefined ? scoopConfig.triple : 45
+          };
+          if (p.scoopPriceMode === 'custom' && p.scoopPrices) {
+            ['single', 'double', 'triple'].forEach(k => {
+              const v = Number(p.scoopPrices[k]);
+              if (!isNaN(v) && v > 0) effectivePrices[k] = v;
+            });
+          }
           // 卡片价格 = 勾选球数里的最低价（未勾选的球数不计入）
           let minScoopPrice = null;
           if (isScoopable) {
@@ -222,7 +235,7 @@ Page({
             scoopOptions.forEach(o => {
               const k = KEYS[o];
               if (!k) return;
-              const v = Number(scoopConfig[k]);
+              const v = Number(effectivePrices[k]);
               if (!isNaN(v) && (minScoopPrice === null || v < minScoopPrice)) minScoopPrice = v;
             });
           }
@@ -231,7 +244,9 @@ Page({
             id: p._id,
             categoryId: p.category,
             categoryName: p.categoryLabel,
-            price: isScoopable ? (minScoopPrice != null ? minScoopPrice : scoopConfig.single) : Number(p.price),
+            price: isScoopable ? (minScoopPrice != null ? minScoopPrice : effectivePrices.single) : Number(p.price),
+            // 拼球生效价（已按商品自定义价覆盖，拼球弹窗计价用）
+            scoopPrices: isScoopable ? effectivePrices : null,
             image: p.imageURL || p.image || '',
             supportIce: p.supportIce !== undefined ? p.supportIce : legacy,
             supportHot: p.supportHot !== undefined ? p.supportHot : legacy,
@@ -239,7 +254,7 @@ Page({
             scoopOptions: scoopOptions,
             scoopEnabled: scoopEnabled,
             // 冰淇淋风味标签（; 分隔，卡片展示用）
-            flavorTags: (p.flavors || '').split(';').map(s => s.trim()).filter(Boolean),
+            flavorTags: (p.flavors || '').split(/[;；,，]/).map(s => s.trim()).filter(Boolean),
             // 其他可选（加料）：材料名列表 + 单选/多选
             toppings: (p.toppings || []).map(s => String(s).trim()).filter(Boolean),
             toppingMode: p.toppingMode === 'single' ? 'single' : 'multi',
@@ -384,6 +399,7 @@ Page({
 
     const isIcecream = product.category === 'icecream';
     const isScoopable = isIcecream && product.scoopOptions && product.scoopOptions.length > 0;
+    const hasToppings = !!(product.toppings && product.toppings.length > 0);
 
     // 冰淇淋默认冰，不弹温度弹窗；非冰淇淋才构建温度选项
     const tempOptions = [];
@@ -393,9 +409,9 @@ Page({
       if (product.supportNormal) tempOptions.push('常温');
     }
 
-    const hasSpec = isScoopable || tempOptions.length > 0;
+    const hasSpec = isScoopable || tempOptions.length > 0 || hasToppings;
 
-    // 有规格 或 未确定就餐方式 → 打开弹窗
+    // 有规格/加料 或 未确定就餐方式 → 打开弹窗
     if (hasSpec || !this.data.orderType) {
       if (isScoopable) {
         this._openScoopModal(product);
@@ -406,6 +422,8 @@ Page({
           specModalType: tempOptions.length > 0 ? 'temp' : 'none',
           specOptions: tempOptions,
           selectedSpec: tempOptions.length > 0 ? tempOptions[0] : '',
+          specToppings: (product.toppings || []).map(name => ({ name, selected: false })),
+          specToppingMode: product.toppingMode === 'single' ? 'single' : 'multi',
           selectedOrderType: this.data.orderType  // 首页传入则预选
         });
       }
@@ -434,6 +452,7 @@ Page({
       specModalProduct: product,
       specModalType: 'scoop',
       specOptions: options,
+      specScoopPrices: product.scoopPrices || this.data.scoopConfig,
       selectedSpec: firstSpec,
       specFlavors: flavors,
       selectedScoopCount: firstCount,
@@ -519,10 +538,19 @@ Page({
   // 按球数返回单件价
   _scoopUnitPrice(spec) {
     const s = spec || this.data.selectedSpec;
-    const cfg = this.data.scoopConfig || {};
+    const cfg = this.data.specScoopPrices || this.data.scoopConfig || {};
     if (s === '双球') return cfg.double !== undefined ? cfg.double : 38;
     if (s === '三球') return cfg.triple !== undefined ? cfg.triple : 45;
     return cfg.single !== undefined ? cfg.single : 28;
+  },
+
+  // 把已选加料拼到规格文字末尾，如「 +奥利奥碎+坚果」
+  _appendToppings(base) {
+    const toppings = this.data.specToppings
+      .filter(t => t.selected)
+      .map(t => t.name);
+    if (!toppings.length) return base || '';
+    return (base ? base + ' +' : '') + toppings.join('+');
   },
 
   // 拼出拼球规格字符串，如「双球：香草+巧克力」「三球：香草×2+巧克力」，追加已选加料
@@ -531,12 +559,7 @@ Page({
     const parts = this.data.specFlavors
       .filter(f => f.qty > 0)
       .map(f => f.qty > 1 ? `${f.name}×${f.qty}` : f.name);
-    const toppings = this.data.specToppings
-      .filter(t => t.selected)
-      .map(t => t.name);
-    let spec = `${ball}：${parts.join('+')}`;
-    if (toppings.length) spec += ` +${toppings.join('+')}`;
-    return spec;
+    return this._appendToppings(`${ball}：${parts.join('+')}`);
   },
 
   // 规格弹窗：选择就餐方式
@@ -574,7 +597,7 @@ Page({
     }
 
     this.setData({ showSpecModal: false });
-    this._addItemToCart(specModalProduct, selectedSpec, selectedOrderType);
+    this._addItemToCart(specModalProduct, this._appendToppings(selectedSpec), selectedOrderType, undefined, selectedSpec);
   },
 
   // 规格弹窗：立即购买
@@ -609,6 +632,9 @@ Page({
       price = this._scoopUnitPrice(selectedSpec);
       spec = this._buildScoopSpec();
       temperature = '冰';
+    } else {
+      spec = this._appendToppings(selectedSpec);
+      temperature = selectedSpec;
     }
 
     // 关闭弹窗，调起支付
