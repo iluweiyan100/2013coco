@@ -76,6 +76,30 @@
       <!-- 商品销售排行 -->
       <view class="ranking-card">
         <text class="ranking-title">商品销售排行</text>
+
+        <!-- 冰淇淋大类（固定置顶，可展开口味球数） -->
+        <view class="ranking-row icecream-rank-row" bindtap="onToggleIcecreamDetail">
+          <view class="ranking-left">
+            <view class="rank-badge rank-badge-icecream"><text class="rank-num">🍦</text></view>
+            <view class="icecream-title-wrap">
+              <text class="rank-name">冰淇淋</text>
+              <text class="rank-sales">杯 {{icecreamSummary.cups}} · 球 {{icecreamSummary.scoops}}</text>
+            </view>
+          </view>
+          <view class="ranking-right">
+            <text class="rank-revenue">¥{{icecreamSummary.revenue}}</text>
+            <text class="icecream-arrow {{icecreamExpanded ? 'icecream-arrow-open' : ''}}">▾</text>
+          </view>
+        </view>
+
+        <!-- 口味球数下拉 -->
+        <view wx:if="{{icecreamExpanded}}" class="flavor-breakdown">
+          <view wx:for="{{icecreamSummary.flavors}}" wx:key="name" class="flavor-line">
+            <text class="flavor-name">{{item.name}}</text>
+            <text class="flavor-scoops">{{item.scoops}} 球</text>
+          </view>
+        </view>
+
         <view class="ranking-list">
           <view
             wx:for="{{productRanking}}"
@@ -230,7 +254,7 @@
                 <text class="order-type-text">{{item.type === 'dine' ? '堂食' : '外带'}}</text>
               </view>
             </view>
-            <view class="order-refund-btn {{item.status === 'refunded' ? 'order-refund-disabled' : ''}}" bindtap="onRefundOrder" data-id="{{item._id}}">
+            <view class="order-refund-btn {{item.status === 'refunded' ? 'order-refund-disabled' : ''}}" bindtap="onOpenRefund" data-id="{{item._id}}">
               <text class="order-refund-text">{{item.status === 'refunded' ? '已退款' : '退款'}}</text>
             </view>
           </view>
@@ -246,11 +270,25 @@
           <view class="order-items">
             <view wx:for="{{item.items}}" wx:key="index" wx:for-item="good" class="order-item-row">
               <view class="order-item-left">
-                <text class="order-item-name">{{good.name}}</text>
-                <text class="order-item-temp" wx:if="{{good.temp}}">{{good.temp}}</text>
-                <text class="order-item-qty">x{{good.qty}}</text>
+                <view class="order-item-title">
+                  <text class="order-item-name">{{good.name}}</text>
+                  <text class="order-item-temp" wx:if="{{good.temp}}">{{good.temp}}</text>
+                  <text class="order-item-qty">x{{good.qty}}</text>
+                </view>
+                <!-- 拼球：口味/加料分行显示 -->
+                <view wx:if="{{good.flavors}}" class="scoop-lines">
+                  <view wx:for="{{good.flavors}}" wx:for-item="flavor" wx:key="index" class="scoop-line">
+                    <text class="scoop-name">{{flavor.name}}</text>
+                    <text class="scoop-qty">×{{flavor.qty}}</text>
+                  </view>
+                  <view wx:for="{{good.toppings}}" wx:for-item="topping" wx:key="index" class="scoop-line">
+                    <text class="scoop-topping">{{topping}}</text>
+                  </view>
+                </view>
+                <text wx:elif="{{good.spec}}" class="order-item-temp">{{good.spec}}</text>
               </view>
-              <text class="order-item-price">¥{{good.price}}</text>
+              <text wx:if="{{good.refunded}}" class="order-item-refunded">已退款</text>
+              <text wx:else class="order-item-price">¥{{good.price}}</text>
             </view>
           </view>
 
@@ -264,7 +302,10 @@
           <view class="order-total-divider"></view>
           <view class="order-total-row">
             <text class="order-total-label">合计</text>
-            <text class="order-total-value">¥{{item.total}}</text>
+            <view class="order-total-amount">
+              <text wx:if="{{item.refundedAmount > 0}}" class="order-total-refunded">已退 ¥{{item.refundedAmount}}</text>
+              <text class="order-total-value">¥{{item.finalAmount}}</text>
+            </view>
           </view>
 
         </view>
@@ -1078,6 +1119,47 @@
     </view>
     <view class="quick-modal-btn quick-modal-confirm" bindtap="onConfirmCloseDate">
       <text class="quick-modal-btn-text">确定</text>
+    </view>
+  </view>
+</view>
+
+<!-- ========== 退款选择弹窗 ========== -->
+<view wx:if="{{refundModal}}" class="refund-mask" bindtap="onCloseRefund">
+  <view class="refund-modal" catchtap="noop">
+    <view class="refund-modal-header">
+      <text class="refund-modal-title">选择退款商品</text>
+      <text class="refund-modal-close" bindtap="onCloseRefund">✕</text>
+    </view>
+    <scroll-view class="refund-modal-body" scroll-y>
+      <view
+        wx:for="{{refundModal.candidates}}"
+        wx:key="index"
+        wx:for-item="c"
+        wx:for-index="idx"
+        class="refund-candidate {{c.refunded ? 'refund-candidate-disabled' : ''}}"
+        bindtap="onToggleRefundItem"
+        data-index="{{idx}}"
+      >
+        <view class="refund-checkbox {{c.selected && !c.refunded ? 'refund-checkbox-on' : ''}}">
+          <text wx:if="{{c.selected && !c.refunded}}" class="refund-checkbox-tick">✓</text>
+        </view>
+        <view class="refund-candidate-info">
+          <text class="refund-candidate-name">{{c.name}}</text>
+          <text wx:if="{{c.spec}}" class="refund-candidate-spec">{{c.spec}}</text>
+        </view>
+        <text wx:if="{{c.refunded}}" class="refund-candidate-refunded">已退款</text>
+        <text wx:else class="refund-candidate-price">¥{{c.price}}</text>
+      </view>
+    </scroll-view>
+    <view class="refund-modal-footer">
+      <view class="refund-modal-actions">
+        <text class="refund-select-all" bindtap="onSelectAllRefund">全选</text>
+        <text class="refund-modal-amount">合计退款 ¥{{refundModal.selectedAmount}}</text>
+      </view>
+      <view class="refund-modal-btns">
+        <view class="refund-btn-cancel" bindtap="onCloseRefund"><text>取消</text></view>
+        <view class="refund-btn-confirm" bindtap="onConfirmRefund"><text>确认退款</text></view>
+      </view>
     </view>
   </view>
 </view>

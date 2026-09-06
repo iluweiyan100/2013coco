@@ -1,4 +1,5 @@
 // staff.js - 店员点单窗口
+const { formatScoopProduct } = require('../../utils/orderDisplay.js');
 
 // 音频单例（模块级，跨页面实例复用）
 let _audio = null;         // 共享音频实例（解锁与提示音复用同一个，iOS 解锁依赖实例）
@@ -12,6 +13,7 @@ Page({
     statusBarHeight: 0,    // 状态栏高度
     shopClosed: false,     // 打烊状态
     soundEnabled: false,   // 声音是否已解锁开启
+    refundModal: null,     // 退款弹窗：{ orderId, outTradeNo, transactionId, candidates:[{index,name,spec,price,refunded,selected}] }
   },
 
   onLoad() {
@@ -331,6 +333,24 @@ Page({
         })
       : '';
 
+    const products = order.products || [];
+    const items = products.map(p => {
+      const d = formatScoopProduct(p);
+      return {
+        name: d.name || '',
+        temperature: d.temperature || '',
+        spec: d.spec || '',
+        flavors: d.flavors || [],
+        toppings: d.toppings || [],
+        quantity: d.quantity || 1,
+        price: d.price || 0,
+        refunded: !!d.refunded
+      };
+    });
+    const totalAmount = order.totalAmount || 0;
+    const refundedAmount = products.reduce((s, p) => s + (p.refunded ? (Number(p.price) || 0) : 0), 0);
+    const finalAmount = Math.round((totalAmount - refundedAmount) * 100) / 100;
+
     return {
       _id: order._id,
       status: order.status || 'making',
@@ -339,15 +359,15 @@ Page({
       time: timeStr,
       completeTime: rawComplete || '',   // _isTodayCompleted 使用
       completeTimeStr: completeTimeStr,
-      items: (order.products || []).map(p => ({
-        name: p.name || '',
-        temperature: p.temperature || '',
-        quantity: p.quantity || 1,
-        price: p.price || 0
-      })),
-      totalAmount: order.totalAmount || 0,
+      items,
+      totalAmount,
+      refundedAmount,
+      finalAmount,
       remark: order.remark || '',
-      tableName: order.tableName || ''   // 桌面二维码桌位名
+      tableName: order.tableName || '',   // 桌面二维码桌位名
+      orderId: order.orderId,
+      outTradeNo: order.outTradeNo,
+      transactionId: order.transactionId
     };
   },
 
@@ -474,6 +494,117 @@ Page({
     });
   },
 
+  // ===== 退款（按商品分批） =====
+  _refundSelectedAmount(candidates) {
+    return candidates
+      .filter(c => c.selected && !c.refunded)
+      .reduce((s, c) => s + (Number(c.price) || 0), 0);
+  },
+
+  _setRefundCandidates(candidates) {
+    const selectedAmount = this._refundSelectedAmount(candidates);
+    this.setData({ refundModal: { ...this.data.refundModal, candidates, selectedAmount } });
+  },
+
+  onOpenRefund(e) {
+    const id = e.currentTarget.dataset.id;
+    const order = this.data.completedOrders.find(o => o._id === id);
+    if (!order) {
+      wx.showToast({ title: '订单不存在', icon: 'none' });
+      return;
+    }
+    if (!order.outTradeNo && !order.transactionId) {
+      wx.showToast({ title: '缺少支付信息，无法退款', icon: 'none' });
+      return;
+    }
+
+    const candidates = order.items.map((it, index) => ({
+      index,
+      name: it.name,
+      spec: it.spec || '',
+      flavors: it.flavors || [],
+      toppings: it.toppings || [],
+      price: it.price,
+      refunded: it.refunded,
+      selected: !it.refunded   // 默认全选所有未退商品
+    }));
+
+    this.setData({
+      refundModal: {
+        orderId: order._id,
+        outTradeNo: order.outTradeNo,
+        transactionId: order.transactionId,
+        candidates,
+        selectedAmount: this._refundSelectedAmount(candidates)
+      }
+    });
+  },
+
+  onToggleRefundItem(e) {
+    const modal = this.data.refundModal;
+    if (!modal) return;
+    const index = Number(e.currentTarget.dataset.index);
+    const candidates = modal.candidates.map((c, i) =>
+      (i === index && !c.refunded) ? { ...c, selected: !c.selected } : c
+    );
+    this._setRefundCandidates(candidates);
+  },
+
+  onSelectAllRefund() {
+    const modal = this.data.refundModal;
+    if (!modal) return;
+    const candidates = modal.candidates.map(c =>
+      c.refunded ? { ...c, selected: false } : { ...c, selected: true }
+    );
+    this._setRefundCandidates(candidates);
+  },
+
+  onCloseRefund() {
+    this.setData({ refundModal: null });
+  },
+
+  noop() {},
+
+  async onConfirmRefund() {
+    const modal = this.data.refundModal;
+    if (!modal) return;
+    const indexes = modal.candidates
+      .filter(c => c.selected && !c.refunded)
+      .map(c => c.index);
+    if (indexes.length === 0) {
+      wx.showToast({ title: '请选择要退款的商品', icon: 'none' });
+      return;
+    }
+
+    wx.showLoading({ title: '退款处理中...', mask: true });
+    try {
+      const result = await wx.cloud.callFunction({
+        name: 'refundPayment',
+        data: {
+          orderId: modal.orderId,
+          outTradeNo: modal.outTradeNo,
+          transactionId: modal.transactionId,
+          refundItems: indexes
+        }
+      });
+      wx.hideLoading();
+      const r = result.result || {};
+      if (r.alreadyRefunded) {
+        wx.showToast({ title: '所选商品已退款', icon: 'none' });
+      } else if (r.isPartialRefund) {
+        wx.showToast({ title: '部分退款成功', icon: 'success', duration: 2000 });
+      } else {
+        wx.showToast({ title: '退款成功', icon: 'success' });
+      }
+      this.setData({ refundModal: null });
+      this._loadInitialOrders();
+    } catch (e2) {
+      wx.hideLoading();
+      wx.showToast({ title: '退款失败，请重试', icon: 'none' });
+      console.error('[Staff] 退款失败', e2);
+    }
+  },
+
   // 初始化/复用共享音频实例
   _ensureAudio() {
     if (!_audio) {
@@ -509,7 +640,7 @@ Page({
     }
     const audio = this._ensureAudio();
     audio.stop();                            // 停掉上一次，避免重叠
-    audio.src = '/audio/06_success_melody.mp3';
+    audio.src = '/audio/新的订单查收_耳聆网_[声音ID：35825].mp3';
     audio.play();
     console.log('[Staff] 播放新订单提示音');
   },

@@ -1,4 +1,6 @@
 // pages/orders/orders.js
+const { formatScoopProduct } = require('../../utils/orderDisplay.js');
+
 Page({
   data: {
     currentTab: 'making',
@@ -135,7 +137,7 @@ Page({
       status: status,
       statusText: statusText,
       statusIcon: statusIcon,
-      products: order.products || [],
+      products: (order.products || []).map(formatScoopProduct),
       totalAmount: order.totalAmount || 0,
       createTime: order.createTime
     };

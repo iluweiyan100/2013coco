@@ -50,7 +50,17 @@
                   <text class="cart-item-name">{{item.name}}</text>
                   <text wx:if="{{item.isMine}}" class="cart-item-mine">我的</text>
                 </view>
-                <text wx:if="{{item.spec}}" class="cart-item-temp">{{item.spec}}</text>
+                <!-- 拼球：口味/加料分行显示 -->
+                <view wx:if="{{item.flavors}}" class="scoop-lines">
+                  <view wx:for="{{item.flavors}}" wx:for-item="flavor" wx:key="index" class="scoop-line">
+                    <text class="scoop-name">{{flavor.name}}</text>
+                    <text class="scoop-qty">×{{flavor.qty}}</text>
+                  </view>
+                  <view wx:for="{{item.toppings}}" wx:for-item="topping" wx:key="index" class="scoop-line">
+                    <text class="scoop-topping">{{topping}}</text>
+                  </view>
+                </view>
+                <text wx:elif="{{item.spec}}" class="cart-item-temp">{{item.spec}}</text>
                 <text class="cart-item-price">¥{{item.price}}</text>
               </view>
               <view class="cart-item-qty-row">
@@ -83,7 +93,17 @@
                   <text class="cart-item-name">{{item.name}}</text>
                   <text wx:if="{{item.isMine}}" class="cart-item-mine">我的</text>
                 </view>
-                <text wx:if="{{item.spec}}" class="cart-item-temp">{{item.spec}}</text>
+                <!-- 拼球：口味/加料分行显示 -->
+                <view wx:if="{{item.flavors}}" class="scoop-lines">
+                  <view wx:for="{{item.flavors}}" wx:for-item="flavor" wx:key="index" class="scoop-line">
+                    <text class="scoop-name">{{flavor.name}}</text>
+                    <text class="scoop-qty">×{{flavor.qty}}</text>
+                  </view>
+                  <view wx:for="{{item.toppings}}" wx:for-item="topping" wx:key="index" class="scoop-line">
+                    <text class="scoop-topping">{{topping}}</text>
+                  </view>
+                </view>
+                <text wx:elif="{{item.spec}}" class="cart-item-temp">{{item.spec}}</text>
                 <text class="cart-item-price">¥{{item.price}}</text>
               </view>
               <view class="cart-item-qty-row">
@@ -105,7 +125,17 @@
               <image src="{{item.image}}" class="cart-item-img" mode="aspectFill"></image>
               <view class="cart-item-info">
                 <text class="cart-item-name">{{item.name}}</text>
-                <text wx:if="{{item.spec}}" class="cart-item-temp">{{item.spec}}</text>
+                <!-- 拼球：口味/加料分行显示 -->
+                <view wx:if="{{item.flavors}}" class="scoop-lines">
+                  <view wx:for="{{item.flavors}}" wx:for-item="flavor" wx:key="index" class="scoop-line">
+                    <text class="scoop-name">{{flavor.name}}</text>
+                    <text class="scoop-qty">×{{flavor.qty}}</text>
+                  </view>
+                  <view wx:for="{{item.toppings}}" wx:for-item="topping" wx:key="index" class="scoop-line">
+                    <text class="scoop-topping">{{topping}}</text>
+                  </view>
+                </view>
+                <text wx:elif="{{item.spec}}" class="cart-item-temp">{{item.spec}}</text>
                 <text class="cart-item-price">¥{{item.price}}</text>
               </view>
               <view class="cart-item-qty-row">
@@ -130,7 +160,17 @@
               <image src="{{item.image}}" class="cart-item-img" mode="aspectFill"></image>
               <view class="cart-item-info">
                 <text class="cart-item-name">{{item.name}}</text>
-                <text wx:if="{{item.spec}}" class="cart-item-temp">{{item.spec}}</text>
+                <!-- 拼球：口味/加料分行显示 -->
+                <view wx:if="{{item.flavors}}" class="scoop-lines">
+                  <view wx:for="{{item.flavors}}" wx:for-item="flavor" wx:key="index" class="scoop-line">
+                    <text class="scoop-name">{{flavor.name}}</text>
+                    <text class="scoop-qty">×{{flavor.qty}}</text>
+                  </view>
+                  <view wx:for="{{item.toppings}}" wx:for-item="topping" wx:key="index" class="scoop-line">
+                    <text class="scoop-topping">{{topping}}</text>
+                  </view>
+                </view>
+                <text wx:elif="{{item.spec}}" class="cart-item-temp">{{item.spec}}</text>
                 <text class="cart-item-price">¥{{item.price}}</text>
               </view>
               <view class="cart-item-qty-row">

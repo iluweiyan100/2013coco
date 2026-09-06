@@ -3,6 +3,7 @@ const app = getApp();
 const SUBSCRIBE = require('../../config/subscribe.js');
 const pay = require('../../utils/pay.js');
 const tableOrder = require('../../utils/tableOrder.js');
+const { formatScoopProduct } = require('../../utils/orderDisplay.js');
 
 // 生成自定义订单 _id（创建时即写入 orderId/outTradeNo，避免 post-add update 被安全规则禁止）
 function genOrderId() {
@@ -91,7 +92,7 @@ Page({
   _applyTableSession(session) {
     if (!session) return;
     const myOpenid = wx.getStorageSync('openid') || getApp().globalData.openid || '';
-    const items = (session.items || []).map(i => ({
+    const items = (session.items || []).map(i => formatScoopProduct({
       ...i,
       state: i.state || 'pending',
       isMine: (i.addedBy || '') === myOpenid
@@ -138,8 +139,8 @@ Page({
   // 从 globalData 同步购物车数据，按 orderType 分组
   _syncFromGlobal() {
     const cartItems = app.globalData.cartItems || [];
-    const dineInList = cartItems.filter(i => i.orderType === 'dine-in');
-    const takeawayList = cartItems.filter(i => i.orderType === 'takeaway');
+    const dineInList = cartItems.filter(i => i.orderType === 'dine-in').map(formatScoopProduct);
+    const takeawayList = cartItems.filter(i => i.orderType === 'takeaway').map(formatScoopProduct);
     this.setData({ dineInList, takeawayList });
     this._refreshTotal(cartItems);
   },
@@ -147,8 +148,8 @@ Page({
   // 回写到 globalData
   _syncToGlobal(list) {
     app.globalData.cartItems = list;
-    const dineInList = list.filter(i => i.orderType === 'dine-in');
-    const takeawayList = list.filter(i => i.orderType === 'takeaway');
+    const dineInList = list.filter(i => i.orderType === 'dine-in').map(formatScoopProduct);
+    const takeawayList = list.filter(i => i.orderType === 'takeaway').map(formatScoopProduct);
     this.setData({ dineInList, takeawayList });
     this._refreshTotal(list);
   },

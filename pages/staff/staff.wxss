@@ -251,8 +251,14 @@
 
 .item-left {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: flex-start;
   flex: 1;
+}
+
+.item-title {
+  display: flex;
+  align-items: center;
 }
 
 .item-name {
@@ -279,6 +285,38 @@
   font-size: 30rpx;
   font-weight: bold;
   color: #3B1F0F;
+}
+
+/* ========== 拼球口味分行显示 ========== */
+.scoop-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 2rpx;
+  padding-left: 20rpx;
+}
+
+.scoop-line {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+}
+
+.scoop-name {
+  font-size: 20rpx;
+  color: #666666;
+  line-height: 1.4;
+}
+
+.scoop-qty {
+  font-size: 18rpx;
+  color: #999999;
+  line-height: 1.4;
+}
+
+.scoop-topping {
+  font-size: 20rpx;
+  color: #999999;
+  line-height: 1.4;
 }
 
 /* 备注 */
@@ -402,7 +440,8 @@
 
 .completed-item-left {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: flex-start;
   flex: 1;
 }
 
@@ -446,6 +485,198 @@
   font-size: 28rpx;
   font-weight: bold;
   color: #666666;
+}
+
+/* 已完成卡片：最终金额 + 已退提示 */
+.completed-amount {
+  display: flex;
+  align-items: baseline;
+  gap: 12rpx;
+}
+
+.completed-refunded-amount {
+  font-size: 22rpx;
+  color: #E5484D;
+}
+
+.completed-item-refunded {
+  font-size: 22rpx;
+  color: #E5484D;
+  background: #ffffff;
+  padding: 3rpx 8rpx;
+  border-radius: 4rpx;
+}
+
+/* 已完成卡片：退款按钮（复用完成按钮结构，红色区分） */
+.completed-refund-btn {
+  background: #E5484D;
+}
+
+.completed-refund-btn:active {
+  background: #C63B40;
+}
+
+/* ===== 退款选择弹窗 ===== */
+.refund-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+}
+
+.refund-modal {
+  width: 600rpx;
+  max-width: 480px;
+  max-height: 80vh;
+  background: #ffffff;
+  border-radius: 16rpx;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.refund-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24rpx 30rpx;
+  border-bottom: 2rpx solid #f0f0f0;
+}
+
+.refund-modal-title {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #333333;
+}
+
+.refund-modal-close {
+  font-size: 32rpx;
+  color: #999999;
+  padding: 0 8rpx;
+}
+
+.refund-modal-body {
+  height: 400rpx;
+  max-height: 50vh;
+  padding: 10rpx 30rpx;
+  box-sizing: border-box;
+}
+
+.refund-candidate {
+  display: flex;
+  align-items: center;
+  padding: 20rpx 0;
+  border-bottom: 2rpx solid #f5f5f5;
+}
+
+.refund-candidate-disabled {
+  opacity: 0.5;
+}
+
+.refund-checkbox {
+  width: 36rpx;
+  height: 36rpx;
+  border: 3rpx solid #cccccc;
+  border-radius: 8rpx;
+  margin-right: 20rpx;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.refund-checkbox-on {
+  background: #FF6B35;
+  border-color: #FF6B35;
+}
+
+.refund-checkbox-tick {
+  font-size: 26rpx;
+  color: #ffffff;
+  font-weight: bold;
+  line-height: 1;
+}
+
+.refund-candidate-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.refund-candidate-name {
+  font-size: 28rpx;
+  color: #333333;
+}
+
+.refund-candidate-spec {
+  font-size: 22rpx;
+  color: #999999;
+}
+
+.refund-candidate-price {
+  font-size: 28rpx;
+  color: #333333;
+}
+
+.refund-candidate-refunded {
+  font-size: 24rpx;
+  color: #E5484D;
+}
+
+.refund-modal-footer {
+  padding: 20rpx 30rpx;
+  border-top: 2rpx solid #f0f0f0;
+}
+
+.refund-modal-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16rpx;
+}
+
+.refund-select-all {
+  font-size: 28rpx;
+  color: #FF6B35;
+}
+
+.refund-modal-amount {
+  font-size: 28rpx;
+  color: #333333;
+  font-weight: bold;
+}
+
+.refund-modal-btns {
+  display: flex;
+  gap: 20rpx;
+}
+
+.refund-btn-cancel,
+.refund-btn-confirm {
+  flex: 1;
+  height: 80rpx;
+  border-radius: 12rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30rpx;
+}
+
+.refund-btn-cancel {
+  background: #f0f0f0;
+  color: #666666;
+}
+
+.refund-btn-confirm {
+  background: #FF6B35;
+  color: #ffffff;
+  font-weight: bold;
 }
 
 /* ===== iPad 横屏适配（所有尺寸用 px，避免 rpx 随宽屏放大） ===== */
@@ -619,6 +850,22 @@
     font-size: 11px;
   }
 
+  .scoop-lines {
+    padding-left: 10px;
+  }
+
+  .scoop-name {
+    font-size: 10px;
+  }
+
+  .scoop-qty {
+    font-size: 9px;
+  }
+
+  .scoop-topping {
+    font-size: 10px;
+  }
+
   .item-price {
     font-size: 13px;
   }
@@ -745,6 +992,68 @@
 
   .empty-text {
     font-size: 12px;
+  }
+
+  /* 退款弹窗：固定 px，避免 rpx 随 iPad 宽屏放大导致比例过大 */
+  .refund-modal {
+    width: 480px;
+    max-height: 70vh;
+  }
+  .refund-modal-header {
+    padding: 16px 20px;
+  }
+  .refund-modal-title {
+    font-size: 17px;
+  }
+  .refund-modal-close {
+    font-size: 17px;
+  }
+  .refund-modal-body {
+    height: 320px;
+    max-height: 50vh;
+    padding: 8px 20px;
+  }
+  .refund-candidate {
+    padding: 12px 0;
+  }
+  .refund-checkbox {
+    width: 26px;
+    height: 26px;
+    border-radius: 6px;
+    margin-right: 14px;
+  }
+  .refund-checkbox-tick {
+    font-size: 18px;
+  }
+  .refund-candidate-name {
+    font-size: 15px;
+  }
+  .refund-candidate-spec {
+    font-size: 12px;
+  }
+  .refund-candidate-price {
+    font-size: 15px;
+  }
+  .refund-candidate-refunded {
+    font-size: 13px;
+  }
+  .refund-modal-footer {
+    padding: 16px 20px;
+  }
+  .refund-modal-actions {
+    margin-bottom: 12px;
+  }
+  .refund-select-all {
+    font-size: 15px;
+  }
+  .refund-modal-amount {
+    font-size: 15px;
+  }
+  .refund-btn-cancel,
+  .refund-btn-confirm {
+    height: 44px;
+    border-radius: 8px;
+    font-size: 15px;
   }
 }
 

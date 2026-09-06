@@ -553,12 +553,12 @@ Page({
     return (base ? base + ' +' : '') + toppings.join('+');
   },
 
-  // 拼出拼球规格字符串，如「双球：香草+巧克力」「三球：香草×2+巧克力」，追加已选加料
+  // 拼出拼球规格字符串，如「双球：香草×1+巧克力×1」「三球：香草×2+巧克力×1」，追加已选加料
   _buildScoopSpec() {
     const ball = this.data.selectedSpec || '单球';
     const parts = this.data.specFlavors
       .filter(f => f.qty > 0)
-      .map(f => f.qty > 1 ? `${f.name}×${f.qty}` : f.name);
+      .map(f => `${f.name}×${f.qty}`);
     return this._appendToppings(`${ball}：${parts.join('+')}`);
   },
 

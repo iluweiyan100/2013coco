@@ -205,6 +205,13 @@
 .product-info {
   flex: 1;
   display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4rpx;
+}
+
+.product-title {
+  display: flex;
   align-items: center;
   gap: 8rpx;
 }
@@ -226,6 +233,44 @@
 
 .product-quantity {
   font-size: 28rpx;
+  color: rgba(91, 58, 41, 0.50);
+  font-family: 'CangerShuYuanTi', Noto Serif SC;
+  font-weight: 400;
+  line-height: 1.4;
+}
+
+/* ========== 拼球口味分行显示 ========== */
+.scoop-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 2rpx;
+  padding-left: 20rpx;
+}
+
+.scoop-line {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+}
+
+.scoop-name {
+  font-size: 20rpx;
+  color: rgba(91, 58, 41, 0.70);
+  font-family: 'CangerShuYuanTi', Noto Serif SC;
+  font-weight: 400;
+  line-height: 1.4;
+}
+
+.scoop-qty {
+  font-size: 18rpx;
+  color: rgba(91, 58, 41, 0.45);
+  font-family: 'CangerShuYuanTi', Noto Serif SC;
+  font-weight: 400;
+  line-height: 1.4;
+}
+
+.scoop-topping {
+  font-size: 20rpx;
   color: rgba(91, 58, 41, 0.50);
   font-family: 'CangerShuYuanTi', Noto Serif SC;
   font-weight: 400;

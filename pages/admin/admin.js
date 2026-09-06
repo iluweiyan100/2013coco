@@ -1,5 +1,6 @@
 // pages/admin/admin.js
 const SUBSCRIBE = require('../../config/subscribe.js');
+const { formatScoopProduct } = require('../../utils/orderDisplay.js');
 
 // 本地缓存工具
 function cacheGet(key) {
@@ -21,6 +22,8 @@ Page({
     orderCount: 0,
     avgOrderValue: 0,
     productRanking: [],
+    icecreamExpanded: false,   // 冰淇淋口味球数下拉是否展开（UI 态，不入缓存）
+    icecreamSummary: { cups: 0, scoops: 0, revenue: 0, flavors: [] },
 
     // ===== 商品管理 =====
     activeCategoryFilter: 'all',
@@ -120,6 +123,7 @@ Page({
     ],
     orders: [],
     filteredOrders: [],
+    refundModal: null,   // 退款弹窗：{ orderId, outTradeNo, transactionId, candidates:[{index,name,spec,price,refunded,selected}], selectedAmount }
 
     // ===== 首页内容 =====
     wifiName: '',
@@ -959,7 +963,8 @@ Page({
 
   /**
    * 从云数据库加载统计数据
-   * 包括：今日销售额、订单量、客单价、商品销售排行
+   * 包括：销售额（净额，扣已退金额）、订单量（排除全额退款）、客单价、
+   *       商品销售排行（冰淇淋大类聚合 + 口味球数下拉）
    */
   async _loadStatisticsFromCloud(period) {
     if (!period) period = this.data.statsPeriod || 'day';
@@ -967,7 +972,6 @@ Page({
     const cached = cacheGet(cacheKey);
     if (cached) { this.setData(cached); return; }
     try {
-      const db = wx.cloud.database();
       const now = new Date();
 
       // 计算统计周期的起始时间（new Date 按本地时区，传至 DB 自动转 UTC）
@@ -982,67 +986,114 @@ Page({
         startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       }
 
-      // 查询周期内订单（排除已退款的）—— 全量读取改走云函数鉴权，客户端按周期过滤
+      // 商品目录映射（_id -> 商品），用于识别冰淇淋类别与上架在售口味
+      if (!this.data.products || this.data.products.length === 0) {
+        await this._loadProductsFromCloud();
+      }
+      const productMap = {};
+      (this.data.products || []).forEach(p => {
+        if (p._id) productMap[p._id] = p;
+        if (p.id) productMap[p.id] = p;
+      });
+
+      // 查询周期内订单——全量读取改走云函数鉴权，客户端按周期过滤
       const cfRes = await wx.cloud.callFunction({
         name: 'initDB',
         data: { action: 'getOrders', sinceDays: 40, limit: 1000 }
       });
       const allOrders = (cfRes.result && cfRes.result.data) || [];
       const periodOrders = allOrders.filter(order => {
-        if (order.status === 'refunded') return false;
+        if (order.status === 'pending') return false; // 未支付不计入
         const ct = order.createTime || {};
         const ts = (ct.$date ? new Date(ct.$date) : new Date(order.createTime || 0)).getTime();
         return ts >= startDate.getTime();
       });
 
-      // 销售额
+      // 销售额（净额）与订单量：排除全额退款，部分退款按净额计入
       let totalSales = 0;
-      periodOrders.forEach(order => { totalSales += order.totalAmount || 0; });
-
-      // 商品销售排行（基于周期内订单）
-      const productStats = {};
+      let orderCount = 0;
+      const rankableOrders = []; // 参与排行的订单（非全额退款）
       periodOrders.forEach(order => {
         const products = order.products || [];
-        products.forEach(product => {
-          const name = product.name || '未知商品';
-          const quantity = product.quantity || 1;
-          const price = product.price || 0;
-          const revenue = price * quantity;
+        const total = order.totalAmount || 0;
+        const refundedAmount = products.reduce((s, p) => s + (p.refunded ? (Number(p.price) || 0) : 0), 0);
+        const isFullRefund = order.status === 'refunded'
+          || (refundedAmount > 0 && Math.abs(refundedAmount - total) < 0.01);
+        if (isFullRefund) return; // 全额退款：不计销售额、订单量、排行
+        totalSales += total - refundedAmount;
+        orderCount++;
+        rankableOrders.push(order);
+      });
+      totalSales = Math.round(totalSales * 100) / 100;
 
-          if (!productStats[name]) {
-            productStats[name] = { sales: 0, revenue: 0 };
+      // 商品销售排行：冰淇淋大类聚合 + 其他商品按名（营收用行总额，不再乘 quantity）
+      const productStats = {};
+      const icecream = { cups: 0, scoops: 0, revenue: 0, flavors: {} };
+      rankableOrders.forEach(order => {
+        (order.products || []).forEach(product => {
+          if (product.refunded) return; // 已退单品不计入排行
+          const decoded = formatScoopProduct(product);
+          const cat = productMap[product.productId] && productMap[product.productId].category;
+          const isIceCream = cat === 'icecream' || (decoded.flavors && decoded.flavors.length > 0);
+          const linePrice = product.price || 0;   // 行总额（单价×数量，落库时已乘）
+          const lineCups = product.quantity || 1;
+
+          if (isIceCream) {
+            icecream.cups += lineCups;
+            icecream.revenue += linePrice;
+            const flavors = (decoded.flavors && decoded.flavors.length)
+              ? decoded.flavors
+              : [{ name: decoded.name || product.name || '未知口味', qty: 1 }]; // 非拼球冰淇淋：1 球/杯
+            flavors.forEach(f => {
+              const sc = (f.qty || 1) * lineCups;
+              icecream.scoops += sc;
+              icecream.flavors[f.name] = (icecream.flavors[f.name] || 0) + sc;
+            });
+          } else {
+            const name = product.name || '未知商品';
+            if (!productStats[name]) productStats[name] = { sales: 0, revenue: 0 };
+            productStats[name].sales += lineCups;
+            productStats[name].revenue += linePrice;
           }
-          productStats[name].sales += quantity;
-          productStats[name].revenue += revenue;
         });
       });
 
-      // 转换为数组并排序（按销量降序）
+      // 非冰淇淋排行（前 5，按销量降序）
       const rankingList = Object.entries(productStats)
-        .map(([name, stats], index) => ({
-          rank: index + 1,
+        .map(([name, stats]) => ({
           name,
           sales: stats.sales,
-          revenue: Math.round(stats.revenue * 100) / 100 // 保留两位小数
+          revenue: Math.round(stats.revenue * 100) / 100
         }))
         .sort((a, b) => b.sales - a.sales)
-        .slice(0, 5); // 只取前 5 名
+        .slice(0, 5)
+        .map((item, index) => ({ rank: index + 1, ...item }));
 
-      // 重新设置排名（因为排序后 rank 可能不连续）
-      rankingList.forEach((item, index) => {
-        item.rank = index + 1;
-      });
+      // 冰淇淋口味球数：上架在售口味 ∪ 订单出现口味（含 0 球），按球数降序
+      const onSaleFlavors = (this.data.products || [])
+        .filter(p => p.category === 'icecream' && p.saleStatus === 'on')
+        .map(p => p.name);
+      const flavorNames = Array.from(new Set([...onSaleFlavors, ...Object.keys(icecream.flavors)]));
+      const flavorList = flavorNames
+        .map(n => ({ name: n, scoops: icecream.flavors[n] || 0 }))
+        .sort((a, b) => b.scoops - a.scoops || a.name.localeCompare(b.name, 'zh'));
 
-      // 客单价
-      const avgOrderValue = periodOrders.length > 0
-        ? Math.round((totalSales / periodOrders.length) * 100) / 100 : 0;
+      // 客单价（净销售额 / 有效订单数）
+      const avgOrderValue = orderCount > 0
+        ? Math.round((totalSales / orderCount) * 100) / 100 : 0;
 
       // 更新数据
       const statsData = {
-        todaySales: Math.round(totalSales * 100) / 100,
-        orderCount: periodOrders.length,
+        todaySales: totalSales,
+        orderCount,
         avgOrderValue,
-        productRanking: rankingList
+        productRanking: rankingList,
+        icecreamSummary: {
+          cups: icecream.cups,
+          scoops: icecream.scoops,
+          revenue: Math.round(icecream.revenue * 100) / 100,
+          flavors: flavorList
+        }
       };
       this.setData(statsData);
       cacheSet(cacheKey, statsData, 2 * 60 * 1000);
@@ -1051,12 +1102,18 @@ Page({
         todaySales: this.data.todaySales,
         orderCount: this.data.orderCount,
         avgOrderValue: this.data.avgOrderValue,
-        productRanking: this.data.productRanking
+        productRanking: this.data.productRanking,
+        icecreamSummary: this.data.icecreamSummary
       });
     } catch (e) {
       console.error('[Statistics] 加载失败', e);
       wx.showToast({ title: '统计数据加载失败', icon: 'none' });
     }
+  },
+
+  // 冰淇淋口味球数下拉展开/收起
+  onToggleIcecreamDetail() {
+    this.setData({ icecreamExpanded: !this.data.icecreamExpanded });
   },
 
   // ===== 订单管理 =====
@@ -1084,6 +1141,11 @@ Page({
             }).replace(/\//g, '-')
           : '';
 
+        const products = order.products || [];
+        const totalAmount = order.totalAmount || 0;
+        const refundedAmount = products.reduce((s, p) => s + (p.refunded ? (Number(p.price) || 0) : 0), 0);
+        const finalAmount = Math.round((totalAmount - refundedAmount) * 100) / 100;
+
         return {
           id: order._id || order.id || '',
           _id: order._id,
@@ -1092,19 +1154,28 @@ Page({
           type: order.orderType === 'dine-in' ? 'dine' : 'takeaway',
           userName: '微信用户',
           time: timeStr,
-          items: (order.products || []).map(p => ({
-            name: p.name || '',
-            temp: p.temperature === '冰' ? '冰' : p.temperature === '热' ? '热' : '',
-            qty: p.quantity || 1,
-            price: p.price || 0
-          })),
-          total: order.totalAmount || 0,
+          items: products.map(p => {
+            const d = formatScoopProduct(p);
+            return {
+              name: d.name || '',
+              temp: d.temperature === '冰' ? '冰' : d.temperature === '热' ? '热' : '',
+              spec: d.spec || '',
+              flavors: d.flavors || [],
+              toppings: d.toppings || [],
+              qty: d.quantity || 1,
+              price: d.price || 0,
+              refunded: !!d.refunded
+            };
+          }),
+          total: totalAmount,
+          refundedAmount,
+          finalAmount,
           remark: order.remark || '',
           // 保留支付相关字段用于退款
           orderId: order.orderId,
           outTradeNo: order.outTradeNo,
           transactionId: order.transactionId,
-          totalAmount: order.totalAmount
+          totalAmount
         };
       });
 
@@ -1133,76 +1204,119 @@ Page({
     this._applyOrderFilter(e.currentTarget.dataset.value);
   },
 
-  onRefundOrder(e) {
-    const id = e.currentTarget.dataset.id;
+  // ===== 退款（按商品分批） =====
+  _refundSelectedAmount(candidates) {
+    return candidates
+      .filter(c => c.selected && !c.refunded)
+      .reduce((s, c) => s + (Number(c.price) || 0), 0);
+  },
 
-    // 从当前订单列表中找到该订单
+  _setRefundCandidates(candidates) {
+    const selectedAmount = this._refundSelectedAmount(candidates);
+    this.setData({ refundModal: { ...this.data.refundModal, candidates, selectedAmount } });
+  },
+
+  onOpenRefund(e) {
+    const id = e.currentTarget.dataset.id;
     const order = this.data.orders.find(o => o._id === id);
     if (!order) {
       wx.showToast({ title: '订单不存在', icon: 'none' });
       return;
     }
-
-    // 检查订单状态
     if (order.status === 'refunded') {
       wx.showToast({ title: '该订单已退款', icon: 'none' });
       return;
     }
-
-    // 检查是否有关联订单（堂食+外带）
-    const hasRelatedOrder = this.data.orders.some(o =>
-      o._id !== id && o.outTradeNo === order.outTradeNo
-    );
-
-    // 构造确认提示内容
-    let confirmContent = `退款后订单状态将变为"已退款"，退款金额为 ¥${(order.totalAmount || order.total || 0).toFixed(2)}，是否继续？`;
-    if (hasRelatedOrder) {
-      confirmContent = `此订单与另一订单共享同一笔支付（总金额 ¥${(order.totalAmount || order.total || 0).toFixed(2)}），将发起部分退款，是否继续？`;
+    if (!order.outTradeNo && !order.transactionId) {
+      wx.showToast({ title: '缺少支付信息，无法退款', icon: 'none' });
+      return;
     }
 
-    wx.showModal({
-      title: '确认退款',
-      content: confirmContent,
-      success: async (res) => {
-        if (res.confirm) {
-          wx.showLoading({ title: '处理中...', mask: true });
-          try {
-            // 调用退款云函数
-            const result = await wx.cloud.callFunction({
-              name: 'refundPayment',
-              data: {
-                orderId: order._id,
-                outTradeNo: order.outTradeNo,
-                transactionId: order.transactionId,
-                refundAmount: order.totalAmount || order.total || 0
-              }
-            });
+    const candidates = order.items.map((it, index) => ({
+      index,
+      name: it.name,
+      spec: it.spec || '',
+      flavors: it.flavors || [],
+      toppings: it.toppings || [],
+      price: it.price,
+      refunded: it.refunded,
+      selected: !it.refunded   // 默认全选所有未退商品
+    }));
 
-            wx.hideLoading();
-
-            // 根据返回结果显示不同提示
-            if (result.result && result.result.alreadyRefunded) {
-              wx.showToast({ title: '订单已退款', icon: 'success' });
-            } else if (result.result && result.result.isPartialRefund) {
-              wx.showToast({
-                title: '部分退款成功',
-                icon: 'success',
-                duration: 2000
-              });
-            } else {
-              wx.showToast({ title: '退款成功', icon: 'success' });
-            }
-
-            // 刷新订单列表
-            this._loadOrdersFromCloud();
-          } catch (e) {
-            wx.hideLoading();
-            wx.showToast({ title: '操作失败', icon: 'none' });
-            console.error('[Orders] 退款失败', e);
-          }
-        }
+    this.setData({
+      refundModal: {
+        orderId: order._id,
+        outTradeNo: order.outTradeNo,
+        transactionId: order.transactionId,
+        candidates,
+        selectedAmount: this._refundSelectedAmount(candidates)
       }
     });
+  },
+
+  onToggleRefundItem(e) {
+    const modal = this.data.refundModal;
+    if (!modal) return;
+    const index = Number(e.currentTarget.dataset.index);
+    const candidates = modal.candidates.map((c, i) =>
+      (i === index && !c.refunded) ? { ...c, selected: !c.selected } : c
+    );
+    this._setRefundCandidates(candidates);
+  },
+
+  onSelectAllRefund() {
+    const modal = this.data.refundModal;
+    if (!modal) return;
+    const candidates = modal.candidates.map(c =>
+      c.refunded ? { ...c, selected: false } : { ...c, selected: true }
+    );
+    this._setRefundCandidates(candidates);
+  },
+
+  onCloseRefund() {
+    this.setData({ refundModal: null });
+  },
+
+  noop() {},
+
+  async onConfirmRefund() {
+    const modal = this.data.refundModal;
+    if (!modal) return;
+    const indexes = modal.candidates
+      .filter(c => c.selected && !c.refunded)
+      .map(c => c.index);
+    if (indexes.length === 0) {
+      wx.showToast({ title: '请选择要退款的商品', icon: 'none' });
+      return;
+    }
+
+    wx.showLoading({ title: '退款处理中...', mask: true });
+    try {
+      const result = await wx.cloud.callFunction({
+        name: 'refundPayment',
+        data: {
+          orderId: modal.orderId,
+          outTradeNo: modal.outTradeNo,
+          transactionId: modal.transactionId,
+          refundItems: indexes
+        }
+      });
+      wx.hideLoading();
+      const r = result.result || {};
+      if (r.alreadyRefunded) {
+        wx.showToast({ title: '所选商品已退款', icon: 'none' });
+      } else if (r.isPartialRefund) {
+        wx.showToast({ title: '部分退款成功', icon: 'success', duration: 2000 });
+      } else {
+        wx.showToast({ title: '退款成功', icon: 'success' });
+      }
+      this.setData({ refundModal: null });
+      this._loadOrdersFromCloud();
+    } catch (e2) {
+      wx.hideLoading();
+      wx.showToast({ title: '退款失败，请重试', icon: 'none' });
+      console.error('[Orders] 退款失败', e2);
+    }
   },
 
   // 更新订单状态

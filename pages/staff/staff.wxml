@@ -70,11 +70,24 @@
                 class="item-row"
               >
                 <view class="item-left">
-                  <text class="item-name">{{product.name}}</text>
-                  <text class="item-temp" wx:if="{{product.temperature}}">
-                    {{product.temperature}}
-                  </text>
-                  <text class="item-qty">x{{product.quantity}}</text>
+                  <view class="item-title">
+                    <text class="item-name">{{product.name}}</text>
+                    <text class="item-temp" wx:if="{{product.temperature}}">
+                      {{product.temperature}}
+                    </text>
+                    <text class="item-qty">x{{product.quantity}}</text>
+                  </view>
+                  <!-- 拼球：口味/加料分行显示 -->
+                  <view wx:if="{{product.flavors}}" class="scoop-lines">
+                    <view wx:for="{{product.flavors}}" wx:for-item="flavor" wx:key="index" class="scoop-line">
+                      <text class="scoop-name">{{flavor.name}}</text>
+                      <text class="scoop-qty">×{{flavor.qty}}</text>
+                    </view>
+                    <view wx:for="{{product.toppings}}" wx:for-item="topping" wx:key="index" class="scoop-line">
+                      <text class="scoop-topping">{{topping}}</text>
+                    </view>
+                  </view>
+                  <text wx:elif="{{product.spec}}" class="item-temp">{{product.spec}}</text>
                 </view>
                 <text class="item-price">¥{{product.price}}</text>
               </view>
@@ -133,11 +146,24 @@
                 class="item-row"
               >
                 <view class="item-left">
-                  <text class="item-name">{{product.name}}</text>
-                  <text class="item-temp" wx:if="{{product.temperature}}">
-                    {{product.temperature}}
-                  </text>
-                  <text class="item-qty">x{{product.quantity}}</text>
+                  <view class="item-title">
+                    <text class="item-name">{{product.name}}</text>
+                    <text class="item-temp" wx:if="{{product.temperature}}">
+                      {{product.temperature}}
+                    </text>
+                    <text class="item-qty">x{{product.quantity}}</text>
+                  </view>
+                  <!-- 拼球：口味/加料分行显示 -->
+                  <view wx:if="{{product.flavors}}" class="scoop-lines">
+                    <view wx:for="{{product.flavors}}" wx:for-item="flavor" wx:key="index" class="scoop-line">
+                      <text class="scoop-name">{{flavor.name}}</text>
+                      <text class="scoop-qty">×{{flavor.qty}}</text>
+                    </view>
+                    <view wx:for="{{product.toppings}}" wx:for-item="topping" wx:key="index" class="scoop-line">
+                      <text class="scoop-topping">{{topping}}</text>
+                    </view>
+                  </view>
+                  <text wx:elif="{{product.spec}}" class="item-temp">{{product.spec}}</text>
                 </view>
                 <text class="item-price">¥{{product.price}}</text>
               </view>
@@ -196,18 +222,40 @@
             class="completed-item-row"
           >
             <view class="completed-item-left">
-              <text class="completed-item-name">{{product.name}}</text>
-              <text class="completed-item-temp" wx:if="{{product.temperature}}">
-                {{product.temperature}}
-              </text>
-              <text class="completed-item-qty">x{{product.quantity}}</text>
+              <view class="item-title">
+                <text class="completed-item-name">{{product.name}}</text>
+                <text class="completed-item-temp" wx:if="{{product.temperature}}">
+                  {{product.temperature}}
+                </text>
+                <text class="completed-item-qty">x{{product.quantity}}</text>
+              </view>
+              <!-- 拼球：口味/加料分行显示 -->
+              <view wx:if="{{product.flavors}}" class="scoop-lines">
+                <view wx:for="{{product.flavors}}" wx:for-item="flavor" wx:key="index" class="scoop-line">
+                  <text class="scoop-name">{{flavor.name}}</text>
+                  <text class="scoop-qty">×{{flavor.qty}}</text>
+                </view>
+                <view wx:for="{{product.toppings}}" wx:for-item="topping" wx:key="index" class="scoop-line">
+                  <text class="scoop-topping">{{topping}}</text>
+                </view>
+              </view>
+              <text wx:elif="{{product.spec}}" class="completed-item-temp">{{product.spec}}</text>
             </view>
-            <text class="completed-item-price">¥{{product.price}}</text>
+            <text wx:if="{{product.refunded}}" class="completed-item-refunded">已退款</text>
+            <text wx:else class="completed-item-price">¥{{product.price}}</text>
           </view>
         </view>
         <view class="completed-info">
           <text class="completed-time">完成时间: {{item.completeTimeStr}}</text>
-          <text class="completed-total">¥{{item.totalAmount}}</text>
+          <view class="completed-amount">
+            <text wx:if="{{item.refundedAmount > 0}}" class="completed-refunded-amount">已退 ¥{{item.refundedAmount}}</text>
+            <text class="completed-total">¥{{item.finalAmount}}</text>
+          </view>
+        </view>
+        <view class="card-divider"></view>
+        <view class="complete-btn-wrapper completed-refund-btn"
+              bindtap="onOpenRefund" data-id="{{item._id}}">
+          <text class="complete-btn-text">退款</text>
         </view>
       </view>
     </scroll-view>
@@ -217,5 +265,46 @@
 <!-- 桌位管理悬浮按钮（页面右下角） -->
 <view class="staff-table-fab" bindtap="onOpenTableManage">
   <text class="staff-table-icon">🪑</text>
+</view>
+
+<!-- 退款选择弹窗 -->
+<view wx:if="{{refundModal}}" class="refund-mask" bindtap="onCloseRefund">
+  <view class="refund-modal" catchtap="noop">
+    <view class="refund-modal-header">
+      <text class="refund-modal-title">选择退款商品</text>
+      <text class="refund-modal-close" bindtap="onCloseRefund">✕</text>
+    </view>
+    <scroll-view class="refund-modal-body" scroll-y>
+      <view
+        wx:for="{{refundModal.candidates}}"
+        wx:key="index"
+        wx:for-item="c"
+        wx:for-index="idx"
+        class="refund-candidate {{c.refunded ? 'refund-candidate-disabled' : ''}}"
+        bindtap="onToggleRefundItem"
+        data-index="{{idx}}"
+      >
+        <view class="refund-checkbox {{c.selected && !c.refunded ? 'refund-checkbox-on' : ''}}">
+          <text wx:if="{{c.selected && !c.refunded}}" class="refund-checkbox-tick">✓</text>
+        </view>
+        <view class="refund-candidate-info">
+          <text class="refund-candidate-name">{{c.name}}</text>
+          <text wx:if="{{c.spec}}" class="refund-candidate-spec">{{c.spec}}</text>
+        </view>
+        <text wx:if="{{c.refunded}}" class="refund-candidate-refunded">已退款</text>
+        <text wx:else class="refund-candidate-price">¥{{c.price}}</text>
+      </view>
+    </scroll-view>
+    <view class="refund-modal-footer">
+      <view class="refund-modal-actions">
+        <text class="refund-select-all" bindtap="onSelectAllRefund">全选</text>
+        <text class="refund-modal-amount">合计退款 ¥{{refundModal.selectedAmount}}</text>
+      </view>
+      <view class="refund-modal-btns">
+        <view class="refund-btn-cancel" bindtap="onCloseRefund"><text>取消</text></view>
+        <view class="refund-btn-confirm" bindtap="onConfirmRefund"><text>确认退款</text></view>
+      </view>
+    </view>
+  </view>
 </view>
 </view>

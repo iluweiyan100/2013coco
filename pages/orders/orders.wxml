@@ -54,9 +54,22 @@
           <block wx:for="{{item.products}}" wx:for-item="product" wx:key="index">
             <view class="product-item">
               <view class="product-info">
-                <text class="product-name">{{product.name}}</text>
-                <text wx:if="{{product.option}}" class="product-option">{{product.option}}</text>
-                <text class="product-quantity">x{{product.quantity}}</text>
+                <view class="product-title">
+                  <text class="product-name">{{product.name}}</text>
+                  <text class="product-quantity">x{{product.quantity}}</text>
+                </view>
+                <!-- 拼球：口味/加料分行显示 -->
+                <view wx:if="{{product.flavors}}" class="scoop-lines">
+                  <view wx:for="{{product.flavors}}" wx:for-item="flavor" wx:key="index" class="scoop-line">
+                    <text class="scoop-name">{{flavor.name}}</text>
+                    <text class="scoop-qty">×{{flavor.qty}}</text>
+                  </view>
+                  <view wx:for="{{product.toppings}}" wx:for-item="topping" wx:key="index" class="scoop-line">
+                    <text class="scoop-topping">{{topping}}</text>
+                  </view>
+                </view>
+                <!-- 非拼球：规格文字（温度/加料） -->
+                <text wx:elif="{{product.spec}}" class="product-option">{{product.spec}}</text>
               </view>
               <text class="product-price">¥{{product.price}}</text>
             </view>

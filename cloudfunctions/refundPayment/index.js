@@ -34,8 +34,112 @@ function buildAuthorization(method, urlPath, body) {
   }
 }
 
+// 按商品分批退款：只退选中商品，剩余商品保留，全部退完才整单标 refunded
+async function handleItemRefund({ db, currentOrder, relatedOrders, outTradeNo, transactionId, refundItems }) {
+  // 整单已退（旧数据走整单退款后无 per-item 标记）→ 直接幂等返回
+  if (currentOrder.status === 'refunded') {
+    return {
+      success: true,
+      alreadyRefunded: true,
+      message: '订单已退款',
+      refundId: currentOrder.refundId,
+      refundNo: currentOrder.refundNo,
+      refundTime: currentOrder.refundTime
+    }
+  }
+
+  const products = currentOrder.products || []
+
+  // 服务端权威：只退「未退」的选中商品（下标）
+  const targetIndexes = refundItems
+    .map(Number)
+    .filter(idx => products[idx] && !products[idx].refunded)
+
+  if (targetIndexes.length === 0) {
+    return {
+      success: true,
+      alreadyRefunded: true,
+      message: '所选商品已退款',
+      refundId: currentOrder.refundId,
+      refundNo: currentOrder.refundNo,
+      refundTime: currentOrder.refundTime
+    }
+  }
+
+  // 本次退款金额（元）= Σ 选中未退商品价格
+  const thisRefundAmount = targetIndexes.reduce((s, idx) => s + (Number(products[idx].price) || 0), 0)
+  // 微信 original 总额 = 所有关联订单 totalAmount 之和
+  const totalAmount = relatedOrders.reduce((s, o) => s + (Number(o.totalAmount) || 0), 0)
+  const totalFee = Math.round(totalAmount * 100)
+  const refundFee = Math.round(thisRefundAmount * 100)
+
+  if (refundFee <= 0) {
+    throw new Error('退款金额无效')
+  }
+
+  const outRefundNo = `RF${Date.now()}${randomStr(8)}`
+  const reqBody = JSON.stringify({
+    out_trade_no: outTradeNo,
+    transaction_id: transactionId,
+    out_refund_no: outRefundNo,
+    reason: '商家退款',
+    amount: { refund: refundFee, total: totalFee, currency: 'CNY' },
+    notify_url: `${process.env.REFUND_NOTIFY_URL || 'https://cloud3-d2gbcvyqkbc0fbf94-1419079738.ap-shanghai.app.tcloudbase.com'}/refundCallback`
+  })
+
+  const urlPath = '/v3/refund/domestic/refunds'
+  const { authorization } = buildAuthorization('POST', urlPath, reqBody)
+
+  try {
+    const response = await axios.post(REFUND_URL, reqBody, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': authorization,
+        'User-Agent': 'WXMiniProgram/1.0',
+      },
+      timeout: 10000,
+    })
+    const { refund_id } = response.data
+
+    // 标记选中商品已退，计算累计已退金额（分批累加，勿覆盖）
+    const updatedProducts = products.map((p, i) => targetIndexes.includes(i) ? { ...p, refunded: true } : p)
+    const allRefunded = updatedProducts.every(p => p.refunded)
+    const totalRefundedAmount = updatedProducts.reduce((s, p) => s + (p.refunded ? (Number(p.price) || 0) : 0), 0)
+
+    const updateData = {
+      products: updatedProducts,
+      refundId: refund_id,
+      refundNo: outRefundNo,
+      refundTime: db.serverDate(),
+      refundAmount: Math.round(totalRefundedAmount * 100) / 100  // 累计已退金额
+    }
+    if (allRefunded) {
+      updateData.status = 'refunded'
+    }
+
+    await db.collection('orders').doc(currentOrder._id).update({ data: updateData })
+
+    return {
+      success: true,
+      refundId: refund_id,
+      outRefundNo,
+      message: '退款申请成功',
+      isPartialRefund: !allRefunded,
+      totalRefunded: totalRefundedAmount,
+      totalAmount
+    }
+  } catch (e) {
+    if (e.response) {
+      console.error('[refundPayment] 按商品退款失败:', JSON.stringify(e.response.data))
+      throw new Error('退款失败: ' + (e.response.data.message || JSON.stringify(e.response.data)))
+    }
+    throw e
+  }
+}
+
 exports.main = async (event, context) => {
-  const { orderId, outTradeNo, transactionId, refundAmount } = event
+  const { orderId, outTradeNo, transactionId, refundAmount, refundItems } = event
   const apiKeyV3 = process.env.WX_MCH_API_KEY
 
   console.log('[refundPayment] 收到退款请求:', { orderId, outTradeNo, transactionId, refundAmount })
@@ -89,6 +193,11 @@ exports.main = async (event, context) => {
   const currentOrder = relatedOrders.find(o => o._id === orderId) || relatedOrders[0]
   if (!currentOrder) {
     throw new Error('当前订单不存在')
+  }
+
+  // 按商品分批退款：优先于下方整单退款逻辑
+  if (Array.isArray(refundItems) && refundItems.length > 0) {
+    return handleItemRefund({ db, currentOrder, relatedOrders, outTradeNo, transactionId, refundItems })
   }
 
   // 检查当前订单是否已退款

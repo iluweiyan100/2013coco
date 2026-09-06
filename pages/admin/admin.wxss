@@ -290,6 +290,58 @@ page {
   color: #C08A4D;
 }
 
+/* ===== 冰淇淋大类排行行（固定置顶 + 可收起的口味球数下拉） ===== */
+.rank-badge-icecream {
+  background: #C08A4D;
+}
+
+.icecream-rank-row {
+  border-bottom: 1rpx solid #E7DDD1;
+}
+
+.icecream-title-wrap {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.icecream-arrow {
+  margin-top: 4rpx;
+  font-size: 42rpx;
+  line-height: 1;
+  color: rgba(91, 58, 41, 0.55);
+  transition: transform 0.2s;
+}
+
+.icecream-arrow-open {
+  transform: rotate(180deg);
+}
+
+.flavor-breakdown {
+  padding: 8rpx 0 16rpx 72rpx;
+  border-bottom: 1rpx solid #E7DDD1;
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+}
+
+.flavor-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.flavor-name {
+  font-size: 26rpx;
+  color: rgba(91, 58, 41, 0.85);
+}
+
+.flavor-scoops {
+  font-size: 26rpx;
+  font-weight: 500;
+  color: #C08A4D;
+}
+
 /* ===== 商品管理 Tab ===== */
 .category-filter {
   display: flex;
@@ -1131,9 +1183,16 @@ page {
 
 .order-item-left {
   display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4rpx;
+  flex: 1;
+}
+
+.order-item-title {
+  display: flex;
   align-items: center;
   gap: 12rpx;
-  flex: 1;
 }
 
 .order-item-name {
@@ -1154,10 +1213,50 @@ page {
   color: rgba(58, 35, 24, 0.50);
 }
 
+/* ========== 拼球口味分行显示 ========== */
+.scoop-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 2rpx;
+  padding-left: 20rpx;
+}
+
+.scoop-line {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+}
+
+.scoop-name {
+  font-size: 18rpx;
+  color: rgba(58, 35, 24, 0.70);
+  line-height: 1.4;
+}
+
+.scoop-qty {
+  font-size: 16rpx;
+  color: rgba(58, 35, 24, 0.45);
+  line-height: 1.4;
+}
+
+.scoop-topping {
+  font-size: 18rpx;
+  color: rgba(58, 35, 24, 0.50);
+  line-height: 1.4;
+}
+
 .order-item-price {
   font-size: 26rpx;
   color: #3A2318;
   font-weight: 500;
+}
+
+.order-item-refunded {
+  font-size: 22rpx;
+  color: #A3212D;
+  background: #FDF1F1;
+  border-radius: 6rpx;
+  padding: 2rpx 10rpx;
 }
 
 .order-total-divider {
@@ -1180,6 +1279,17 @@ page {
 .order-total-value {
   font-size: 30rpx;
   font-weight: 600;
+  color: #A3212D;
+}
+
+.order-total-amount {
+  display: flex;
+  align-items: baseline;
+  gap: 12rpx;
+}
+
+.order-total-refunded {
+  font-size: 22rpx;
   color: #A3212D;
 }
 
@@ -1765,4 +1875,167 @@ page {
 .pm-switch-text {
   font-size: 26rpx;
   color: #8B6F5E;
+}
+
+/* ===== 退款选择弹窗 ===== */
+.refund-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+}
+
+.refund-modal {
+  width: 600rpx;
+  max-width: 480px;
+  max-height: 80vh;
+  background: #ffffff;
+  border-radius: 16rpx;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.refund-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24rpx 30rpx;
+  border-bottom: 2rpx solid #f0f0f0;
+}
+
+.refund-modal-title {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #333333;
+}
+
+.refund-modal-close {
+  font-size: 32rpx;
+  color: #999999;
+  padding: 0 8rpx;
+}
+
+.refund-modal-body {
+  height: 400rpx;
+  max-height: 50vh;
+  padding: 10rpx 30rpx;
+  box-sizing: border-box;
+}
+
+.refund-candidate {
+  display: flex;
+  align-items: center;
+  padding: 20rpx 0;
+  border-bottom: 2rpx solid #f5f5f5;
+}
+
+.refund-candidate-disabled {
+  opacity: 0.5;
+}
+
+.refund-checkbox {
+  width: 36rpx;
+  height: 36rpx;
+  border: 3rpx solid #cccccc;
+  border-radius: 8rpx;
+  margin-right: 20rpx;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.refund-checkbox-on {
+  background: #FF6B35;
+  border-color: #FF6B35;
+}
+
+.refund-checkbox-tick {
+  font-size: 26rpx;
+  color: #ffffff;
+  font-weight: bold;
+  line-height: 1;
+}
+
+.refund-candidate-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.refund-candidate-name {
+  font-size: 28rpx;
+  color: #333333;
+}
+
+.refund-candidate-spec {
+  font-size: 22rpx;
+  color: #999999;
+}
+
+.refund-candidate-price {
+  font-size: 28rpx;
+  color: #333333;
+}
+
+.refund-candidate-refunded {
+  font-size: 24rpx;
+  color: #E5484D;
+}
+
+.refund-modal-footer {
+  padding: 20rpx 30rpx;
+  border-top: 2rpx solid #f0f0f0;
+}
+
+.refund-modal-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16rpx;
+}
+
+.refund-select-all {
+  font-size: 28rpx;
+  color: #FF6B35;
+}
+
+.refund-modal-amount {
+  font-size: 28rpx;
+  color: #333333;
+  font-weight: bold;
+}
+
+.refund-modal-btns {
+  display: flex;
+  gap: 20rpx;
+}
+
+.refund-btn-cancel,
+.refund-btn-confirm {
+  flex: 1;
+  height: 80rpx;
+  border-radius: 12rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30rpx;
+}
+
+.refund-btn-cancel {
+  background: #f0f0f0;
+  color: #666666;
+}
+
+.refund-btn-confirm {
+  background: #FF6B35;
+  color: #ffffff;
+  font-weight: bold;
 }

@@ -205,6 +205,38 @@ page {
   font-weight: 500;
 }
 
+/* ========== 拼球口味分行显示 ========== */
+.scoop-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 2rpx;
+  padding-left: 20rpx;
+}
+
+.scoop-line {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+}
+
+.scoop-name {
+  font-size: 18rpx;
+  color: rgba(58, 35, 24, 0.70);
+  line-height: 1.4;
+}
+
+.scoop-qty {
+  font-size: 16rpx;
+  color: rgba(58, 35, 24, 0.45);
+  line-height: 1.4;
+}
+
+.scoop-topping {
+  font-size: 18rpx;
+  color: rgba(58, 35, 24, 0.50);
+  line-height: 1.4;
+}
+
 /* 数量增减 */
 .cart-item-qty-row {
   display: flex;
