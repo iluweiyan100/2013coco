@@ -276,12 +276,12 @@
                   <text class="order-item-qty">x{{good.qty}}</text>
                 </view>
                 <!-- 拼球：口味/加料分行显示 -->
-                <view wx:if="{{good.flavors}}" class="scoop-lines">
-                  <view wx:for="{{good.flavors}}" wx:for-item="flavor" wx:key="index" class="scoop-line">
+                <view wx:if="{{good.flavors.length > 0}}" class="scoop-lines">
+                  <view wx:for="{{good.flavors}}" wx:for-item="flavor" wx:key="name" class="scoop-line">
                     <text class="scoop-name">{{flavor.name}}</text>
                     <text class="scoop-qty">×{{flavor.qty}}</text>
                   </view>
-                  <view wx:for="{{good.toppings}}" wx:for-item="topping" wx:key="index" class="scoop-line">
+                  <view wx:for="{{good.toppings}}" wx:for-item="topping" wx:key="*this" class="scoop-line">
                     <text class="scoop-topping">{{topping}}</text>
                   </view>
                 </view>

@@ -1,6 +1,6 @@
 // pages/admin/admin.js
 const SUBSCRIBE = require('../../config/subscribe.js');
-const { formatScoopProduct } = require('../../utils/orderDisplay.js');
+const { formatScoopProduct, refundedAmountOf, netAmountOf } = require('../../utils/orderDisplay.js');
 
 // 本地缓存工具
 function cacheGet(key) {
@@ -1014,11 +1014,9 @@ Page({
       let orderCount = 0;
       const rankableOrders = []; // 参与排行的订单（非全额退款）
       periodOrders.forEach(order => {
-        const products = order.products || [];
         const total = order.totalAmount || 0;
-        const refundedAmount = products.reduce((s, p) => s + (p.refunded ? (Number(p.price) || 0) : 0), 0);
-        const isFullRefund = order.status === 'refunded'
-          || (refundedAmount > 0 && Math.abs(refundedAmount - total) < 0.01);
+        const refundedAmount = refundedAmountOf(order); // 含旧整单退款 doc 级兜底
+        const isFullRefund = Math.abs(refundedAmount - total) < 0.01;
         if (isFullRefund) return; // 全额退款：不计销售额、订单量、排行
         totalSales += total - refundedAmount;
         orderCount++;
@@ -1034,7 +1032,11 @@ Page({
           if (product.refunded) return; // 已退单品不计入排行
           const decoded = formatScoopProduct(product);
           const cat = productMap[product.productId] && productMap[product.productId].category;
-          const isIceCream = cat === 'icecream' || (decoded.flavors && decoded.flavors.length > 0);
+          // 拼球（spec 可解析）或目录命中冰淇淋类；productId 缺失（商品被删/目录超量）时按名称兜底识别
+          const nameSuggestsIcecream = /冰淇淋|雪糕|冰激凌|冰淇凌/.test(product.name || '');
+          const isIceCream = cat === 'icecream'
+            || (decoded.flavors && decoded.flavors.length > 0)
+            || (!cat && nameSuggestsIcecream);
           const linePrice = product.price || 0;   // 行总额（单价×数量，落库时已乘）
           const lineCups = product.quantity || 1;
 
@@ -1143,8 +1145,8 @@ Page({
 
         const products = order.products || [];
         const totalAmount = order.totalAmount || 0;
-        const refundedAmount = products.reduce((s, p) => s + (p.refunded ? (Number(p.price) || 0) : 0), 0);
-        const finalAmount = Math.round((totalAmount - refundedAmount) * 100) / 100;
+        const refundedAmount = refundedAmountOf(order); // 含旧整单退款 doc 级兜底
+        const finalAmount = netAmountOf(order);
 
         return {
           id: order._id || order.id || '',

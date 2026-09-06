@@ -486,12 +486,24 @@ exports.main = async (event, context) => {
         completedOrders.push(finalizePaid(matched, openid, orderId, pn, now))
         await ref.update({ data: { items, completedOrders, status: deriveStatus(items), totalAmount: sumState(items, 'pending'), updatedAt: now } })
 
-        // 服务端权威写订单状态（替代客户端直写 orders，防伪造 making），并回填取餐号
+        // 服务端权威写订单状态（替代客户端直写 orders，防伪造 making），并回填取餐号。
+        // 条件写：仅当取餐号仍为空时写入，避免覆盖 webhook 已并发分配的号码（先到者为准）。
         try {
-          await t.collection('orders').doc(orderId).update({
-            data: { pickupNumber: pn, status: 'making', transactionId, paidAt: db.serverDate() }
-          })
-        } catch (e) { /* 订单写失败不阻塞，webhook 会兜底 */ }
+          const claim = await t.collection('orders')
+            .where({ _id: orderId, pickupNumber: '' })
+            .update({ data: { pickupNumber: pn, status: 'making', transactionId, paidAt: db.serverDate() } })
+          if (!(claim.stats && claim.stats.updated > 0)) {
+            // 已被 webhook 抢先写入取餐号：仅补写状态/交易号，保留其号码
+            await t.collection('orders').doc(orderId).update({ data: { status: 'making', transactionId, paidAt: db.serverDate() } })
+          }
+        } catch (e) {
+          // 事务内 where 条件更新不可用/失败：回退无条件写（保留原行为，webhook 会兜底）
+          try {
+            await t.collection('orders').doc(orderId).update({
+              data: { pickupNumber: pn, status: 'making', transactionId, paidAt: db.serverDate() }
+            })
+          } catch (e2) { /* 订单写失败不阻塞，webhook 会兜底 */ }
+        }
       })
       return { success: true }
     }

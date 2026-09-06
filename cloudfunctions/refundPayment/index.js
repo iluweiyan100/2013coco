@@ -34,6 +34,44 @@ function buildAuthorization(method, urlPath, body) {
   }
 }
 
+// 生成确定性退款单号：同一订单同一批商品重试复用同一单号（微信对同一 out_refund_no 只退一次）
+function deriveOutRefundNo(orderId, indexes) {
+  const key = `${orderId}:${(indexes || []).slice().sort((a, b) => a - b).join(',')}`
+  return `RF${crypto.createHash('md5').update(key).digest('hex').slice(0, 16).toUpperCase()}`
+}
+
+// 事务内合并标记已退商品（重读最新状态，避免并发退款互相覆盖标记），并记录退款批次供异步回执对账
+async function markRefunded(db, orderId, targetIndexes, refundId, outRefundNo, batch) {
+  let result = null
+  await db.runTransaction(async t => {
+    const re = await t.collection('orders').doc(orderId).get()
+    const cur = re.data || {}
+    const curProducts = cur.products || []
+    const updatedProducts = curProducts.map((p, i) =>
+      targetIndexes.includes(i) ? { ...p, refunded: true } : p
+    )
+    const allRefunded = updatedProducts.every(p => p.refunded)
+    const totalRefundedAmount = updatedProducts.reduce((s, p) => s + (p.refunded ? (Number(p.price) || 0) : 0), 0)
+    const batches = (cur.refundBatches || []).filter(b => b.outRefundNo !== outRefundNo)
+    if (batch) {
+      batch.prevStatus = cur.status || 'done'
+      batches.push(batch)
+    }
+    const updateData = {
+      products: updatedProducts,
+      refundId,
+      refundNo: outRefundNo,
+      refundTime: db.serverDate(),
+      refundAmount: Math.round(totalRefundedAmount * 100) / 100,
+      refundBatches: batches
+    }
+    if (allRefunded) updateData.status = 'refunded'
+    await t.collection('orders').doc(orderId).update({ data: updateData })
+    result = { allRefunded, totalRefundedAmount }
+  })
+  return result
+}
+
 // 按商品分批退款：只退选中商品，剩余商品保留，全部退完才整单标 refunded
 async function handleItemRefund({ db, currentOrder, relatedOrders, outTradeNo, transactionId, refundItems }) {
   // 整单已退（旧数据走整单退款后无 per-item 标记）→ 直接幂等返回
@@ -77,7 +115,7 @@ async function handleItemRefund({ db, currentOrder, relatedOrders, outTradeNo, t
     throw new Error('退款金额无效')
   }
 
-  const outRefundNo = `RF${Date.now()}${randomStr(8)}`
+  const outRefundNo = deriveOutRefundNo(currentOrder._id, targetIndexes)
   const reqBody = JSON.stringify({
     out_trade_no: outTradeNo,
     transaction_id: transactionId,
@@ -100,39 +138,37 @@ async function handleItemRefund({ db, currentOrder, relatedOrders, outTradeNo, t
       },
       timeout: 10000,
     })
-    const { refund_id } = response.data
+    const { refund_id, status } = response.data
 
-    // 标记选中商品已退，计算累计已退金额（分批累加，勿覆盖）
-    const updatedProducts = products.map((p, i) => targetIndexes.includes(i) ? { ...p, refunded: true } : p)
-    const allRefunded = updatedProducts.every(p => p.refunded)
-    const totalRefundedAmount = updatedProducts.reduce((s, p) => s + (p.refunded ? (Number(p.price) || 0) : 0), 0)
-
-    const updateData = {
-      products: updatedProducts,
-      refundId: refund_id,
-      refundNo: outRefundNo,
-      refundTime: db.serverDate(),
-      refundAmount: Math.round(totalRefundedAmount * 100) / 100  // 累计已退金额
-    }
-    if (allRefunded) {
-      updateData.status = 'refunded'
-    }
-
-    await db.collection('orders').doc(currentOrder._id).update({ data: updateData })
+    // 事务合并标记 + 记录退款批次（供 refundCallback 对账 ABNORMAL/CLOSED）
+    const batch = { outRefundNo, indexes: targetIndexes, amount: thisRefundAmount, refundId: refund_id, status: status || 'SUCCESS' }
+    const res = await markRefunded(db, currentOrder._id, targetIndexes, refund_id, outRefundNo, batch)
 
     return {
       success: true,
       refundId: refund_id,
       outRefundNo,
       message: '退款申请成功',
-      isPartialRefund: !allRefunded,
-      totalRefunded: totalRefundedAmount,
+      isPartialRefund: !res.allRefunded,
+      totalRefunded: res.totalRefundedAmount,
       totalAmount
     }
   } catch (e) {
+    const resp = e.response && e.response.data
+    const errMsg = String((resp && (resp.message || JSON.stringify(resp))) || e.message || '')
+    // 幂等：同一 out_refund_no 已存在（上次退款成功但标记写入失败后的重试 / 并发重复提交）。
+    // 微信对同一退款单号只退一次，此处视为已退款，补写标记后返回成功。
+    // 注意：仅匹配「退款单号重复」类明确信号，避免误把普通参数错误/限流当成已退款。
+    if (/退款单号|out_refund_no|已存在|重复|已发起/.test(errMsg)) {
+      console.warn('[refundPayment] 检测到重复退款单号，补写标记:', outRefundNo)
+      const patched = await markRefunded(db, currentOrder._id, targetIndexes, '', outRefundNo, null).catch(() => null)
+      if (patched) {
+        return { success: true, alreadyRefunded: true, message: '订单已退款', outRefundNo }
+      }
+    }
     if (e.response) {
-      console.error('[refundPayment] 按商品退款失败:', JSON.stringify(e.response.data))
-      throw new Error('退款失败: ' + (e.response.data.message || JSON.stringify(e.response.data)))
+      console.error('[refundPayment] 按商品退款失败:', JSON.stringify(resp))
+      throw new Error('退款失败: ' + (resp.message || JSON.stringify(resp)))
     }
     throw e
   }
@@ -311,11 +347,8 @@ exports.main = async (event, context) => {
         .where({ outTradeNo: outTradeNo })
         .update({ data: { status: 'refunded' } })
     } else {
-      // 部分退款，只更新当前订单状态
-      console.log('[refundPayment] 部分退款，更新当前订单状态')
-      await db.collection('orders')
-        .doc(currentOrder._id)
-        .update({ data: { status: 'refunded' } })
+      // 部分退款：订单仍有效，不改变状态（此前误置 refunded 会导致整单被排除统计）
+      console.log('[refundPayment] 部分退款，订单状态保持不变')
     }
 
     return {

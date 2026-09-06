@@ -125,6 +125,20 @@ exports.main = async (event, context) => {
             }
             if (!pn) {
               pn = await allocatePickupNumber(db, o.orderType || 'dine-in')
+              // 原子占位：仅当取餐号仍为空时写入；已被 completeTableCheckout 抢先则复用其号码
+              let claimed = false
+              try {
+                const claim = await db.collection('orders')
+                  .where({ _id: o._id, pickupNumber: '' })
+                  .update({ data: { pickupNumber: pn } })
+                claimed = claim.stats && claim.stats.updated > 0
+              } catch (e) { /* 忽略 */ }
+              if (!claimed) {
+                try {
+                  const cur = (await db.collection('orders').doc(o._id).get()).data
+                  if (cur && cur.pickupNumber) pn = cur.pickupNumber
+                } catch (e) { /* 保留已分配的 pn */ }
+              }
             }
             o.pickupNumber = pn  // 原地改写，供下方桌单联动读到新码
             await db.collection('orders').doc(o._id).update({ data: { ...updateData, pickupNumber: pn } })

@@ -31,4 +31,23 @@ function formatScoopProduct(p) {
   });
 }
 
-module.exports = { formatScoopProduct };
+// 计算订单已退金额（元）：优先按商品 refunded 标记累加（新分批退款路径）；
+// 旧整单退款（无 per-item 标记）用 doc 级 refundAmount / totalAmount 兜底。
+function refundedAmountOf(order) {
+  if (!order) return 0;
+  const products = order.products || [];
+  const flagged = products.reduce((s, p) => s + (p.refunded ? (Number(p.price) || 0) : 0), 0);
+  if (flagged > 0) return flagged;
+  if (order.status === 'refunded') {
+    return Number(order.refundAmount) || Number(order.totalAmount) || 0;
+  }
+  return 0;
+}
+
+// 订单实收净额（元）= 总额 − 已退金额
+function netAmountOf(order) {
+  const total = Number(order && order.totalAmount) || 0;
+  return Math.round((total - refundedAmountOf(order)) * 100) / 100;
+}
+
+module.exports = { formatScoopProduct, refundedAmountOf, netAmountOf };

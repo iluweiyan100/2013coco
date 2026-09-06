@@ -1,5 +1,5 @@
 // staff.js - 店员点单窗口
-const { formatScoopProduct } = require('../../utils/orderDisplay.js');
+const { formatScoopProduct, refundedAmountOf, netAmountOf } = require('../../utils/orderDisplay.js');
 
 // 音频单例（模块级，跨页面实例复用）
 let _audio = null;         // 共享音频实例（解锁与提示音复用同一个，iOS 解锁依赖实例）
@@ -348,8 +348,8 @@ Page({
       };
     });
     const totalAmount = order.totalAmount || 0;
-    const refundedAmount = products.reduce((s, p) => s + (p.refunded ? (Number(p.price) || 0) : 0), 0);
-    const finalAmount = Math.round((totalAmount - refundedAmount) * 100) / 100;
+    const refundedAmount = refundedAmountOf(order); // 含旧整单退款 doc 级兜底
+    const finalAmount = netAmountOf(order);
 
     return {
       _id: order._id,

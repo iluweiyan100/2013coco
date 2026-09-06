@@ -78,12 +78,12 @@
                     <text class="item-qty">x{{product.quantity}}</text>
                   </view>
                   <!-- 拼球：口味/加料分行显示 -->
-                  <view wx:if="{{product.flavors}}" class="scoop-lines">
-                    <view wx:for="{{product.flavors}}" wx:for-item="flavor" wx:key="index" class="scoop-line">
+                  <view wx:if="{{product.flavors.length > 0}}" class="scoop-lines">
+                    <view wx:for="{{product.flavors}}" wx:for-item="flavor" wx:key="name" class="scoop-line">
                       <text class="scoop-name">{{flavor.name}}</text>
                       <text class="scoop-qty">×{{flavor.qty}}</text>
                     </view>
-                    <view wx:for="{{product.toppings}}" wx:for-item="topping" wx:key="index" class="scoop-line">
+                    <view wx:for="{{product.toppings}}" wx:for-item="topping" wx:key="*this" class="scoop-line">
                       <text class="scoop-topping">{{topping}}</text>
                     </view>
                   </view>
@@ -154,12 +154,12 @@
                     <text class="item-qty">x{{product.quantity}}</text>
                   </view>
                   <!-- 拼球：口味/加料分行显示 -->
-                  <view wx:if="{{product.flavors}}" class="scoop-lines">
-                    <view wx:for="{{product.flavors}}" wx:for-item="flavor" wx:key="index" class="scoop-line">
+                  <view wx:if="{{product.flavors.length > 0}}" class="scoop-lines">
+                    <view wx:for="{{product.flavors}}" wx:for-item="flavor" wx:key="name" class="scoop-line">
                       <text class="scoop-name">{{flavor.name}}</text>
                       <text class="scoop-qty">×{{flavor.qty}}</text>
                     </view>
-                    <view wx:for="{{product.toppings}}" wx:for-item="topping" wx:key="index" class="scoop-line">
+                    <view wx:for="{{product.toppings}}" wx:for-item="topping" wx:key="*this" class="scoop-line">
                       <text class="scoop-topping">{{topping}}</text>
                     </view>
                   </view>
@@ -230,12 +230,12 @@
                 <text class="completed-item-qty">x{{product.quantity}}</text>
               </view>
               <!-- 拼球：口味/加料分行显示 -->
-              <view wx:if="{{product.flavors}}" class="scoop-lines">
-                <view wx:for="{{product.flavors}}" wx:for-item="flavor" wx:key="index" class="scoop-line">
+              <view wx:if="{{product.flavors.length > 0}}" class="scoop-lines">
+                <view wx:for="{{product.flavors}}" wx:for-item="flavor" wx:key="name" class="scoop-line">
                   <text class="scoop-name">{{flavor.name}}</text>
                   <text class="scoop-qty">×{{flavor.qty}}</text>
                 </view>
-                <view wx:for="{{product.toppings}}" wx:for-item="topping" wx:key="index" class="scoop-line">
+                <view wx:for="{{product.toppings}}" wx:for-item="topping" wx:key="*this" class="scoop-line">
                   <text class="scoop-topping">{{topping}}</text>
                 </view>
               </view>

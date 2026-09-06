@@ -443,9 +443,15 @@ Page({
     // 默认球数跟随首个勾选项（不再硬编码单球）
     const firstSpec = options.includes('单球') ? '单球' : options[0];
     const firstCount = firstSpec === '单球' ? 1 : firstSpec === '双球' ? 2 : 3;
-    // 口味列表 = 当前商品（恒可选，支持同商品多球）+ 所有「可拼球」商品
+    // 口味列表 = 当前商品（恒可选，支持同商品多球）
+    // + 所有「可拼球」商品。仅当当前商品本身「可作为拼球口味」时，才展示其他可拼球口味；
+    // 否则（未勾选「可作为拼球口味」）只保留当前商品，不出现其他可拼球选项。
     const flavors = this.data.allProducts
-      .filter(p => p.category === 'icecream' && (p.scoopEnabled || p.id === product.id))
+      .filter(p => {
+        if (p.category !== 'icecream') return false;
+        if (p.id === product.id) return true;
+        return product.scoopEnabled && p.scoopEnabled;
+      })
       .map(p => ({ id: p.id, name: p.name, qty: p.id === product.id ? firstCount : 0 }));
     this.setData({
       showSpecModal: true,
@@ -597,7 +603,8 @@ Page({
     }
 
     this.setData({ showSpecModal: false });
-    this._addItemToCart(specModalProduct, this._appendToppings(selectedSpec), selectedOrderType, undefined, selectedSpec);
+    // spec 只存加料（温度由 temperature 字段单独承载，避免重复存储「热 +奥利奥碎」）
+    this._addItemToCart(specModalProduct, this._appendToppings(''), selectedOrderType, undefined, selectedSpec);
   },
 
   // 规格弹窗：立即购买
@@ -633,7 +640,8 @@ Page({
       spec = this._buildScoopSpec();
       temperature = '冰';
     } else {
-      spec = this._appendToppings(selectedSpec);
+      // spec 只存加料，温度由 temperature 单独承载
+      spec = this._appendToppings('');
       temperature = selectedSpec;
     }
 

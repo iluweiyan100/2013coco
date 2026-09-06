@@ -254,7 +254,11 @@ Page({
   onPayNow() {
     if (this.data.tableMode) return;  // 桌位模式走 onPayTogether / onPaySplit
 
-    const { dineInList, takeawayList, remark } = this.data;
+    const remark = this.data.remark;
+    // 支付用原始购物车条目（未经 formatScoopProduct 展示改名），落库保留真实商品名
+    const cartItems = app.globalData.cartItems || [];
+    const dineInList = cartItems.filter(i => i.orderType === 'dine-in');
+    const takeawayList = cartItems.filter(i => i.orderType === 'takeaway');
     const totalItems = [...dineInList, ...takeawayList];
     if (totalItems.length === 0) return;
 
