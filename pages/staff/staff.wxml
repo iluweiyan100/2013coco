@@ -14,6 +14,9 @@
     <view class="staff-close-btn {{shopClosed ? 'close-active' : ''}}" bindtap="onToggleClosed">
       <text class="staff-close-text">{{shopClosed ? '打烊' : '营业'}}</text>
     </view>
+    <view class="staff-order-btn" bindtap="onManualOrder">
+      <text class="staff-order-text">点单</text>
+    </view>
   </view>
 </view>
 
@@ -55,6 +58,7 @@
             <view class="card-header">
               <view class="pickup-no-wrapper">
                 <text class="pickup-no">{{item.pickupNumber}}</text>
+                <text wx:if="{{item.isOffline}}" class="offline-pay-tag">线下支付</text>
               </view>
               <text wx:if="{{item.tableName}}" class="table-name-tag">🪑 {{item.tableName}}</text>
               <text class="order-time">{{item.time}}</text>
@@ -99,14 +103,18 @@
               <text class="remark-text">{{item.remark}}</text>
             </view>
 
-            <!-- 完成按钮 -->
+            <!-- 操作按钮：店员手动订单可编辑/删除 -->
             <view class="card-divider"></view>
-            <view
-              class="complete-btn-wrapper"
-              bindtap="onCompleteOrder"
-              data-id="{{item._id}}"
-            >
-              <text class="complete-btn-text">完成</text>
+            <view class="order-actions">
+              <view wx:if="{{item.manualOrder}}" class="action-btn action-btn-edit" bindtap="onEditOrder" data-id="{{item._id}}">
+                <text class="action-btn-text">编辑</text>
+              </view>
+              <view wx:if="{{item.manualOrder}}" class="action-btn action-btn-delete" bindtap="onDeleteOrder" data-id="{{item._id}}">
+                <text class="action-btn-text">删除</text>
+              </view>
+              <view class="action-btn action-btn-complete" bindtap="onCompleteOrder" data-id="{{item._id}}">
+                <text class="action-btn-text">完成</text>
+              </view>
             </view>
           </view>
         </scroll-view>
@@ -131,6 +139,7 @@
             <view class="card-header">
               <view class="pickup-no-wrapper">
                 <text class="pickup-no">{{item.pickupNumber}}</text>
+                <text wx:if="{{item.isOffline}}" class="offline-pay-tag">线下支付</text>
               </view>
               <text wx:if="{{item.tableName}}" class="table-name-tag">🪑 {{item.tableName}}</text>
               <text class="order-time">{{item.time}}</text>
@@ -175,14 +184,18 @@
               <text class="remark-text">{{item.remark}}</text>
             </view>
 
-            <!-- 完成按钮 -->
+            <!-- 操作按钮：店员手动订单可编辑/删除 -->
             <view class="card-divider"></view>
-            <view
-              class="complete-btn-wrapper"
-              bindtap="onCompleteOrder"
-              data-id="{{item._id}}"
-            >
-              <text class="complete-btn-text">完成</text>
+            <view class="order-actions">
+              <view wx:if="{{item.manualOrder}}" class="action-btn action-btn-edit" bindtap="onEditOrder" data-id="{{item._id}}">
+                <text class="action-btn-text">编辑</text>
+              </view>
+              <view wx:if="{{item.manualOrder}}" class="action-btn action-btn-delete" bindtap="onDeleteOrder" data-id="{{item._id}}">
+                <text class="action-btn-text">删除</text>
+              </view>
+              <view class="action-btn action-btn-complete" bindtap="onCompleteOrder" data-id="{{item._id}}">
+                <text class="action-btn-text">完成</text>
+              </view>
             </view>
           </view>
         </scroll-view>
@@ -206,7 +219,10 @@
         class="completed-card"
       >
         <view class="completed-header">
-          <text class="completed-pickup-no">{{item.pickupNumber}}</text>
+          <view class="completed-pickup-wrap">
+            <text class="completed-pickup-no">{{item.pickupNumber}}</text>
+            <text wx:if="{{item.isOffline}}" class="offline-pay-tag">线下支付</text>
+          </view>
           <text wx:if="{{item.tableName}}" class="table-name-tag">🪑 {{item.tableName}}</text>
           <text class="completed-type">
             {{item.orderType === 'dine-in' ? '堂食' : '外带'}}
@@ -307,4 +323,16 @@
     </view>
   </view>
 </view>
+
+<!-- 手动点单侧栏：遮罩 + 左侧抽屉 -->
+<view wx:if="{{showOrderSidebar}}" class="order-sidebar-mask" bindtap="onCloseOrderSidebar"></view>
+<staff-order-sidebar
+  wx:if="{{showOrderSidebar}}"
+  edit-order-id="{{editingOrder._id}}"
+  edit-order-type="{{editingOrder.orderType}}"
+  edit-remark="{{editingOrder.remark}}"
+  edit-items="{{editingOrder.items}}"
+  bind:close="onCloseOrderSidebar"
+  bind:done="onSidebarDone"
+/>
 </view>

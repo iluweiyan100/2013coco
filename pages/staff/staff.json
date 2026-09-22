@@ -3,6 +3,7 @@
   "navigationStyle": "custom",
   "pageOrientation": "auto",
   "usingComponents": {
-    "navigation-bar": "/components/navigation-bar/navigation-bar"
+    "navigation-bar": "/components/navigation-bar/navigation-bar",
+    "staff-order-sidebar": "/components/staff-order-sidebar/staff-order-sidebar"
   }
 }

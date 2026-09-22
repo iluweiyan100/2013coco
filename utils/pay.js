@@ -178,6 +178,37 @@ async function deletePendingOrders(orderIds) {
   }
 }
 
+// 拼球规格一致性校验：球数（单/双/三球）必须等于各口味份数之和。
+// spec 形如「三球：柠檬雪葩×2+香草×1 +奥利奥碎」（「 +」后为加料，不计入球数）。
+// 一致或非拼球返回 null，否则返回 { name, ballCount, flavorTotal }。
+function findScoopMismatch(orderGroups) {
+  const BALL = { '单球': 1, '双球': 2, '三球': 3 };
+  for (const g of (orderGroups || [])) {
+    for (const item of (g.items || [])) {
+      const spec = item && item.spec;
+      if (!spec || typeof spec !== 'string') continue;
+      let ballCount = 0;
+      for (const k in BALL) {
+        if (spec.indexOf(k) === 0) { ballCount = BALL[k]; break; }
+      }
+      if (!ballCount) continue; // 非拼球条目，跳过
+      const colon = spec.indexOf('：');
+      let flavorPart = colon >= 0 ? spec.slice(colon + 1) : spec;
+      const topIdx = flavorPart.indexOf(' +');
+      if (topIdx >= 0) flavorPart = flavorPart.slice(0, topIdx); // 去掉加料段
+      let total = 0;
+      for (const seg of flavorPart.split('+').filter(Boolean)) {
+        const m = seg.match(/×(\d+)/);
+        if (m) total += parseInt(m[1], 10);
+      }
+      if (total !== ballCount) {
+        return { name: item.name || '', ballCount, flavorTotal: total };
+      }
+    }
+  }
+  return null;
+}
+
 let payInFlight = false;
 
 /**
@@ -187,6 +218,13 @@ let payInFlight = false;
  * @param {Function} onFail - 支付失败回调 (非取消)
  */
 async function executePay(orderGroups, onSuccess, onFail) {
+  // 拼球一致性校验：口味球数 ≠ 所选球数时不调起支付（覆盖立即购买 + 购物车结算）
+  const mismatch = findScoopMismatch(orderGroups);
+  if (mismatch) {
+    wx.showToast({ title: `「${mismatch.name}」口味球数与所选球数不一致，请重新选择`, icon: 'none', duration: 2500 });
+    return;
+  }
+
   // 防重复点击：同一时刻只允许一个支付流程进行
   if (payInFlight) {
     console.warn('[Pay] 支付流程进行中，拦截重复调用');
@@ -200,6 +238,7 @@ async function executePay(orderGroups, onSuccess, onFail) {
   if (!openid) {
     wx.hideLoading();
     wx.showToast({ title: '用户未登录，请重新打开小程序', icon: 'none' });
+    payInFlight = false;
     return;
   }
   console.log('[Pay] openid:', openid);
@@ -215,6 +254,7 @@ async function executePay(orderGroups, onSuccess, onFail) {
 
     if (orders.length === 0) {
       wx.hideLoading();
+      payInFlight = false;
       return;
     }
 
@@ -348,12 +388,143 @@ function pay({ orderGroups, onSuccess, onFail } = {}) {
   });
 }
 
+/**
+ * 店员手动点单（线下扫码收款）：只记账、不调微信支付。
+ * 构建订单对象后直接调用 initDB.createManualOrder 落库为 making（已收款）。
+ * @param {Array} orderGroups - [{ items, orderType, remark }]，items 结构同 pay()
+ * @param {Function} [onSuccess] - 成功回调 (orderIds)
+ * @param {Function} [onFail] - 失败回调 (error)
+ */
+async function recordManualOrder(orderGroups, onSuccess, onFail) {
+  const openid = getOpenid();
+  if (!openid) {
+    const e = new Error('用户未登录，请重新打开小程序');
+    if (onFail) onFail(e); else wx.showToast({ title: e.message, icon: 'none' });
+    return;
+  }
+
+  wx.showLoading({ title: '正在下单...', mask: true });
+  try {
+    const orders = (orderGroups || [])
+      .filter(g => g.items && g.items.length > 0)
+      .map(g => buildOrder(g.items, g.orderType, g.remark || ''));
+
+    if (orders.length === 0) {
+      wx.hideLoading();
+      return;
+    }
+
+    const res = await wx.cloud.callFunction({
+      name: 'initDB',
+      data: { action: 'createManualOrder', orders }
+    });
+    wx.hideLoading();
+
+    const r = res.result || {};
+    if (!r.success) throw new Error(r.message || '下单失败');
+    if (onSuccess) onSuccess(r.orderIds);
+  } catch (e) {
+    wx.hideLoading();
+    if (onFail) onFail(e);
+    else wx.showToast({ title: e.message || '下单失败，请重试', icon: 'none', duration: 2000 });
+  }
+}
+
+/**
+ * 店员手动订单编辑：原地更新已有订单（不新建、不支付、不改取餐号）。
+ * @param {string} orderId - 要编辑的订单 _id
+ * @param {object} orderGroup - { items, orderType, remark }，items 结构同 pay()
+ * @param {Function} [onSuccess] - 成功回调 (order)
+ * @param {Function} [onFail] - 失败回调 (error)
+ */
+async function updateManualOrder(orderId, orderGroup, onSuccess, onFail) {
+  if (!orderId) {
+    const e = new Error('缺少订单ID');
+    if (onFail) onFail(e); else wx.showToast({ title: e.message, icon: 'none' });
+    return;
+  }
+  const openid = getOpenid();
+  if (!openid) {
+    const e = new Error('用户未登录，请重新打开小程序');
+    if (onFail) onFail(e); else wx.showToast({ title: e.message, icon: 'none' });
+    return;
+  }
+
+  wx.showLoading({ title: '保存中...', mask: true });
+  try {
+    const g = orderGroup || {};
+    const order = buildOrder(g.items, g.orderType, g.remark || '');
+
+    const res = await wx.cloud.callFunction({
+      name: 'initDB',
+      data: {
+        action: 'updateManualOrder',
+        id: orderId,
+        orderType: order.orderType,
+        remark: order.remark,
+        products: order.products,
+        totalAmount: order.totalAmount
+      }
+    });
+    wx.hideLoading();
+
+    const r = res.result || {};
+    if (!r.success) throw new Error(r.message || '保存失败');
+    if (onSuccess) onSuccess(r.order);
+  } catch (e) {
+    wx.hideLoading();
+    if (onFail) onFail(e);
+    else wx.showToast({ title: e.message || '保存失败，请重试', icon: 'none', duration: 2000 });
+  }
+}
+
+/**
+ * 店员手动订单删除：移除订单并回退销量。
+ * @param {string} orderId - 要删除的订单 _id
+ * @param {Function} [onSuccess] - 成功回调
+ * @param {Function} [onFail] - 失败回调 (error)
+ */
+async function deleteManualOrder(orderId, onSuccess, onFail) {
+  if (!orderId) {
+    const e = new Error('缺少订单ID');
+    if (onFail) onFail(e); else wx.showToast({ title: e.message, icon: 'none' });
+    return;
+  }
+  const openid = getOpenid();
+  if (!openid) {
+    const e = new Error('用户未登录，请重新打开小程序');
+    if (onFail) onFail(e); else wx.showToast({ title: e.message, icon: 'none' });
+    return;
+  }
+
+  wx.showLoading({ title: '删除中...', mask: true });
+  try {
+    const res = await wx.cloud.callFunction({
+      name: 'initDB',
+      data: { action: 'deleteManualOrder', id: orderId }
+    });
+    wx.hideLoading();
+
+    const r = res.result || {};
+    if (!r.success) throw new Error(r.message || '删除失败');
+    if (onSuccess) onSuccess();
+  } catch (e) {
+    wx.hideLoading();
+    if (onFail) onFail(e);
+    else wx.showToast({ title: e.message || '删除失败，请重试', icon: 'none', duration: 2000 });
+  }
+}
+
 module.exports = {
   getNextPickupNumber,
   buildOrder,
+  findScoopMismatch, // 拼球一致性校验（支付前拦截球数 ≠ 口味份数之和）
   createPendingOrders,
   deletePendingOrders,
   getOpenid,
-  pay,         // 完整流程：订阅授权 + 支付
-  executePay,  // 仅支付（不含订阅授权），供外部已处理订阅的场景使用
+  pay,               // 完整流程：订阅授权 + 支付
+  executePay,        // 仅支付（不含订阅授权），供外部已处理订阅的场景使用
+  recordManualOrder, // 店员手动记账下单（不支付）
+  updateManualOrder, // 店员手动订单编辑（原地更新）
+  deleteManualOrder, // 店员手动订单删除
 };

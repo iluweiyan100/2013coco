@@ -308,6 +308,15 @@ Page({
       return;
     }
 
+    // 拼球一致性校验：口味球数 ≠ 所选球数时不建订单、不调起支付
+    const mismatch = pay.findScoopMismatch([{ items: checkout.items }]);
+    if (mismatch) {
+      wx.hideLoading();
+      this._paying = false;
+      wx.showToast({ title: `「${mismatch.name}」口味球数与所选球数不一致，请重新选择`, icon: 'none', duration: 2500 });
+      return;
+    }
+
     let orderId = '';
     try {
       // 1. 创建一张订单（pending）：一起付合并全桌、分开付只含本人条目

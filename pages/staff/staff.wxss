@@ -231,6 +231,18 @@
   flex-shrink: 0;
 }
 
+/* 线下支付标记（店员手动点单，不调微信支付） */
+.offline-pay-tag {
+  font-size: 22rpx;
+  color: #0E7490;
+  background: #E0F2FE;
+  border: 1rpx solid #7DD3FC;
+  border-radius: 8rpx;
+  padding: 2rpx 10rpx;
+  margin-left: 12rpx;
+  flex-shrink: 0;
+}
+
 /* 商品明细 */
 .items-divider {
   height: 2rpx;
@@ -368,6 +380,39 @@
   transform: scale(0.98);
 }
 
+/* 订单操作按钮行：编辑 / 删除 / 完成 */
+.order-actions {
+  display: flex;
+  gap: 16rpx;
+}
+.action-btn {
+  flex: 1;
+  height: 80rpx;
+  border-radius: 12rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+}
+.action-btn:active {
+  transform: scale(0.98);
+  opacity: 0.85;
+}
+.action-btn-text {
+  color: #ffffff;
+  font-size: 30rpx;
+  font-weight: bold;
+}
+.action-btn-edit {
+  background: #8B6F5E;
+}
+.action-btn-delete {
+  background: #E5484D;
+}
+.action-btn-complete {
+  background: #FF6B35;
+}
+
 /* ========== 右栏：已完成（1/3）- 灰色 ========== */
 .completed-orders-section {
   flex: 1;
@@ -410,6 +455,11 @@
   font-size: 48rpx;
   font-weight: bold;
   color: #999999;
+}
+
+.completed-pickup-wrap {
+  display: flex;
+  align-items: center;
 }
 
 .completed-type {
@@ -750,6 +800,10 @@
     font-size: 16px;
   }
 
+  .staff-order-btn {
+    left: 139px; /* 刷新图标（61px + 28px）后 50px，避开右上角胶囊按钮 */
+  }
+
   /* 堂食/外带改为左右并排 */
   .orders-body {
     flex-direction: row;
@@ -814,6 +868,12 @@
 
   .table-name-tag {
     font-size: 28px;
+    padding: 2px 8px;
+    border-radius: 4px;
+  }
+
+  .offline-pay-tag {
+    font-size: 12px;
     padding: 2px 8px;
     border-radius: 4px;
   }
@@ -907,6 +967,18 @@
     font-weight: bold;
     position: relative;
     z-index: 1;
+  }
+
+  /* 订单操作按钮行（横屏） */
+  .order-actions {
+    gap: 8px;
+  }
+  .action-btn {
+    height: 44px;
+    border-radius: 6px;
+  }
+  .action-btn-text {
+    font-size: 14px;
   }
 
   /* 已完成栏固定宽度 */
@@ -1110,5 +1182,29 @@
   font-size: 30rpx;
   color: #E65100;
   font-weight: 600;
+}
+
+/* 手动点单入口按钮（导航栏右侧，固定 px） */
+.staff-order-btn {
+  position: absolute;
+  left: 228rpx; /* 刷新图标（122rpx + 56rpx）后 50rpx，避开右上角胶囊按钮 */
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 4px 14px;
+  border-radius: 14px;
+  background: rgba(163, 33, 45, 0.12);
+}
+.staff-order-btn:active { background: rgba(163, 33, 45, 0.22); }
+.staff-order-text { font-size: 13px; color: #A3212D; font-weight: 600; }
+
+/* 手动点单侧栏遮罩（在侧栏之下、页面内容之上） */
+.order-sidebar-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 1999;
 }
 

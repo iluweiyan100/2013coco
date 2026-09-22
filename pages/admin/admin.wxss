@@ -207,6 +207,26 @@ page {
 .stat-value-gold  { color: #C08A4D; }
 .stat-value-brown { color: #5B3A29; }
 
+/* 线上支付（绿）/ 线下支付（青，与店员端「线下支付」标签同色） */
+.stat-icon-green  { background: rgba(46, 125, 50, 0.10); }
+.stat-icon-blue   { background: rgba(14, 116, 144, 0.10); }
+.stat-value-green { color: #2E7D32; }
+.stat-value-blue  { color: #0E7490; }
+
+/* ===== 卡片内多指标网格（合并卡片用） ===== */
+.stat-grid { display: flex; gap: 32rpx; }
+.stat-grid--top {
+  margin-top: 40rpx;
+  padding-top: 40rpx;
+  border-top: 2rpx solid #F2E8DD;
+}
+.stat-cell { flex: 1; min-width: 0; }
+.stat-cell-header { display: flex; align-items: center; margin-bottom: 20rpx; }
+.stat-cell-icon { width: 56rpx; height: 56rpx; border-radius: 18rpx; margin-right: 16rpx; }
+.stat-cell-icon-img { width: 28rpx; height: 28rpx; }
+.stat-cell-label { font-size: 26rpx; color: rgba(91, 58, 41, 0.60); }
+.stat-cell-value { font-size: 44rpx; font-weight: 500; }
+
 /* ===== 商品销售排行 ===== */
 .ranking-card {
   background: #FFFFFF;
@@ -947,6 +967,11 @@ page {
 .pm-topping-row .pm-input {
   flex: 1;
   height: 64rpx;
+}
+
+.pm-topping-row .pm-input.pm-topping-price {
+  flex: 0 0 160rpx;
+  text-align: center;
 }
 
 .pm-topping-del {

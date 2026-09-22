@@ -40,7 +40,7 @@
         </view>
       </view>
 
-      <!-- 销售额 -->
+      <!-- 营收卡：销售额（主指标）+ 线上/线下拆分 -->
       <view class="stat-card">
         <view class="stat-card-header">
           <view class="stat-icon-wrap stat-icon-red">
@@ -49,28 +49,51 @@
           <text class="stat-card-label">{{statsPeriod === 'day' ? '今日' : statsPeriod === 'week' ? '本周' : '本月'}}销售额</text>
         </view>
         <text class="stat-card-value stat-value-red">¥{{todaySales}}</text>
+
+        <view class="stat-grid stat-grid--top">
+          <view class="stat-cell">
+            <view class="stat-cell-header">
+              <view class="stat-icon-wrap stat-icon-green stat-cell-icon">
+                <image src="/assets/CodeBubbyAssets/4_630/5.svg" class="stat-icon-img stat-cell-icon-img" mode="aspectFit"></image>
+              </view>
+              <text class="stat-cell-label">线上支付</text>
+            </view>
+            <text class="stat-cell-value stat-value-green">¥{{onlineSales}}</text>
+          </view>
+          <view class="stat-cell">
+            <view class="stat-cell-header">
+              <view class="stat-icon-wrap stat-icon-blue stat-cell-icon">
+                <image src="/assets/CodeBubbyAssets/4_630/6.svg" class="stat-icon-img stat-cell-icon-img" mode="aspectFit"></image>
+              </view>
+              <text class="stat-cell-label">线下支付</text>
+            </view>
+            <text class="stat-cell-value stat-value-blue">¥{{offlineSales}}</text>
+          </view>
+        </view>
       </view>
 
-      <!-- 订单量 -->
+      <!-- 订单卡：订单量 + 客单价 -->
       <view class="stat-card">
-        <view class="stat-card-header">
-          <view class="stat-icon-wrap stat-icon-gold">
-            <image src="/assets/CodeBubbyAssets/4_630/3.svg" class="stat-icon-img" mode="aspectFit"></image>
+        <view class="stat-grid">
+          <view class="stat-cell">
+            <view class="stat-cell-header">
+              <view class="stat-icon-wrap stat-icon-gold stat-cell-icon">
+                <image src="/assets/CodeBubbyAssets/4_630/3.svg" class="stat-icon-img stat-cell-icon-img" mode="aspectFit"></image>
+              </view>
+              <text class="stat-cell-label">订单量</text>
+            </view>
+            <text class="stat-cell-value stat-value-gold">{{orderCount}}</text>
           </view>
-          <text class="stat-card-label">订单量</text>
-        </view>
-        <text class="stat-card-value stat-value-gold">{{orderCount}}</text>
-      </view>
-
-      <!-- 客单价 -->
-      <view class="stat-card">
-        <view class="stat-card-header">
-          <view class="stat-icon-wrap stat-icon-brown">
-            <image src="/assets/CodeBubbyAssets/4_630/4.svg" class="stat-icon-img" mode="aspectFit"></image>
+          <view class="stat-cell">
+            <view class="stat-cell-header">
+              <view class="stat-icon-wrap stat-icon-brown stat-cell-icon">
+                <image src="/assets/CodeBubbyAssets/4_630/4.svg" class="stat-icon-img stat-cell-icon-img" mode="aspectFit"></image>
+              </view>
+              <text class="stat-cell-label">客单价</text>
+            </view>
+            <text class="stat-cell-value stat-value-brown">¥{{avgOrderValue}}</text>
           </view>
-          <text class="stat-card-label">客单价</text>
         </view>
-        <text class="stat-card-value stat-value-brown">¥{{avgOrderValue}}</text>
       </view>
 
       <!-- 商品销售排行 -->
@@ -915,13 +938,22 @@
           <text class="pm-checkbox-label">单选</text>
         </view>
       </view>
-      <view wx:for="{{editingProduct.toppings}}" class="pm-topping-row">
+      <view wx:for="{{editingProduct.toppings}}" wx:key="index" class="pm-topping-row">
         <input
           class="pm-input"
-          value="{{item}}"
+          value="{{item.name}}"
           placeholder="材料名称，如：奥利奥碎"
           placeholder-class="pm-placeholder"
           bindinput="onInputTopping"
+          data-index="{{index}}"
+        />
+        <input
+          class="pm-input pm-topping-price"
+          type="digit"
+          value="{{item.price}}"
+          placeholder="价格"
+          placeholder-class="pm-placeholder"
+          bindinput="onInputToppingPrice"
           data-index="{{index}}"
         />
         <view class="pm-topping-del" bindtap="onRemoveTopping" data-index="{{index}}">

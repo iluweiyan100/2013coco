@@ -465,6 +465,23 @@ page {
   margin-left: 4rpx;
 }
 
+.spec-total-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8rpx 0 20rpx;
+}
+.spec-total-label {
+  font-size: 26rpx;
+  color: #5A3A29;
+  font-family: 'CangerShuYuanTi', Noto Serif SC;
+}
+.spec-total-price {
+  font-size: 30rpx;
+  font-weight: 500;
+  color: #A3212D;
+}
+
 .spec-actions {
   display: flex;
   gap: 20rpx;

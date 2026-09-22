@@ -171,7 +171,7 @@
         bindtap="onIncFlavor"
         data-index="{{index}}"
       >
-        <view wx:if="{{item.qty > 0}}" class="flavor-minus" catchtap="onDecFlavor" data-index="{{index}}">
+        <view wx:if="{{item.qty > 0 && !(item.id === specModalProduct.id && item.qty === 1)}}" class="flavor-minus" catchtap="onDecFlavor" data-index="{{index}}">
           <text class="flavor-minus-text">−</text>
         </view>
         <text class="flavor-chip-text {{item.qty > 0 ? 'flavor-chip-text-active' : ''}}">{{item.name}}<text wx:if="{{item.qty > 1}}" class="flavor-qty">×{{item.qty}}</text></text>
@@ -179,18 +179,24 @@
     </view>
   </block>
 
-  <!-- 其他可选（加料，后台配置了材料时显示） -->
-  <block wx:if="{{specToppings.length > 0}}">
-    <text class="spec-popup-subtitle">其他可选（{{specToppingMode === 'single' ? '单选' : '可多选'}}）</text>
+  <!-- 其他可选（加料，后台配置了材料时显示；多口味拼球时不显示） -->
+  <block wx:if="{{specToppings.length > 0 && !scoopMixed}}">
+    <text class="spec-popup-subtitle">其他可选（{{specToppingMode === 'single' ? '单选' : '可多选'}}，最多 3 份）</text>
     <view class="flavor-list">
       <view
         wx:for="{{specToppings}}"
-        wx:key="name"
-        class="flavor-chip {{item.selected ? 'flavor-chip-active' : ''}}"
-        bindtap="onToggleTopping"
-        data-name="{{item.name}}"
+        wx:key="index"
+        class="flavor-chip {{item.qty > 0 ? 'flavor-chip-active' : ''}}"
+        bindtap="onIncTopping"
+        data-index="{{index}}"
       >
-        <text class="flavor-chip-text {{item.selected ? 'flavor-chip-text-active' : ''}}">{{item.name}}</text>
+        <view wx:if="{{item.qty > 0}}" class="flavor-minus" catchtap="onDecTopping" data-index="{{index}}">
+          <text class="flavor-minus-text">−</text>
+        </view>
+        <text class="flavor-chip-text {{item.qty > 0 ? 'flavor-chip-text-active' : ''}}">{{item.name}}
+          <text wx:if="{{item.price > 0}}" class="spec-price"> +¥{{item.price}}</text>
+          <text wx:if="{{item.qty > 1}}" class="flavor-qty">×{{item.qty}}</text>
+        </text>
       </view>
     </view>
   </block>
@@ -215,6 +221,12 @@
       </view>
     </view>
   </block>
+
+  <!-- 实时合计：基础价 + 已选加料 -->
+  <view class="spec-total-row">
+    <text class="spec-total-label">合计</text>
+    <text class="spec-total-price">¥{{specTotalPrice}}</text>
+  </view>
 
   <view class="spec-actions">
     <view class="spec-cart-btn" bindtap="onConfirmSpec" hover-class="btn-active">

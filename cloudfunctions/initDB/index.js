@@ -232,14 +232,13 @@ exports.main = async (event, context) => {
     return { success: true, scoopConfig: data }
   }
 
-  // ===== 取餐码：服务端按天顺序生成唯一码（堂食 T01/T02… / 外带 K01/K02…）=====
-  if (action === 'getNextPickupNumber') {
-    const orderType = event.orderType === 'takeaway' ? 'takeaway' : 'dine-in'
+  // ===== 取餐码：服务端按天顺序生成唯一码（堂食 T01/T02… / 外带 K01/K02…）；事务失败时随机码兜底 =====
+  async function allocatePickupNumber(orderType) {
     const prefix = orderType === 'dine-in' ? 'T' : 'K'
     const day = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10) // 北京时间按天
     const key = `${day}_${orderType}`
-    let seq = 0
     try {
+      let seq = 0
       await db.runTransaction(async transaction => {
         const ref = transaction.collection('pickup_counter').doc(key)
         let n = 1
@@ -256,13 +255,33 @@ exports.main = async (event, context) => {
         await ref.set({ data: { seq: n, orderType } })
         seq = n
       })
-      return { success: true, pickupNumber: prefix + String(seq).padStart(2, '0') }
+      return prefix + String(seq).padStart(2, '0')
     } catch (e) {
-      console.warn('[getNextPickupNumber] 顺序计数失败，使用随机码兜底:', e.message)
+      console.warn('[allocatePickupNumber] 顺序计数失败，使用随机码兜底:', e.message)
       const letters = 'ABCDEFGH'
-      const fallback = prefix + letters[Math.floor(Math.random() * letters.length)] +
+      return prefix + letters[Math.floor(Math.random() * letters.length)] +
         String(Math.floor(Math.random() * 99) + 1).padStart(2, '0')
-      return { success: true, pickupNumber: fallback }
+    }
+  }
+
+  if (action === 'getNextPickupNumber') {
+    const orderType = event.orderType === 'takeaway' ? 'takeaway' : 'dine-in'
+    const pickupNumber = await allocatePickupNumber(orderType)
+    return { success: true, pickupNumber }
+  }
+
+  // 事务内累加/回退销量前，先确认商品文档存在；缺失的商品跳过，避免因单件失败回滚整单
+  async function getExistingProductIds(productIds) {
+    const ids = [...new Set((productIds || []).filter(Boolean))]
+    if (!ids.length) return new Set()
+    try {
+      const res = await db.collection('products')
+        .where({ _id: db.command.in(ids) }).limit(1000).get()
+      return new Set((res.data || []).map(d => d._id))
+    } catch (e) {
+      // 查询失败按「都存在」处理，退回原逻辑（事务内 update 失败时会整体回滚）
+      console.warn('[getExistingProductIds] 查询失败（忽略）:', e.message)
+      return new Set(ids)
     }
   }
 
@@ -457,6 +476,201 @@ exports.main = async (event, context) => {
       // doc 不存在也会抛错，直接尝试删集合中的 doc
     }
     await db.collection('tables').doc(id).remove()
+    return { success: true }
+  }
+
+  // ===== 店员手动点单（线下扫码收款）：只记账、不调微信支付 =====
+  // 鉴权：不在 PUBLIC_ACTIONS 内，自动走顶部 staff/admin 白名单门控。
+  if (action === 'createManualOrder') {
+    const orders = Array.isArray(event.orders) ? event.orders : []
+    if (orders.length === 0) return { success: false, message: '缺少订单' }
+    const openid = cloud.getWXContext().OPENID
+    const _ = db.command
+    const genOrderId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 10)
+
+    // 1. 先整体校验金额（尚未写库，任一处不一致即整体失败，避免半截落库）
+    const prepared = orders.map(o => {
+      const orderType = o.orderType === 'takeaway' ? 'takeaway' : 'dine-in'
+      const products = Array.isArray(o.products) ? o.products : []
+      const totalAmount = Number(o.totalAmount) || 0
+      const sum = products.reduce((s, p) => s + (Number(p.price) || 0), 0)
+      if (Math.abs(totalAmount - sum) > 0.01) return { error: '金额不一致' }
+      return { orderType, products, totalAmount, remark: o.remark || '' }
+    })
+    const bad = prepared.find(p => p.error)
+    if (bad) return { success: false, message: bad.error }
+
+    // 2. 预分配取餐号与订单 ID（allocatePickupNumber 内部自带事务，须在下方整体事务外执行，避免嵌套事务）
+    const allocated = []
+    for (const p of prepared) {
+      allocated.push({
+        ...p,
+        orderId: genOrderId(),
+        pickupNumber: await allocatePickupNumber(p.orderType)
+      })
+    }
+
+    // 3. 确认商品存在（缺失商品跳过销量累加，不因单件失败回滚整单）
+    const allPids = []
+    allocated.forEach(a => a.products.forEach(p => { if (p.productId) allPids.push(p.productId) }))
+    const existingPids = await getExistingProductIds(allPids)
+
+    // 4. 订单落库 + 累加销量在同一事务内：任一失败整体回滚，重试不会产生重复订单/虚高销量
+    try {
+      await db.runTransaction(async transaction => {
+        for (const a of allocated) {
+          await transaction.collection('orders').doc(a.orderId).set({
+            data: {
+              orderId: a.orderId,
+              outTradeNo: '',
+              openid: openid,
+              recordedBy: openid,
+              pickupNumber: a.pickupNumber,
+              orderType: a.orderType,
+              status: 'making',
+              payMethod: 'offline',
+              manualOrder: true,
+              remark: a.remark,
+              products: a.products,
+              totalAmount: a.totalAmount,
+              paidAt: new Date(),
+              createTime: new Date(),
+              salesCounted: true,
+              tableId: '',
+              tableName: ''
+            }
+          })
+          for (const p of a.products) {
+            if (!p.productId || !existingPids.has(p.productId)) continue
+            await transaction.collection('products').doc(p.productId)
+              .update({ data: { sales: _.inc(p.quantity || 1) } })
+          }
+        }
+      })
+    } catch (e) {
+      console.error('[createManualOrder] 事务写入失败:', e)
+      return { success: false, message: '下单失败，请重试' }
+    }
+    const orderIds = allocated.map(a => a.orderId)
+
+    // 5. 写 order_events/latest 触发店员端即时刷新（用 set 兼容首单该文档尚未创建的情况）
+    try {
+      await db.collection('order_events').doc('latest')
+        .set({ data: { ts: Date.now(), orderId: orderIds[0] } })
+    } catch (e) {
+      console.warn('[createManualOrder] 写 order_events 失败（忽略）:', e.message)
+    }
+    return { success: true, orderIds }
+  }
+
+  // ===== 店员手动订单：编辑（改单后原地更新，销量按差额增减） =====
+  // 鉴权：不在 PUBLIC_ACTIONS 内，自动走顶部 staff/admin 白名单门控。
+  if (action === 'updateManualOrder') {
+    const { id } = event
+    if (!id) return { success: false, message: '缺少订单ID' }
+    const _ = db.command
+    let old
+    try { old = (await db.collection('orders').doc(id).get()).data } catch (e) { old = null }
+    if (!old) return { success: false, message: '订单不存在' }
+    if (old.manualOrder !== true) return { success: false, message: '仅店员手动订单可编辑' }
+    if (!['making', 'ready'].includes(old.status)) return { success: false, message: '仅制作中的订单可编辑' }
+
+    const products = Array.isArray(event.products) ? event.products : []
+    const totalAmount = Number(event.totalAmount) || 0
+    const sum = products.reduce((s, p) => s + (Number(p.price) || 0), 0)
+    if (Math.abs(totalAmount - sum) > 0.01) return { success: false, message: '金额不一致' }
+    const remark = event.remark || ''
+
+    // 就餐方式变更需重新取号（堂食 T / 外带 K 前缀不同）；未变则沿用原取餐号
+    const orderType = event.orderType === 'takeaway' ? 'takeaway' : 'dine-in'
+    const oldOrderType = old.orderType === 'takeaway' ? 'takeaway' : 'dine-in'
+    let pickupNumber = old.pickupNumber || ''
+    if (orderType !== oldOrderType) {
+      pickupNumber = await allocatePickupNumber(orderType)
+    }
+
+    // 销量差额：旧单/新单按 productId 累加数量，逐商品净增减一次
+    const qtyOf = (list) => {
+      const m = {}
+      for (const p of (list || [])) {
+        if (!p.productId) continue
+        m[p.productId] = (m[p.productId] || 0) + (p.quantity || 1)
+      }
+      return m
+    }
+    const oldQty = qtyOf(old.products)
+    const newQty = qtyOf(products)
+    const allIds = [...new Set([...Object.keys(oldQty), ...Object.keys(newQty)])]
+
+    // 确认商品存在（缺失商品跳过销量差额，不因单件失败回滚整单）
+    const existingPids = await getExistingProductIds(allIds)
+
+    // 销量差额 + 订单更新在同一事务内：任一失败整体回滚，重试不会重复增减销量
+    try {
+      await db.runTransaction(async transaction => {
+        for (const pid of allIds) {
+          if (!existingPids.has(pid)) continue
+          const delta = (newQty[pid] || 0) - (oldQty[pid] || 0)
+          if (delta === 0) continue
+          await transaction.collection('products').doc(pid)
+            .update({ data: { sales: _.inc(delta) } })
+        }
+        await transaction.collection('orders').doc(id)
+          .update({ data: { products, totalAmount, remark, orderType, pickupNumber } })
+      })
+    } catch (e) {
+      console.error('[updateManualOrder] 事务写入失败:', e)
+      return { success: false, message: '保存失败，请重试' }
+    }
+
+    let order = null
+    try { order = (await db.collection('orders').doc(id).get()).data || null } catch (e) { order = null }
+
+    try {
+      await db.collection('order_events').doc('latest').set({ data: { ts: Date.now(), orderId: id } })
+    } catch (e) {
+      console.warn('[updateManualOrder] 写 order_events 失败（忽略）:', e.message)
+    }
+    return { success: true, order }
+  }
+
+  // ===== 店员手动订单：删除（回退销量） =====
+  if (action === 'deleteManualOrder') {
+    const { id } = event
+    if (!id) return { success: false, message: '缺少订单ID' }
+    const _ = db.command
+    let order
+    try { order = (await db.collection('orders').doc(id).get()).data } catch (e) { order = null }
+    if (!order) return { success: false, message: '订单不存在' }
+    if (order.manualOrder !== true) return { success: false, message: '仅店员手动订单可删除' }
+    if (!['making', 'ready'].includes(order.status)) return { success: false, message: '仅制作中的订单可删除' }
+
+    // 确认商品存在（缺失商品跳过销量回退，不因单件失败回滚整单）
+    const pids = (order.products || []).map(p => p.productId).filter(Boolean)
+    const existingPids = await getExistingProductIds(pids)
+
+    // 回退销量 + 删除订单在同一事务内：任一失败整体回滚，重试不会重复扣减销量
+    try {
+      await db.runTransaction(async transaction => {
+        if (order.salesCounted) {
+          for (const p of (order.products || [])) {
+            if (!p.productId || !existingPids.has(p.productId)) continue
+            await transaction.collection('products').doc(p.productId)
+              .update({ data: { sales: _.inc(-(p.quantity || 1)) } })
+          }
+        }
+        await transaction.collection('orders').doc(id).remove()
+      })
+    } catch (e) {
+      console.error('[deleteManualOrder] 事务写入失败:', e)
+      return { success: false, message: '删除失败，请重试' }
+    }
+
+    try {
+      await db.collection('order_events').doc('latest').set({ data: { ts: Date.now(), orderId: id } })
+    } catch (e) {
+      console.warn('[deleteManualOrder] 写 order_events 失败（忽略）:', e.message)
+    }
     return { success: true }
   }
 

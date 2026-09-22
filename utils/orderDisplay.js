@@ -16,15 +16,17 @@ function formatScoopProduct(p) {
   if (!p || !p.spec) return p;
   const raw = String(p.spec);
   const m = raw.match(SCOOP_RE);
-  // 拼球判定：带「球：」前缀，或已脱前缀但含「口味×球数」
-  const isScoop = !!m || /×\d+/.test(raw);
+  // 拼球判定：只认「球：」前缀。加料份数也以「×n」编码（如「奥利奥碎×2」），
+  // 若仍用 /×\d+/ 兜底会把非拼球 spec 误判为拼球，故移除该兜底（_buildScoopSpec 恒带前缀）。
+  const isScoop = !!m;
   if (!isScoop) return p;
-  const rest = m ? m[2] : raw;
+  // 走到这里 m 必非空：rest 与 name 直接取 m，不再留恒真的兜底分支
+  const rest = m[2];
   const seg = rest.split(' +');                                   // 口味在前，加料以「 +」开头
   const flavors = seg[0].split('+').filter(s => s).map(parseQty);
   const toppings = seg.slice(1).join('+').split('+').filter(s => s);
   return Object.assign({}, p, {
-    name: m ? `冰淇淋${m[1]}` : p.name,
+    name: `冰淇淋${m[1]}`,
     flavors,
     toppings
     // spec 保留原样，供支付/存储使用
@@ -50,4 +52,18 @@ function netAmountOf(order) {
   return Math.round((total - refundedAmountOf(order)) * 100) / 100;
 }
 
-module.exports = { formatScoopProduct, refundedAmountOf, netAmountOf };
+// 归一化加料：兼容旧数据 string[]，统一为 [{ name, price }]
+function normalizeToppings(toppings) {
+  return (toppings || []).map(t => {
+    if (typeof t === 'string') {
+      const name = String(t).trim();
+      return name ? { name, price: 0 } : null;
+    }
+    const name = String(t && t.name || '').trim();
+    if (!name) return null;
+    const price = Number(t && t.price);
+    return { name, price: isFinite(price) && price > 0 ? price : 0 };
+  }).filter(Boolean);
+}
+
+module.exports = { formatScoopProduct, refundedAmountOf, netAmountOf, normalizeToppings };

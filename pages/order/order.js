@@ -2,6 +2,8 @@
 const app = getApp();
 const pay = require('../../utils/pay.js');
 const tableOrder = require('../../utils/tableOrder.js');
+const { normalizeToppings } = require('../../utils/orderDisplay.js');
+const specUtil = require('../../utils/orderSpec.js');
 
 Page({
   data: {
@@ -39,8 +41,10 @@ Page({
     specFlavors: [],          // 可拼球口味列表 [{ id, name, qty }]
     selectedScoopCount: 1,    // 当前球数（1/2/3）
     selectedScoopTotal: 0,    // 已选总球数（各口味 qty 之和）
-    specToppings: [],         // 其他可选（加料）[{ name, selected }]
+    specToppings: [],         // 其他可选（加料）[{ name, price, qty }]
     specToppingMode: 'multi', // 加料选择方式 single | multi
+    specTotalPrice: 0,        // 弹窗实时合计（基础价 + 已选加料）
+    scoopMixed: false,        // 拼球是否混入其他口味（多口味拼球隐藏加料）
 
     // 桌面二维码桌位名
     tableName: '',
@@ -256,7 +260,7 @@ Page({
             // 冰淇淋风味标签（; 分隔，卡片展示用）
             flavorTags: (p.flavors || '').split(/[;；,，]/).map(s => s.trim()).filter(Boolean),
             // 其他可选（加料）：材料名列表 + 单选/多选
-            toppings: (p.toppings || []).map(s => String(s).trim()).filter(Boolean),
+            toppings: normalizeToppings(p.toppings),
             toppingMode: p.toppingMode === 'single' ? 'single' : 'multi',
             // 新增咖啡相关字段
             roastLevel: p.roastLevel || '',          // 烘焙度
@@ -422,10 +426,12 @@ Page({
           specModalType: tempOptions.length > 0 ? 'temp' : 'none',
           specOptions: tempOptions,
           selectedSpec: tempOptions.length > 0 ? tempOptions[0] : '',
-          specToppings: (product.toppings || []).map(name => ({ name, selected: false })),
+          specToppings: (product.toppings || []).map(t => ({ ...t, qty: 0 })),
           specToppingMode: product.toppingMode === 'single' ? 'single' : 'multi',
+          scoopMixed: false,  // 非拼球弹窗必须复位，否则上次拼球残留的 scoopMixed 会隐藏加料
           selectedOrderType: this.data.orderType  // 首页传入则预选
         });
+        this._refreshSpecTotal();
       }
       return;
     }
@@ -463,10 +469,12 @@ Page({
       specFlavors: flavors,
       selectedScoopCount: firstCount,
       selectedScoopTotal: firstCount,
-      specToppings: (product.toppings || []).map(name => ({ name, selected: false })),
+      specToppings: (product.toppings || []).map(t => ({ ...t, qty: 0 })),
       specToppingMode: product.toppingMode === 'single' ? 'single' : 'multi',
+      scoopMixed: false,
       selectedOrderType: this.data.orderType
     });
+    this._refreshSpecTotal();
   },
 
   // 规格弹窗：选择规格（温度 / 球数）—— 切球数保留已选口味，超上限时先削减非锚点商品
@@ -497,6 +505,7 @@ Page({
       specFlavors: flavors,
       selectedScoopTotal: total
     });
+    this._updateScoopToppingVisibility();
   },
 
   // 规格弹窗：某口味 +1 球
@@ -512,6 +521,7 @@ Page({
     }
     flavor.qty += 1;
     this.setData({ specFlavors: flavors, selectedScoopTotal: this.data.selectedScoopTotal + 1 });
+    this._updateScoopToppingVisibility();
   },
 
   // 规格弹窗：某口味 -1 球
@@ -520,52 +530,82 @@ Page({
     const flavors = this.data.specFlavors.slice();
     const flavor = flavors[index];
     if (!flavor || flavor.qty <= 0) return;
+    const anchorId = this.data.specModalProduct && this.data.specModalProduct.id;
+    // 当前商品口味为锚点，不可删除，至少保留 1 球
+    if (flavor.id === anchorId && flavor.qty <= 1) {
+      wx.showToast({ title: '当前口味不可删除', icon: 'none', duration: 1500 });
+      return;
+    }
     flavor.qty -= 1;
     this.setData({ specFlavors: flavors, selectedScoopTotal: this.data.selectedScoopTotal - 1 });
+    this._updateScoopToppingVisibility();
   },
 
-  // 规格弹窗：切换其他可选（加料）。单选=互斥，多选=可多选
-  onToggleTopping(e) {
-    const name = e.currentTarget.dataset.name;
+  // 规格弹窗：加料 +1 份。单选=互斥（选其他项则清空前者），多选=各计份数；每项最多 3 份
+  onIncTopping(e) {
+    const idx = e.currentTarget.dataset.index;
     const list = this.data.specToppings.slice();
-    const item = list.find(t => t.name === name);
+    const item = list[idx];
     if (!item) return;
-    if (this.data.specToppingMode === 'single') {
-      // 单选：清空后再按需选中该项（点已选则取消）
-      const wasSelected = item.selected;
-      list.forEach(t => { t.selected = false; });
-      item.selected = !wasSelected;
-    } else {
-      item.selected = !item.selected;
+    if ((item.qty || 0) >= 3) {
+      wx.showToast({ title: '每项最多 3 份', icon: 'none', duration: 1500 });
+      return;
     }
+    if (this.data.specToppingMode === 'single') {
+      list.forEach(t => { if (t !== item) t.qty = 0; });
+    }
+    item.qty = (item.qty || 0) + 1;
     this.setData({ specToppings: list });
+    this._refreshSpecTotal();
+  },
+
+  // 规格弹窗：加料 -1 份
+  onDecTopping(e) {
+    const idx = e.currentTarget.dataset.index;
+    const list = this.data.specToppings.slice();
+    const item = list[idx];
+    if (!item || (item.qty || 0) <= 0) return;
+    item.qty = (item.qty || 0) - 1;
+    this.setData({ specToppings: list });
+    this._refreshSpecTotal();
   },
 
   // 按球数返回单件价
   _scoopUnitPrice(spec) {
-    const s = spec || this.data.selectedSpec;
-    const cfg = this.data.specScoopPrices || this.data.scoopConfig || {};
-    if (s === '双球') return cfg.double !== undefined ? cfg.double : 38;
-    if (s === '三球') return cfg.triple !== undefined ? cfg.triple : 45;
-    return cfg.single !== undefined ? cfg.single : 28;
+    return specUtil.scoopUnitPrice(spec, this.data.selectedSpec, this.data.specScoopPrices, this.data.scoopConfig);
   },
 
-  // 把已选加料拼到规格文字末尾，如「 +奥利奥碎+坚果」
+  // 已选加料价格合计（元）= Σ(单价 × 份数)
+  _selectedToppingsTotal() {
+    return specUtil.selectedToppingsTotal(this.data.specToppings);
+  },
+
+  // 当前基础单价：拼球按球数价，其余按商品价
+  _baseUnitPrice() {
+    return specUtil.baseUnitPrice(this.data);
+  },
+
+  // 刷新弹窗实时合计 = 基础价 + 已选加料
+  _refreshSpecTotal() {
+    const total = specUtil.specTotalPrice(this.data);
+    this.setData({ specTotalPrice: total });
+    return total;
+  },
+
+  // 拼球：单口味多球显示加料，多口味拼球隐藏加料并清空已选
+  _updateScoopToppingVisibility() {
+    this.setData(specUtil.resolveScoopToppingVisibility(this.data));
+    this._refreshSpecTotal();
+  },
+
+  // 把已选加料拼到规格文字末尾，如「 +奥利奥碎×2+坚果」（份数 1 时省略 ×1）
   _appendToppings(base) {
-    const toppings = this.data.specToppings
-      .filter(t => t.selected)
-      .map(t => t.name);
-    if (!toppings.length) return base || '';
-    return (base ? base + ' +' : '') + toppings.join('+');
+    return specUtil.appendToppings(this.data.specToppings, base);
   },
 
   // 拼出拼球规格字符串，如「双球：香草×1+巧克力×1」「三球：香草×2+巧克力×1」，追加已选加料
   _buildScoopSpec() {
-    const ball = this.data.selectedSpec || '单球';
-    const parts = this.data.specFlavors
-      .filter(f => f.qty > 0)
-      .map(f => `${f.name}×${f.qty}`);
-    return this._appendToppings(`${ball}：${parts.join('+')}`);
+    return specUtil.buildScoopSpec(this.data.selectedSpec, this.data.specFlavors, this.data.specToppings);
   },
 
   // 规格弹窗：选择就餐方式
@@ -598,13 +638,15 @@ Page({
       }
       const spec = this._buildScoopSpec();
       this.setData({ showSpecModal: false });
-      this._addItemToCart(specModalProduct, spec, selectedOrderType, this._scoopUnitPrice(selectedSpec), '冰', this.data.selectedScoopCount);
+      const scoopUnitPrice = Math.round((this._scoopUnitPrice(selectedSpec) + this._selectedToppingsTotal()) * 100) / 100;
+      this._addItemToCart(specModalProduct, spec, selectedOrderType, scoopUnitPrice, '冰', this.data.selectedScoopCount);
       return;
     }
 
     this.setData({ showSpecModal: false });
     // spec 只存加料（温度由 temperature 字段单独承载，避免重复存储「热 +奥利奥碎」）
-    this._addItemToCart(specModalProduct, this._appendToppings(''), selectedOrderType, undefined, selectedSpec);
+    const unitPrice = Math.round((this._baseUnitPrice() + this._selectedToppingsTotal()) * 100) / 100;
+    this._addItemToCart(specModalProduct, this._appendToppings(''), selectedOrderType, unitPrice, selectedSpec);
   },
 
   // 规格弹窗：立即购买
@@ -627,7 +669,7 @@ Page({
       return;
     }
 
-    let price = specModalProduct.price;
+    let price = Math.round((this._baseUnitPrice() + this._selectedToppingsTotal()) * 100) / 100;
     let spec = selectedSpec;
     let temperature = '';
     if (specModalType === 'scoop') {
@@ -636,7 +678,6 @@ Page({
         wx.showToast({ title: `请选择 ${count} 球`, icon: 'none', duration: 1500 });
         return;
       }
-      price = this._scoopUnitPrice(selectedSpec);
       spec = this._buildScoopSpec();
       temperature = '冰';
     } else {

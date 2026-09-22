@@ -1,0 +1,144 @@
+<!--components/staff-order-sidebar/staff-order-sidebar.wxml-->
+
+<view class="sos-root">
+  <!-- 头部 -->
+  <view class="sos-header">
+    <text class="sos-title">{{isEdit ? '编辑订单' : '店员点单'}}</text>
+    <view wx:if="{{!isEdit}}" class="sos-order-type-toggle">
+      <view class="sos-type-opt {{orderType === 'dine-in' ? 'sos-type-opt-active' : ''}}" bindtap="onSelectOrderType" data-type="dine-in">堂食</view>
+      <view class="sos-type-opt {{orderType === 'takeaway' ? 'sos-type-opt-active' : ''}}" bindtap="onSelectOrderType" data-type="takeaway">外带</view>
+    </view>
+    <view class="sos-close" bindtap="onClose"><text class="sos-close-x">✕</text></view>
+  </view>
+
+  <!-- 分类 -->
+  <scroll-view class="sos-cats" scroll-x enhanced show-scrollbar="{{false}}">
+    <view
+      wx:for="{{categories}}"
+      wx:key="id"
+      class="sos-cat {{currentCategory === item.id ? 'sos-cat-active' : ''}}"
+      bindtap="onCategoryChange"
+      data-id="{{item.id}}"
+    >{{item.name}}</view>
+  </scroll-view>
+
+  <!-- 商品列表 -->
+  <scroll-view class="sos-products" scroll-y>
+    <view wx:if="{{loading}}" class="sos-empty">加载中...</view>
+    <view wx:elif="{{allProducts.length === 0}}" class="sos-empty">暂无商品</view>
+    <block wx:else>
+      <view
+        wx:for="{{allProducts}}"
+        wx:key="id"
+        class="sos-product {{item.categoryId === currentCategory ? '' : 'sos-product-hidden'}}"
+      >
+        <image wx:if="{{item.image}}" src="{{item.image}}" class="sos-product-img" mode="aspectFill"></image>
+        <view class="sos-product-info">
+          <text class="sos-product-name">{{item.name}}</text>
+          <view class="sos-product-tags" wx:if="{{item.categoryId !== 'icecream' && (item.supportIce || item.supportHot || item.supportNormal)}}">
+            <text wx:if="{{item.supportIce}}" class="sos-tag">冰</text>
+            <text wx:if="{{item.supportHot}}" class="sos-tag">热</text>
+            <text wx:if="{{item.supportNormal}}" class="sos-tag">常温</text>
+          </view>
+          <text class="sos-product-price">¥{{item.price}}</text>
+        </view>
+        <view class="sos-qty-control">
+          <view wx:if="{{cartMap[item.id] > 0}}" class="sos-minus" bindtap="onRemoveFromCart" data-id="{{item.id}}"><text>−</text></view>
+          <text wx:if="{{cartMap[item.id] > 0}}" class="sos-qty-num">{{cartMap[item.id]}}</text>
+          <view class="sos-plus" bindtap="onAddToCart" data-id="{{item.id}}"><text>＋</text></view>
+        </view>
+      </view>
+    </block>
+  </scroll-view>
+
+  <!-- 购物车 + 结算 -->
+  <view class="sos-cart">
+    <scroll-view class="sos-cart-list" scroll-y style="height: {{cartListHeight}}px;" wx:if="{{cartItems.length > 0}}">
+      <view wx:for="{{cartItems}}" wx:key="uid" class="sos-cart-item">
+        <view class="sos-cart-item-info">
+          <view class="sos-cart-item-name-row">
+            <text class="sos-cart-item-name">{{item.name}}</text>
+            <text class="sos-cart-item-type {{item.orderType === 'takeaway' ? 'sos-cart-item-type-takeaway' : ''}}">{{item.orderType === 'takeaway' ? '外带' : '堂食'}}</text>
+          </view>
+          <text wx:if="{{item.spec}}" class="sos-cart-item-spec">{{item.spec}}</text>
+          <text wx:elif="{{item.temperature}}" class="sos-cart-item-spec">{{item.temperature}}</text>
+        </view>
+        <text class="sos-cart-item-price">¥{{item.lineTotal}}</text>
+      </view>
+    </scroll-view>
+    <view class="sos-footer">
+      <input class="sos-remark" value="{{remark}}" placeholder="备注（可选）" placeholder-class="sos-remark-ph" bindinput="onRemarkInput" />
+      <view class="sos-footer-row">
+        <text class="sos-total">合计 ¥{{totalPrice}}</text>
+        <view class="sos-submit {{cartItems.length === 0 ? 'sos-submit-disabled' : ''}}" bindtap="onSubmit">
+          <text class="sos-submit-text">{{isEdit ? '保存修改' : '确认下单'}} ({{cartCount}}件{{!isEdit && cartTypeCount > 1 ? '·拆2单' : ''}})</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 规格弹窗（全屏覆盖，位于侧栏之上） -->
+  <view wx:if="{{showSpecModal}}" class="sos-spec-mask" catchtap="onCancelSpec"></view>
+  <view wx:if="{{showSpecModal}}" class="sos-spec-popup">
+    <view class="sos-spec-header">
+      <text class="sos-spec-title">{{specModalProduct.name}}</text>
+      <view class="sos-spec-close" bindtap="onCancelSpec"><text>✕</text></view>
+    </view>
+
+    <block wx:if="{{specModalType !== 'none'}}">
+      <text class="sos-spec-subtitle">{{specModalType === 'temp' ? '请选择温度' : '请选择球数'}}</text>
+      <view class="sos-spec-options">
+        <view
+          wx:for="{{specOptions}}"
+          wx:key="*this"
+          class="sos-spec-option {{selectedSpec === item ? 'sos-spec-option-active' : ''}}"
+          bindtap="onSelectSpec"
+          data-val="{{item}}"
+        >
+          <text>{{item}}<text wx:if="{{specModalType === 'scoop'}}" class="sos-spec-price"> ¥{{item === '单球' ? specScoopPrices.single : (item === '双球' ? specScoopPrices.double : specScoopPrices.triple)}}</text></text>
+        </view>
+      </view>
+    </block>
+
+    <block wx:if="{{specModalType === 'scoop'}}">
+      <text class="sos-spec-subtitle">可选拼球（已选 {{selectedScoopTotal}}/{{selectedScoopCount}} 球）</text>
+      <view class="sos-flavor-list">
+        <view
+          wx:for="{{specFlavors}}"
+          wx:key="id"
+          class="sos-flavor-chip {{item.qty > 0 ? 'sos-flavor-chip-active' : ''}}"
+          bindtap="onIncFlavor"
+          data-index="{{index}}"
+        >
+          <view wx:if="{{item.qty > 0 && !(item.id === specModalProduct.id && item.qty === 1)}}" class="sos-flavor-minus" catchtap="onDecFlavor" data-index="{{index}}"><text>−</text></view>
+          <text class="sos-flavor-text {{item.qty > 0 ? 'sos-flavor-text-active' : ''}}">{{item.name}}<text wx:if="{{item.qty > 1}}" class="sos-flavor-qty">×{{item.qty}}</text></text>
+        </view>
+      </view>
+    </block>
+
+    <block wx:if="{{specToppings.length > 0 && !scoopMixed}}">
+      <text class="sos-spec-subtitle">其他可选（{{specToppingMode === 'single' ? '单选' : '可多选'}}，最多 3 份）</text>
+      <view class="sos-flavor-list">
+        <view
+          wx:for="{{specToppings}}"
+          wx:key="index"
+          class="sos-flavor-chip {{item.qty > 0 ? 'sos-flavor-chip-active' : ''}}"
+          bindtap="onIncTopping"
+          data-index="{{index}}"
+        >
+          <view wx:if="{{item.qty > 0}}" class="sos-flavor-minus" catchtap="onDecTopping" data-index="{{index}}"><text>−</text></view>
+          <text class="sos-flavor-text {{item.qty > 0 ? 'sos-flavor-text-active' : ''}}">{{item.name}}
+            <text wx:if="{{item.price > 0}}" class="sos-spec-price"> +¥{{item.price}}</text>
+            <text wx:if="{{item.qty > 1}}" class="sos-flavor-qty">×{{item.qty}}</text>
+          </text>
+        </view>
+      </view>
+    </block>
+
+    <view class="sos-spec-total">
+      <text class="sos-spec-total-label">合计</text>
+      <text class="sos-spec-total-price">¥{{specTotalPrice}}</text>
+    </view>
+    <view class="sos-spec-confirm" bindtap="onConfirmSpec"><text class="sos-spec-confirm-text">加入购物车</text></view>
+  </view>
+</view>

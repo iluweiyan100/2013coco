@@ -1,5 +1,6 @@
 // staff.js - 店员点单窗口
 const { formatScoopProduct, refundedAmountOf, netAmountOf } = require('../../utils/orderDisplay.js');
+const pay = require('../../utils/pay.js');
 
 // 音频单例（模块级，跨页面实例复用）
 let _audio = null;         // 共享音频实例（解锁与提示音复用同一个，iOS 解锁依赖实例）
@@ -14,6 +15,8 @@ Page({
     shopClosed: false,     // 打烊状态
     soundEnabled: false,   // 声音是否已解锁开启
     refundModal: null,     // 退款弹窗：{ orderId, outTradeNo, transactionId, candidates:[{index,name,spec,price,refunded,selected}] }
+    showOrderSidebar: false,  // 手动点单侧栏
+    editingOrder: null,       // 编辑中的店员订单 { _id, orderType, remark, items }
   },
 
   onLoad() {
@@ -337,6 +340,7 @@ Page({
     const items = products.map(p => {
       const d = formatScoopProduct(p);
       return {
+        productId: p.productId || '',
         name: d.name || '',
         temperature: d.temperature || '',
         spec: d.spec || '',
@@ -365,6 +369,8 @@ Page({
       finalAmount,
       remark: order.remark || '',
       tableName: order.tableName || '',   // 桌面二维码桌位名
+      isOffline: !!(order.manualOrder || order.payMethod === 'offline'),  // 店员线下收款
+      manualOrder: !!order.manualOrder,  // 是否店员手动点单（可编辑/删除）
       orderId: order.orderId,
       outTradeNo: order.outTradeNo,
       transactionId: order.transactionId
@@ -701,6 +707,57 @@ Page({
   // 打开桌位管理页
   onOpenTableManage() {
     wx.navigateTo({ url: '/pages/staff/tableManage/tableManage' });
+  },
+
+  // 手动点单：直接弹出点单侧栏（堂食/外带在侧栏内切换）
+  onManualOrder() {
+    this.setData({ showOrderSidebar: true, editingOrder: null });
+  },
+
+  // 编辑店员手动订单：侧栏预填原单内容
+  onEditOrder(e) {
+    const orderId = e.currentTarget.dataset.id;
+    const order = [...this.data.dineInOrders, ...this.data.takeawayOrders]
+      .find(o => o._id === orderId);
+    if (!order) return;
+    this.setData({
+      editingOrder: {
+        _id: order._id,
+        orderType: order.orderType,
+        remark: order.remark,
+        items: order.items
+      },
+      showOrderSidebar: true
+    });
+  },
+
+  // 删除店员手动订单（二次确认）
+  onDeleteOrder(e) {
+    const orderId = e.currentTarget.dataset.id;
+    wx.showModal({
+      title: '删除订单',
+      content: '确定删除该订单吗？删除后不可恢复。',
+      confirmText: '删除',
+      confirmColor: '#E5484D',
+      success: (res) => {
+        if (!res.confirm) return;
+        pay.deleteManualOrder(orderId, () => {
+          wx.showToast({ title: '已删除', icon: 'success', duration: 1200 });
+          this._loadInitialOrders();
+        });
+      }
+    });
+  },
+
+  // 关闭点单侧栏（遮罩 / ✕）
+  onCloseOrderSidebar() {
+    this.setData({ showOrderSidebar: false, editingOrder: null });
+  },
+
+  // 侧栏下单/保存成功：关闭侧栏并立即刷新列表
+  onSidebarDone() {
+    this.setData({ showOrderSidebar: false, editingOrder: null });
+    this._loadInitialOrders();
   },
 
   // 返回首页

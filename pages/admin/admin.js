@@ -1,6 +1,6 @@
 // pages/admin/admin.js
 const SUBSCRIBE = require('../../config/subscribe.js');
-const { formatScoopProduct, refundedAmountOf, netAmountOf } = require('../../utils/orderDisplay.js');
+const { formatScoopProduct, refundedAmountOf, netAmountOf, normalizeToppings } = require('../../utils/orderDisplay.js');
 
 // 本地缓存工具
 function cacheGet(key) {
@@ -19,6 +19,8 @@ Page({
     // ===== 数据统计 =====
     statsPeriod: 'day',   // day / week / month
     todaySales: 0,
+    onlineSales: 0,       // 线上支付额（微信在线支付）
+    offlineSales: 0,      // 线下支付额（店员手动点单）
     orderCount: 0,
     avgOrderValue: 0,
     productRanking: [],
@@ -394,7 +396,7 @@ Page({
         saleStatus: product.saleStatus,
         spec: product.spec || '',
         flavors: product.flavors || '',
-        toppings: (product.toppings || []).slice(),
+        toppings: normalizeToppings(product.toppings).map(t => ({ name: t.name, price: t.price ? String(t.price) : '' })),
         toppingMode: product.toppingMode === 'single' ? 'single' : 'multi',
         supportIce: product.supportIce !== undefined ? product.supportIce : legacyIceHot,
         supportHot: product.supportHot !== undefined ? product.supportHot : legacyIceHot,
@@ -839,13 +841,20 @@ Page({
   onInputTopping(e) {
     const idx = e.currentTarget.dataset.index;
     if (idx === undefined) return;
-    this.setData({ [`editingProduct.toppings[${idx}]`]: e.detail.value });
+    this.setData({ [`editingProduct.toppings[${idx}].name`]: e.detail.value });
+  },
+
+  // 其他可选（加料）：输入某一项加料价格
+  onInputToppingPrice(e) {
+    const idx = e.currentTarget.dataset.index;
+    if (idx === undefined) return;
+    this.setData({ [`editingProduct.toppings[${idx}].price`]: e.detail.value });
   },
 
   // 其他可选（加料）：新增一项
   onAddTopping() {
     const list = this.data.editingProduct.toppings.slice();
-    list.push('');
+    list.push({ name: '', price: '' });
     this.setData({ 'editingProduct.toppings': list });
   },
 
@@ -892,7 +901,9 @@ Page({
       scoopPrices: isCustomScoopPrice
         ? { single: Number(ep.scoopPrices.single) || 0, double: Number(ep.scoopPrices.double) || 0, triple: Number(ep.scoopPrices.triple) || 0 }
         : null,
-      toppings: (ep.toppings || []).map(s => String(s).trim()).filter(Boolean),
+      toppings: (ep.toppings || [])
+        .filter(t => t && String(t.name || '').trim())
+        .map(t => ({ name: String(t.name).trim(), price: Math.round((Number(t.price) || 0) * 100) / 100 })),
       toppingMode: ep.toppingMode === 'single' ? 'single' : 'multi',
       imageFileID: ep.imageFileID || '',
       imageURL: ep.imagePreview || ''
@@ -963,7 +974,7 @@ Page({
 
   /**
    * 从云数据库加载统计数据
-   * 包括：销售额（净额，扣已退金额）、订单量（排除全额退款）、客单价、
+   * 包括：销售额（净额，扣已退金额）、线上/线下支付额、订单量（排除全额退款）、客单价、
    *       商品销售排行（冰淇淋大类聚合 + 口味球数下拉）
    */
   async _loadStatisticsFromCloud(period) {
@@ -1009,20 +1020,30 @@ Page({
         return ts >= startDate.getTime();
       });
 
-      // 销售额（净额）与订单量：排除全额退款，部分退款按净额计入
+      // 销售额（净额）与订单量：排除全额退款，部分退款按净额计入；同时拆分线上/线下支付额
       let totalSales = 0;
       let orderCount = 0;
+      let onlineSales = 0;
+      let offlineSales = 0;
       const rankableOrders = []; // 参与排行的订单（非全额退款）
       periodOrders.forEach(order => {
         const total = order.totalAmount || 0;
         const refundedAmount = refundedAmountOf(order); // 含旧整单退款 doc 级兜底
         const isFullRefund = Math.abs(refundedAmount - total) < 0.01;
         if (isFullRefund) return; // 全额退款：不计销售额、订单量、排行
-        totalSales += total - refundedAmount;
+        const net = total - refundedAmount;
+        totalSales += net;
+        if (order.manualOrder || order.payMethod === 'offline') {
+          offlineSales += net;
+        } else {
+          onlineSales += net;
+        }
         orderCount++;
         rankableOrders.push(order);
       });
       totalSales = Math.round(totalSales * 100) / 100;
+      onlineSales = Math.round(onlineSales * 100) / 100;
+      offlineSales = Math.round(offlineSales * 100) / 100;
 
       // 商品销售排行：冰淇淋大类聚合 + 其他商品按名（营收用行总额，不再乘 quantity）
       const productStats = {};
@@ -1087,6 +1108,8 @@ Page({
       // 更新数据
       const statsData = {
         todaySales: totalSales,
+        onlineSales,
+        offlineSales,
         orderCount,
         avgOrderValue,
         productRanking: rankingList,
@@ -1102,6 +1125,8 @@ Page({
 
       console.log('[Statistics] 加载成功', {
         todaySales: this.data.todaySales,
+        onlineSales: this.data.onlineSales,
+        offlineSales: this.data.offlineSales,
         orderCount: this.data.orderCount,
         avgOrderValue: this.data.avgOrderValue,
         productRanking: this.data.productRanking,
